@@ -3,7 +3,7 @@
 use futures::Future;
 
 use helpers;
-use types::{Address, BlockNumber};
+use types::{Address, BlockNumber, U256};
 use {Result, Transport};
 
 /// List of methods from `eth` namespace
@@ -13,6 +13,36 @@ pub trait EthApi {
 
   /// Get current block number
   fn block_number(&self) -> Result<BlockNumber>;
+
+  /// Get coinbase address
+  fn coinbase(&self) -> Result<Address>;
+
+  /// Get current recommended gas price
+  fn gas_price(&self) -> Result<U256>;
+
+  /// Get supported compilers
+  fn compilers(&self) -> Result<Vec<String>>;
+
+  /// Get work package
+  fn work(&self) -> Result<()>;
+
+  /// Get hash rate
+  fn hashrate(&self) -> Result<()>;
+
+  /// Get mining status
+  fn mining(&self) -> Result<bool>;
+
+  /// Start new block filter
+  fn new_block_filter(&self) -> Result<U256>;
+
+  /// Start new pending transaction filter
+  fn new_pending_transaction_filter(&self) -> Result<U256>;
+
+  /// Start new pending transaction filter
+  fn protocol_version(&self) -> Result<String>;
+
+  /// Get syncing status
+  fn syncing(&self) -> Result<bool>;
 }
 
 /// `Eth` namespace
@@ -39,59 +69,67 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   fn block_number(&self) -> Result<BlockNumber> {
     unimplemented!()
   }
+
+  fn coinbase(&self) -> Result<Address> { unimplemented!() }
+
+  fn gas_price(&self) -> Result<U256> { unimplemented!() }
+
+  fn compilers(&self) -> Result<Vec<String>> { unimplemented!() }
+
+  fn work(&self) -> Result<()> { unimplemented!() }
+
+  fn hashrate(&self) -> Result<()> { unimplemented!() }
+
+  fn mining(&self) -> Result<bool> { unimplemented!() }
+
+  fn new_block_filter(&self) -> Result<U256> { unimplemented!() }
+
+  fn new_pending_transaction_filter(&self) -> Result<U256> { unimplemented!() }
+
+  fn protocol_version(&self) -> Result<String> { unimplemented!() }
+
+  fn syncing(&self) -> Result<bool> { unimplemented!() }
 }
 
 #[cfg(test)]
 mod tests {
-  use std::cell::RefCell;
+  use futures::Future;
+  use {Error};
+
   use super::{Eth, EthApi};
-  use futures::{self, Future};
-  use rpc;
-  use {Result, Error, Transport};
 
-  #[derive(Default)]
-  struct TestTransport {
-    asserted: usize,
-    requests: RefCell<Vec<(String, Option<Vec<String>>)>>,
-  }
-
-  impl TestTransport {
-    fn assert_request(&mut self, method: &str, params: Option<Vec<String>>) {
-      let idx = self.asserted;
-      self.asserted += 1;
-
-      let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
-      assert_eq!(&m, method);
-      assert_eq!(p, params);
-    }
-
-    fn assert_no_more_requests(&mut self) {
-      let requests = self.requests.borrow();
-      assert_eq!(self.asserted, requests.len(), "Expected no more requests, got: {:?}", &requests[self.asserted..]);
-    }
-  }
-
-  impl Transport for TestTransport {
-    fn execute(&self, method: &str, params: Option<Vec<String>>) -> Result<rpc::Value> {
-      self.requests.borrow_mut().push((method.into(), params));
-      futures::failed(Error::Unreachable).boxed()
-    }
-  }
-
-  #[test]
-  fn accounts() {
-    // given
-    let mut transport = TestTransport::default();
-    let result = {
-      let eth = Eth::new(&transport);
-
-      // when
-      eth.accounts()
-    };
-
-    // then
-    transport.assert_request("eth_accounts", None);
-    transport.assert_no_more_requests();
-    assert_eq!(result.wait(), Err(Error::Unreachable));
-  }
+  rpc_test_wo_params! (Eth:accounts => "eth_accounts");
+  rpc_test_wo_params! (Eth:block_number => "eth_blockNumber");
+  // eth_call
+  rpc_test_wo_params! (Eth:coinbase => "eth_coinbase");
+  // eth_compile*
+  // eth_estimateGas
+  rpc_test_wo_params! (Eth:gas_price => "eth_gasPrice");
+  // eth_getBalance
+  // eth_getBlock*
+  // eth_getCode
+  rpc_test_wo_params! (Eth:compilers => "eth_getCompilers");
+  // eth_getFilterChanges
+  // eth_getFilterChangesEx
+  // eth_getFilterLogs
+  // eth_getLogs
+  // eth_getStorageAt
+  // eth_getTransaction*
+  // eth_getUncle*
+  rpc_test_wo_params! (Eth:work => "eth_getWork");
+  rpc_test_wo_params! (Eth:hashrate => "eth_hashrate");
+  rpc_test_wo_params! (Eth:mining => "eth_mining");
+  rpc_test_wo_params! (Eth:new_block_filter => "eth_newBlockFilter");
+  // eth_newFilter
+  // eth_newFilterEx
+  rpc_test_wo_params! (Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter");
+  rpc_test_wo_params! (Eth:protocol_version => "eth_protocolVersion");
+  // eth_sendRawTransaction
+  // eth_sendTransaction
+  // eth_sign
+  // eth_signTransaction
+  // eth_submitHashrate
+  // eth_submitWork
+  rpc_test_wo_params! (Eth:syncing => "eth_syncing");
+  // eth_uninstallFilter
 }

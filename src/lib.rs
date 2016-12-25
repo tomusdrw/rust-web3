@@ -5,8 +5,10 @@
 extern crate futures;
 extern crate jsonrpc_core as rpc;
 
-pub mod api;
+#[macro_use]
 mod helpers;
+
+pub mod api;
 mod types;
 
 pub use api::Web3;
