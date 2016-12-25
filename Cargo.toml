@@ -1,0 +1,15 @@
+[package]
+name = "web3"
+version = "0.1.0"
+dependencies = "Ethereum JSON-RPC client."
+authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
+
+[dependencies]
+jsonrpc-core = { git = "https://github.com/ethcore/jsonrpc" }
+futures = "0.1"
+# Optional deps
+reqwest = { version = "0.2", optional = true }
+
+[features]
+default = ["http"]
+http = ["reqwest"]
