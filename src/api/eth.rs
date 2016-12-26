@@ -150,15 +150,22 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
 #[cfg(test)]
 mod tests {
   use futures::Future;
-  use types::{TransactionRequest};
-  use {Error};
+  use types::{TransactionRequest, Bytes};
+  use rpc::Value;
 
   use super::{Eth, EthApi};
 
   // TODO [ToDr] Validate deserialization!
   
-  rpc_test! (Eth:accounts => "eth_accounts");
-  rpc_test! (Eth:block_number => "eth_blockNumber");
+  rpc_test! (
+    Eth:accounts => "eth_accounts";
+    Value::Array(vec![Value::String("0x123".into())]) => vec!["0x123".into()]
+  );
+
+  rpc_test! (
+    Eth:block_number => "eth_blockNumber";
+    Value::String("0x123".into()) => "0x123"
+  );
 
   rpc_test! (
     Eth:call, TransactionRequest {
@@ -167,17 +174,28 @@ mod tests {
       value: Some("0x1".into()), data: None,
     }, None 
     =>
-    "eth_call", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#]
+    "eth_call", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#];
+    Value::String("0x010203".into()) => Bytes(vec![1, 2, 3])
   );
 
-  rpc_test! (Eth:coinbase => "eth_coinbase");
+  rpc_test! (
+    Eth:coinbase => "eth_coinbase";
+    Value::String("0x123".into()) => "0x123"
+  );
+
   // eth_compile*
   // eth_estimateGas
-  rpc_test! (Eth:gas_price => "eth_gasPrice");
+  rpc_test! (
+    Eth:gas_price => "eth_gasPrice";
+    Value::String("0x123".into()) => "0x123"
+  );
   // eth_getBalance
   // eth_getBlock*
   // eth_getCode
-  rpc_test! (Eth:compilers => "eth_getCompilers");
+  rpc_test! (
+    Eth:compilers => "eth_getCompilers";
+    Value::Array(vec![]) => vec![]
+  );
   // eth_getFilterChanges
   // eth_getFilterChangesEx
   // eth_getFilterLogs
@@ -185,20 +203,45 @@ mod tests {
   // eth_getStorageAt
   // eth_getTransaction*
   // eth_getUncle*
-  rpc_test! (Eth:work => "eth_getWork");
-  rpc_test! (Eth:hashrate => "eth_hashrate");
-  rpc_test! (Eth:mining => "eth_mining");
-  rpc_test! (Eth:new_block_filter => "eth_newBlockFilter");
+  
+  rpc_test! (
+    Eth:work => "eth_getWork";
+    Value::Null => ()
+  );
+
+  rpc_test! (
+    Eth:hashrate => "eth_hashrate";
+    Value::Null => ()
+  );
+
+  rpc_test! (
+    Eth:mining => "eth_mining";
+    Value::Bool(true) => true
+  );
+
+  rpc_test! (
+    Eth:new_block_filter => "eth_newBlockFilter";
+    Value::String("0x123".into()) => "0x123"
+  );
   // eth_newFilter
   // eth_newFilterEx
-  rpc_test! (Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter");
-  rpc_test! (Eth:protocol_version => "eth_protocolVersion");
+  rpc_test! (
+    Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter";
+    Value::String("0x123".into()) => "0x123"
+  );
+  rpc_test! (
+    Eth:protocol_version => "eth_protocolVersion";
+    Value::String("0x123".into()) => "0x123"
+  );
   // eth_sendRawTransaction
   // eth_sendTransaction
   // eth_sign
   // eth_signTransaction
   // eth_submitHashrate
   // eth_submitWork
-  rpc_test! (Eth:syncing => "eth_syncing");
+  rpc_test! (
+    Eth:syncing => "eth_syncing";
+    Value::Bool(true) => true
+  );
   // eth_uninstallFilter
 }

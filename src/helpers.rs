@@ -60,16 +60,24 @@ pub mod tests {
   pub struct TestTransport {
     asserted: usize,
     requests: RefCell<Vec<(String, Option<Vec<String>>)>>,
+    response: RefCell<Option<rpc::Value>>,
   }
 
   impl Transport for TestTransport {
     fn execute(&self, method: &str, params: Option<Vec<String>>) -> Result<rpc::Value> {
       self.requests.borrow_mut().push((method.into(), params));
-      futures::failed(Error::Unreachable).boxed()
+      match self.response.borrow_mut().take() {
+        Some(response) => futures::finished(response).boxed(),
+        None => futures::failed(Error::Unreachable).boxed(),
+      }
     }
   }
 
   impl TestTransport {
+    pub fn set_response(&mut self, value: rpc::Value) {
+      *self.response.borrow_mut() = Some(value);
+    }
+
     pub fn assert_request(&mut self, method: &str, params: Option<Vec<String>>) {
       let idx = self.asserted;
       self.asserted += 1;
@@ -88,12 +96,14 @@ pub mod tests {
   macro_rules! rpc_test {
     // With parameters
     (
-      $namespace: ident: $name: ident $(, $param: expr)+ => $method: expr, $results: expr
+      $namespace: ident: $name: ident $(, $param: expr)+ => $method: expr,  $results: expr;
+      $returned: expr => $expected: expr
     ) => {
       #[test]
       fn $name() {
         // given
         let mut transport = $crate::helpers::tests::TestTransport::default();
+        transport.set_response($returned);
         let result = {
           let eth = $namespace::new(&transport);
 
@@ -104,17 +114,19 @@ pub mod tests {
         // then
         transport.assert_request($method, Some($results.into_iter().map(Into::into).collect()));
         transport.assert_no_more_requests();
-        assert_eq!(result.wait(), Err(Error::Unreachable));
+        assert_eq!(result.wait(), Ok($expected.into()));
       }
     };
     // No params entry point
     (
-      $namespace: ident: $name: ident => $method: expr
+      $namespace: ident: $name: ident => $method: expr;
+      $returned: expr => $expected: expr
     ) => {
       #[test]
       fn $name() {
         // given
         let mut transport = $crate::helpers::tests::TestTransport::default();
+        transport.set_response($returned);
         let result = {
           let eth = $namespace::new(&transport);
 
@@ -125,7 +137,7 @@ pub mod tests {
         // then
         transport.assert_request($method, None);
         transport.assert_no_more_requests();
-        assert_eq!(result.wait(), Err(Error::Unreachable));
+        assert_eq!(result.wait(), Ok($expected.into()));
       }
     }
   }
