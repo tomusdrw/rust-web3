@@ -1,15 +1,25 @@
 [package]
 name = "web3"
 version = "0.1.0"
-dependencies = "Ethereum JSON-RPC client."
+description = "Ethereum JSON-RPC client."
 authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
+build = "build.rs"
 
 [dependencies]
-jsonrpc-core = { git = "https://github.com/ethcore/jsonrpc" }
 futures = "0.1"
+jsonrpc-core = { git = "https://github.com/ethcore/jsonrpc" }
+log = "0.3"
+rustc-serialize = "0.3"
+serde = "0.8"
+serde_json = "0.8"
 # Optional deps
 reqwest = { version = "0.2", optional = true }
+serde_derive = { version = "0.8", optional = true }
+
+[build-dependencies]
+serde_codegen = { version = "0.8", optional = true }
 
 [features]
-default = ["http"]
+default = ["http", "serde_codegen"]
+nightly = ["serde_derive"]
 http = ["reqwest"]

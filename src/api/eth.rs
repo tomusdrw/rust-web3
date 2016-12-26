@@ -3,7 +3,7 @@
 use futures::Future;
 
 use helpers;
-use types::{Address, BlockNumber, U256};
+use types::{Address, BlockNumber, U256, Bytes, BlockId, TransactionRequest};
 use {Result, Transport};
 
 /// List of methods from `eth` namespace
@@ -14,6 +14,9 @@ pub trait EthApi {
   /// Get current block number
   fn block_number(&self) -> Result<BlockNumber>;
 
+  /// Call a contract without changing the state of the blockchain.
+  fn call(&self, TransactionRequest, Option<BlockId>) -> Result<Bytes>;
+
   /// Get coinbase address
   fn coinbase(&self) -> Result<Address>;
 
@@ -23,9 +26,11 @@ pub trait EthApi {
   /// Get supported compilers
   fn compilers(&self) -> Result<Vec<String>>;
 
+  // TODO [ToDr] Proper types
   /// Get work package
   fn work(&self) -> Result<()>;
 
+  // TODO [ToDr] Proper types
   /// Get hash rate
   fn hashrate(&self) -> Result<()>;
 
@@ -67,48 +72,112 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   }
 
   fn block_number(&self) -> Result<BlockNumber> {
-    unimplemented!()
+    self.transport.execute("eth_blockNumber", None)
+      .and_then(helpers::to_string)
+      .boxed()
   }
 
-  fn coinbase(&self) -> Result<Address> { unimplemented!() }
+  fn call(&self, req: TransactionRequest, block: Option<BlockId>) -> Result<Bytes> {
+    let req = helpers::serialize(&req);
+    let block = helpers::serialize(&block.unwrap_or(BlockId::Latest));
 
-  fn gas_price(&self) -> Result<U256> { unimplemented!() }
+    self.transport.execute("eth_call", Some(vec![req, block]))
+      .and_then(helpers::to_bytes)
+      .boxed()
+  }
 
-  fn compilers(&self) -> Result<Vec<String>> { unimplemented!() }
+  fn coinbase(&self) -> Result<Address> {
+    self.transport.execute("eth_coinbase", None)
+      .and_then(helpers::to_string)
+      .boxed()
+  }
 
-  fn work(&self) -> Result<()> { unimplemented!() }
+  fn gas_price(&self) -> Result<U256> {
+    self.transport.execute("eth_gasPrice", None)
+      .and_then(helpers::to_string)
+      .boxed()
+  }
 
-  fn hashrate(&self) -> Result<()> { unimplemented!() }
+  fn compilers(&self) -> Result<Vec<String>> {
+    self.transport.execute("eth_getCompilers", None)
+      .and_then(helpers::to_vector)
+      .boxed()
+  }
 
-  fn mining(&self) -> Result<bool> { unimplemented!() }
+  fn work(&self) -> Result<()> {
+    self.transport.execute("eth_getWork", None)
+      .and_then(|_| Ok(()))
+      .boxed()
+  }
 
-  fn new_block_filter(&self) -> Result<U256> { unimplemented!() }
+  fn hashrate(&self) -> Result<()> {
+    self.transport.execute("eth_hashrate", None)
+      .and_then(|_| Ok(()))
+      .boxed()
+  }
 
-  fn new_pending_transaction_filter(&self) -> Result<U256> { unimplemented!() }
+  fn mining(&self) -> Result<bool> {
+    self.transport.execute("eth_mining", None)
+      .and_then(helpers::to_bool)
+      .boxed()
+  }
 
-  fn protocol_version(&self) -> Result<String> { unimplemented!() }
+  fn new_block_filter(&self) -> Result<U256> {
+    self.transport.execute("eth_newBlockFilter", None)
+      .and_then(helpers::to_string)
+      .boxed()
+  }
 
-  fn syncing(&self) -> Result<bool> { unimplemented!() }
+  fn new_pending_transaction_filter(&self) -> Result<U256> {
+    self.transport.execute("eth_newPendingTransactionFilter", None)
+      .and_then(helpers::to_string)
+      .boxed()
+  }
+
+  fn protocol_version(&self) -> Result<String> {
+    self.transport.execute("eth_protocolVersion", None)
+      .and_then(helpers::to_string)
+      .boxed()
+  }
+
+  fn syncing(&self) -> Result<bool> {
+    self.transport.execute("eth_syncing", None)
+      .and_then(helpers::to_bool)
+      .boxed()
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use futures::Future;
+  use types::{TransactionRequest};
   use {Error};
 
   use super::{Eth, EthApi};
 
-  rpc_test_wo_params! (Eth:accounts => "eth_accounts");
-  rpc_test_wo_params! (Eth:block_number => "eth_blockNumber");
-  // eth_call
-  rpc_test_wo_params! (Eth:coinbase => "eth_coinbase");
+  // TODO [ToDr] Validate deserialization!
+  
+  rpc_test! (Eth:accounts => "eth_accounts");
+  rpc_test! (Eth:block_number => "eth_blockNumber");
+
+  rpc_test! (
+    Eth:call, TransactionRequest {
+      from: None, to: "0x123".into(),
+      gas: None, gas_price: None,
+      value: Some("0x1".into()), data: None,
+    }, None 
+    =>
+    "eth_call", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#]
+  );
+
+  rpc_test! (Eth:coinbase => "eth_coinbase");
   // eth_compile*
   // eth_estimateGas
-  rpc_test_wo_params! (Eth:gas_price => "eth_gasPrice");
+  rpc_test! (Eth:gas_price => "eth_gasPrice");
   // eth_getBalance
   // eth_getBlock*
   // eth_getCode
-  rpc_test_wo_params! (Eth:compilers => "eth_getCompilers");
+  rpc_test! (Eth:compilers => "eth_getCompilers");
   // eth_getFilterChanges
   // eth_getFilterChangesEx
   // eth_getFilterLogs
@@ -116,20 +185,20 @@ mod tests {
   // eth_getStorageAt
   // eth_getTransaction*
   // eth_getUncle*
-  rpc_test_wo_params! (Eth:work => "eth_getWork");
-  rpc_test_wo_params! (Eth:hashrate => "eth_hashrate");
-  rpc_test_wo_params! (Eth:mining => "eth_mining");
-  rpc_test_wo_params! (Eth:new_block_filter => "eth_newBlockFilter");
+  rpc_test! (Eth:work => "eth_getWork");
+  rpc_test! (Eth:hashrate => "eth_hashrate");
+  rpc_test! (Eth:mining => "eth_mining");
+  rpc_test! (Eth:new_block_filter => "eth_newBlockFilter");
   // eth_newFilter
   // eth_newFilterEx
-  rpc_test_wo_params! (Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter");
-  rpc_test_wo_params! (Eth:protocol_version => "eth_protocolVersion");
+  rpc_test! (Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter");
+  rpc_test! (Eth:protocol_version => "eth_protocolVersion");
   // eth_sendRawTransaction
   // eth_sendTransaction
   // eth_sign
   // eth_signTransaction
   // eth_submitHashrate
   // eth_submitWork
-  rpc_test_wo_params! (Eth:syncing => "eth_syncing");
+  rpc_test! (Eth:syncing => "eth_syncing");
   // eth_uninstallFilter
 }

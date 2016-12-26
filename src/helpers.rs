@@ -1,5 +1,13 @@
 use rpc;
+use rustc_serialize::hex::FromHex;
+use serde;
+use serde_json;
+use types;
 use {Error};
+
+pub fn serialize<T: serde::Serialize>(t: &T) -> String {
+  serde_json::to_string(t).expect("Types serialization is never failing.")
+}
 
 pub fn to_vector(val: rpc::Value) -> Result<Vec<String>, Error> {
   let invalid = Error::InvalidResponse(format!("Expected vector of strings, got {:?}", val));
@@ -11,6 +19,32 @@ pub fn to_vector(val: rpc::Value) -> Result<Vec<String>, Error> {
     }).collect()
   } else {
     Err(invalid)
+  }
+}
+
+pub fn to_string(val: rpc::Value) -> Result<String, Error> {
+  if let rpc::Value::String(s) = val {
+    Ok(s)
+  } else {
+    Err(Error::InvalidResponse(format!("Expected string, got {:?}", val)))
+  }
+}
+
+pub fn to_bytes(val: rpc::Value) -> Result<types::Bytes, Error> {
+  if let rpc::Value::String(s) = val {
+    s[2..].from_hex().map(types::Bytes).map_err(|e| Error::InvalidResponse(
+      format!("Invalid hex string returned: {:?}", e)      
+    ))
+  } else {
+    Err(Error::InvalidResponse(format!("Expected bytes, got {:?}", val)))
+  }
+}
+
+pub fn to_bool(val: rpc::Value) -> Result<bool, Error> {
+  if let rpc::Value::Bool(b) = val {
+    Ok(b)
+  } else {
+    Err(Error::InvalidResponse(format!("Expected bool, got {:?}", val)))
   }
 }
 
@@ -51,7 +85,29 @@ pub mod tests {
     }
   }
 
-  macro_rules! rpc_test_wo_params {
+  macro_rules! rpc_test {
+    // With parameters
+    (
+      $namespace: ident: $name: ident $(, $param: expr)+ => $method: expr, $results: expr
+    ) => {
+      #[test]
+      fn $name() {
+        // given
+        let mut transport = $crate::helpers::tests::TestTransport::default();
+        let result = {
+          let eth = $namespace::new(&transport);
+
+          // when
+          eth.$name($($param, )+)
+        };
+
+        // then
+        transport.assert_request($method, Some($results.into_iter().map(Into::into).collect()));
+        transport.assert_no_more_requests();
+        assert_eq!(result.wait(), Err(Error::Unreachable));
+      }
+    };
+    // No params entry point
     (
       $namespace: ident: $name: ident => $method: expr
     ) => {
