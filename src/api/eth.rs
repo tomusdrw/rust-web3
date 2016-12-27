@@ -3,7 +3,12 @@
 use futures::Future;
 
 use helpers;
-use types::{Address, U256, Bytes, BlockNumber, BlockId, TransactionRequest};
+use types::{
+  Address, Block, BlockId, BlockNumber, Bytes,
+  H256, Index,
+  Transaction, TransactionId, TransactionReceipt, TransactionRequest,
+  U256, Work,
+};
 use {Result, Transport};
 
 /// List of methods from `eth` namespace
@@ -15,7 +20,7 @@ pub trait EthApi {
   fn block_number(&self) -> Result<U256>;
 
   /// Call a constant method of contract without changing the state of the blockchain.
-  fn call(&self, TransactionRequest, Option<BlockNumber>) -> Result<Bytes>;
+  fn call(&self, options: TransactionRequest, block: Option<BlockNumber>) -> Result<Bytes>;
 
   /// Get coinbase address
   fn coinbase(&self) -> Result<Address>;
@@ -30,30 +35,46 @@ pub trait EthApi {
   fn compile_serpent(&self, String) -> Result<Bytes>;
 
   /// Call a contract without changing the state of the blockchain to estimate gas usage.
-  fn estimate_gas(&self, TransactionRequest, Option<BlockNumber>) -> Result<U256>;
+  fn estimate_gas(&self, options: TransactionRequest, block: Option<BlockNumber>) -> Result<U256>;
 
   /// Get current recommended gas price
   fn gas_price(&self) -> Result<U256>;
 
   /// Get balance of given address
-  fn balance(&self, Address, Option<BlockNumber>) -> Result<U256>;
+  fn balance(&self, address: Address, block: Option<BlockNumber>) -> Result<U256>;
 
-  // TODO [ToDr] Proper types
   /// Get block details
-  fn block(&self, BlockId, bool) -> Result<()>;
+  fn block(&self, block: BlockId, include_txs: bool) -> Result<Block>;
 
   /// Get number of transactions in block
-  fn block_transaction_count(&self, BlockId) -> Result<Option<U256>>;
+  fn block_transaction_count(&self, block: BlockId) -> Result<Option<U256>>;
 
   /// Get code under given address
-  fn code(&self, Address, Option<BlockNumber>) -> Result<Bytes>;
+  fn code(&self, address: Address, block: Option<BlockNumber>) -> Result<Bytes>;
 
   /// Get supported compilers
   fn compilers(&self) -> Result<Vec<String>>;
 
-  // TODO [ToDr] Proper types
+  /// Get storage entry
+  fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> Result<H256>;
+
+  /// Get nonce
+  fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> Result<U256>;
+
+  /// Get transaction
+  fn transaction(&self, id: TransactionId) -> Result<Option<Transaction>>;
+
+  /// Get transaction receipt
+  fn transaction_receipt(&self, hash: H256) -> Result<Option<TransactionReceipt>>;
+
+  /// Get uncle
+  fn uncle(&self, block: BlockId, index: Index) -> Result<Option<Block>>;
+
+  /// Get uncle count in block
+  fn uncle_count(&self, block: BlockId) -> Result<Option<U256>>;
+
   /// Get work package
-  fn work(&self) -> Result<()>;
+  fn work(&self) -> Result<Work>;
 
   /// Get hash rate
   fn hashrate(&self) -> Result<U256>;
@@ -162,7 +183,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
       .boxed()
   }
 
-  fn block(&self, block: BlockId, include_txs: bool) -> Result<()> {
+  fn block(&self, block: BlockId, include_txs: bool) -> Result<Block> {
     let include_txs = helpers::serialize(&include_txs);
 
     let result = match block {
@@ -213,7 +234,93 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
       .boxed()
   }
 
-  fn work(&self) -> Result<()> {
+  fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> Result<H256> {
+    let address = helpers::serialize(&address);
+    let idx = helpers::serialize(&idx);
+    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+    self.transport.execute("eth_getStorageAt", Some(vec![address, idx, block]))
+      .and_then(helpers::to_h256)
+      .boxed()
+  }
+
+  fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> Result<U256> {
+    let address = helpers::serialize(&address);
+    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+   self.transport.execute("eth_getTransactionCount", Some(vec![address, block]))
+      .and_then(helpers::to_u256)
+      .boxed()
+  }
+
+  fn transaction(&self, id: TransactionId) -> Result<Option<Transaction>> {
+    let result = match id {
+      TransactionId::Hash(hash) => {
+        let hash = helpers::serialize(&hash);
+        self.transport.execute("eth_getTransactionByHash", Some(vec![hash]))
+      },
+      TransactionId::Block(BlockId::Hash(hash), index) => {
+        let hash = helpers::serialize(&hash);
+        let idx = helpers::serialize(&index);
+        self.transport.execute("eth_getTransactionByBlockHashAndIndex", Some(vec![hash, idx]))
+      },
+      TransactionId::Block(BlockId::Number(number), index) => {
+        let number = helpers::serialize(&number);
+        let idx = helpers::serialize(&index);
+        self.transport.execute("eth_getTransactionByBlockNumberAndIndex", Some(vec![number, idx]))
+      },
+    };
+
+    result
+      .and_then(|_| Ok(Some(())))
+      .boxed()
+  }
+
+  fn transaction_receipt(&self, hash: H256) -> Result<Option<TransactionReceipt>> {
+    let hash = helpers::serialize(&hash);
+  
+    self.transport.execute("eth_getTransactionReceipt", Some(vec![hash]))
+      .and_then(|_| Ok(Some(())))
+      .boxed()
+  }
+
+  fn uncle(&self, block: BlockId, index: Index) -> Result<Option<Block>> {
+    let index = helpers::serialize(&index);
+
+    let result = match block {
+      BlockId::Hash(hash) => {
+        let hash = helpers::serialize(&hash);
+        self.transport.execute("eth_getUncleByBlockHashAndIndex", Some(vec![hash, index]))
+      },
+      BlockId::Number(num) => {
+        let num = helpers::serialize(&num);
+        self.transport.execute("eth_getUncleByBlockNumberAndIndex", Some(vec![num, index]))
+      },
+    };
+  
+    result
+      .and_then(|_| Ok(Some(())))
+      .boxed()
+  }
+
+  fn uncle_count(&self, block: BlockId) -> Result<Option<U256>> {
+    let result = match block {
+      BlockId::Hash(hash) => {
+        let hash = helpers::serialize(&hash);
+        self.transport.execute("eth_getUncleCountByBlockHash", Some(vec![hash]))
+      },
+      BlockId::Number(num) => {
+        let num = helpers::serialize(&num);
+        self.transport.execute("eth_getUncleCountByBlockNumber", Some(vec![num]))
+      },
+    };
+
+    result
+      .and_then(helpers::to_u256_option)
+      .boxed()
+  }
+
+  fn work(&self) -> Result<Work> {
     self.transport.execute("eth_getWork", None)
       .and_then(|_| Ok(()))
       .boxed()
@@ -259,7 +366,10 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
 #[cfg(test)]
 mod tests {
   use futures::Future;
-  use types::{TransactionRequest, Bytes, BlockNumber, BlockId};
+  use types::{
+    BlockId, BlockNumber, Bytes,
+    TransactionId, TransactionRequest,
+  };
   use rpc::Value;
 
   use super::{Eth, EthApi};
@@ -367,14 +477,83 @@ mod tests {
     Eth:compilers => "eth_getCompilers";
     Value::Array(vec![]) => vec![]
   );
-  // eth_getFilterChanges
-  // eth_getFilterChangesEx
-  // eth_getFilterLogs
-  // eth_getLogs
-  // eth_getStorageAt
-  // eth_getTransaction*
-  // eth_getUncle*
-  
+
+  rpc_test! (
+    Eth:storage, "0x123", "0x456", None
+    =>
+    "eth_getStorageAt", vec![r#""0x123""#, r#""0x456""#, r#""latest""#];
+    Value::String("0x123".into()) => "0x123"
+  );
+
+  rpc_test! (
+    Eth:transaction_count, "0x123", None
+    =>
+    "eth_getTransactionCount", vec![r#""0x123""#, r#""latest""#];
+    Value::String("0x123".into()) => "0x123"
+  );
+
+  rpc_test! (
+    Eth:transaction:tx_by_hash, TransactionId::Hash("0x123".into())
+    =>
+    "eth_getTransactionByHash", vec![r#""0x123""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
+      BlockId::Hash("0x123".into()),
+      "0x5".into()
+    )
+    =>
+    "eth_getTransactionByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:transaction:tx_by_block_no_and_index, TransactionId::Block(
+      BlockNumber::Pending.into(),
+      "0x5".into()
+    )
+    =>
+    "eth_getTransactionByBlockNumberAndIndex", vec![r#""pending""#, r#""0x5""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:transaction_receipt, "0x123".to_owned()
+    =>
+    "eth_getTransactionReceipt", vec![r#""0x123""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:uncle:uncle_by_hash, BlockId::Hash("0x123".into()), "0x5"
+    =>
+    "eth_getUncleByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:uncle:uncle_by_no, BlockNumber::Earliest, "0x5"
+    =>
+    "eth_getUncleByBlockNumberAndIndex", vec![r#""earliest""#, r#""0x5""#];
+    Value::Null => Some(())
+  );
+
+  rpc_test! (
+    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash("0x123".into())
+    =>
+    "eth_getUncleCountByBlockHash", vec![r#""0x123""#];
+    Value::String("0x123".into())=> Some("0x123".into())
+  );
+
+  rpc_test! (
+    Eth:uncle_count:uncle_count_by_no, BlockNumber::Earliest
+    =>
+    "eth_getUncleCountByBlockNumber", vec![r#""earliest""#];
+    Value::Null => None
+  );
+
   rpc_test! (
     Eth:work => "eth_getWork";
     Value::Null => ()
@@ -394,8 +573,6 @@ mod tests {
     Eth:new_block_filter => "eth_newBlockFilter";
     Value::String("0x123".into()) => "0x123"
   );
-  // eth_newFilter
-  // eth_newFilterEx
   rpc_test! (
     Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter";
     Value::String("0x123".into()) => "0x123"
@@ -405,15 +582,16 @@ mod tests {
     Eth:protocol_version => "eth_protocolVersion";
     Value::String("0x123".into()) => "0x123"
   );
+
   // eth_sendRawTransaction
   // eth_sendTransaction
   // eth_sign
   // eth_signTransaction
   // eth_submitHashrate
   // eth_submitWork
+  
   rpc_test! (
     Eth:syncing => "eth_syncing";
     Value::Bool(true) => true
   );
-  // eth_uninstallFilter
 }

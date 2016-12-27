@@ -20,4 +20,9 @@ impl<T: Transport> Web3<T> {
   pub fn eth(&self) -> eth::Eth<T> {
     eth::Eth::new(&self.transport)
   }
+
+  /// Access filter methods from `eth` namespace
+  pub fn eth_filter(&self) -> ! {
+    unimplemented!()
+  }
 }
