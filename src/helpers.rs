@@ -22,6 +22,24 @@ pub fn to_vector(val: rpc::Value) -> Result<Vec<String>, Error> {
   }
 }
 
+pub fn to_u256(val: rpc::Value) -> Result<types::U256, Error> {
+  // TODO [ToDr] proper type
+  to_string(val)
+}
+
+pub fn to_u256_option(val: rpc::Value) -> Result<Option<types::U256>, Error> {
+  Ok(if val == rpc::Value::Null {
+    None
+  } else {
+    Some(try!(to_u256(val)))
+  })
+}
+
+pub fn to_address(val: rpc::Value) -> Result<types::Address, Error> {
+  // TODO [ToDr] proper type
+  to_string(val)
+}
+
 pub fn to_string(val: rpc::Value) -> Result<String, Error> {
   if let rpc::Value::String(s) = val {
     Ok(s)
@@ -96,11 +114,11 @@ pub mod tests {
   macro_rules! rpc_test {
     // With parameters
     (
-      $namespace: ident: $name: ident $(, $param: expr)+ => $method: expr,  $results: expr;
+      $namespace: ident : $name: ident : $test_name: ident  $(, $param: expr)+ => $method: expr,  $results: expr;
       $returned: expr => $expected: expr
     ) => {
       #[test]
-      fn $name() {
+      fn $test_name() {
         // given
         let mut transport = $crate::helpers::tests::TestTransport::default();
         transport.set_response($returned);
@@ -108,7 +126,7 @@ pub mod tests {
           let eth = $namespace::new(&transport);
 
           // when
-          eth.$name($($param, )+)
+          eth.$name($($param.into(), )+)
         };
 
         // then
@@ -117,6 +135,17 @@ pub mod tests {
         assert_eq!(result.wait(), Ok($expected.into()));
       }
     };
+    // With parameters (implicit test name)
+    (
+      $namespace: ident : $name: ident $(, $param: expr)+ => $method: expr,  $results: expr;
+      $returned: expr => $expected: expr
+    ) => {
+      rpc_test! (
+        $namespace : $name : $name $(, $param)+ => $method, $results;
+        $returned => $expected
+      );
+    };
+
     // No params entry point
     (
       $namespace: ident: $name: ident => $method: expr;
