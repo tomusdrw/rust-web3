@@ -16,6 +16,7 @@ mod helpers;
 
 pub mod api;
 mod types;
+pub mod transports;
 
 pub use api::Web3;
 
@@ -29,10 +30,14 @@ pub enum Error {
   Unreachable,
   /// Unexpected response was returned
   InvalidResponse(String),
+  /// Transport Error
+  Transport(String),
+  /// Error returned by RPC
+  Rpc(rpc::Error),
 }
 
 /// Transport implementation
 pub trait Transport {
   /// Execute remote method with given parameters.
-  fn execute(&self, method: &str, params: Option<Vec<String>>) -> Result<rpc::Value>;
+  fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value>;
 }

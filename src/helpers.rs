@@ -41,7 +41,7 @@ pub fn to_u256_option(val: rpc::Value) -> Result<Option<types::U256>, Error> {
   Ok(if val == rpc::Value::Null {
     None
   } else {
-    Some(try!(to_u256(val)))
+    Some(to_u256(val)?)
   })
 }
 
@@ -76,6 +76,27 @@ pub fn to_bool(val: rpc::Value) -> Result<bool, Error> {
   }
 }
 
+pub fn build_request(id: usize, method: &str, params: Vec<String>) -> String {
+  let request = rpc::Request::Single(rpc::Call::MethodCall(rpc::MethodCall {
+    jsonrpc: Some(rpc::Version::V2),
+    method: method.into(),
+    params: Some(rpc::Params::Array(params.into_iter().map(rpc::Value::String).collect())),
+    id: rpc::Id::Num(id as u64),
+  }));
+  serialize(&request)
+}
+
+pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
+  let response: rpc::Response = serde_json::from_str(response)
+    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+
+  match response {
+    rpc::Response::Single(rpc::Output::Success(success)) => Ok(success.result),
+    rpc::Response::Single(rpc::Output::Failure(failure)) => Err(Error::Rpc(failure.error)),
+    _ => Err(Error::InvalidResponse("Expected single, got batch.".into())),
+  }
+}
+
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
@@ -87,12 +108,12 @@ pub mod tests {
   #[derive(Default)]
   pub struct TestTransport {
     asserted: usize,
-    requests: RefCell<Vec<(String, Option<Vec<String>>)>>,
+    requests: RefCell<Vec<(String, Vec<String>)>>,
     response: RefCell<Option<rpc::Value>>,
   }
 
   impl Transport for TestTransport {
-    fn execute(&self, method: &str, params: Option<Vec<String>>) -> Result<rpc::Value> {
+    fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value> {
       self.requests.borrow_mut().push((method.into(), params));
       match self.response.borrow_mut().take() {
         Some(response) => futures::finished(response).boxed(),
@@ -106,7 +127,7 @@ pub mod tests {
       *self.response.borrow_mut() = Some(value);
     }
 
-    pub fn assert_request(&mut self, method: &str, params: Option<Vec<String>>) {
+    pub fn assert_request(&mut self, method: &str, params: Vec<String>) {
       let idx = self.asserted;
       self.asserted += 1;
 
@@ -140,7 +161,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, Some($results.into_iter().map(Into::into).collect()));
+        transport.assert_request($method, $results.into_iter().map(Into::into).collect());
         transport.assert_no_more_requests();
         assert_eq!(result.wait(), Ok($expected.into()));
       }
@@ -174,7 +195,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, None);
+        transport.assert_request($method, vec![]);
         transport.assert_no_more_requests();
         assert_eq!(result.wait(), Ok($expected.into()));
       }

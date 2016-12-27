@@ -127,13 +127,13 @@ impl<'a, T: Transport + 'a> Eth<'a, T> {
 
 impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   fn accounts(&self) -> Result<Vec<Address>> {
-    self.transport.execute("eth_accounts", None)
+    self.transport.execute("eth_accounts", vec![])
       .and_then(helpers::to_vector)
       .boxed()
   }
 
   fn block_number(&self) -> Result<U256> {
-    self.transport.execute("eth_blockNumber", None)
+    self.transport.execute("eth_blockNumber", vec![])
       .and_then(helpers::to_u256)
       .boxed()
   }
@@ -142,34 +142,34 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let req = helpers::serialize(&req);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    self.transport.execute("eth_call", Some(vec![req, block]))
+    self.transport.execute("eth_call", vec![req, block])
       .and_then(helpers::to_bytes)
       .boxed()
   }
 
   fn coinbase(&self) -> Result<Address> {
-    self.transport.execute("eth_coinbase", None)
+    self.transport.execute("eth_coinbase", vec![])
       .and_then(helpers::to_address)
       .boxed()
   }
 
   fn compile_lll(&self, code: String) -> Result<Bytes> {
     let code = helpers::serialize(&code);
-    self.transport.execute("eth_compileLLL", Some(vec![code]))
+    self.transport.execute("eth_compileLLL", vec![code])
       .and_then(helpers::to_bytes)
       .boxed()
   }
 
   fn compile_solidity(&self, code: String) -> Result<Bytes> {
     let code = helpers::serialize(&code);
-    self.transport.execute("eth_compileSolidity", Some(vec![code]))
+    self.transport.execute("eth_compileSolidity", vec![code])
       .and_then(helpers::to_bytes)
       .boxed()
   }
 
   fn compile_serpent(&self, code: String) -> Result<Bytes> {
     let code = helpers::serialize(&code);
-    self.transport.execute("eth_compileSerpent", Some(vec![code]))
+    self.transport.execute("eth_compileSerpent", vec![code])
       .and_then(helpers::to_bytes)
       .boxed()
   }
@@ -178,13 +178,13 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let req = helpers::serialize(&req);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    self.transport.execute("eth_estimateGas", Some(vec![req, block]))
+    self.transport.execute("eth_estimateGas", vec![req, block])
       .and_then(helpers::to_u256)
       .boxed()
   }
 
   fn gas_price(&self) -> Result<U256> {
-    self.transport.execute("eth_gasPrice", None)
+    self.transport.execute("eth_gasPrice", vec![])
       .and_then(helpers::to_u256)
       .boxed()
   }
@@ -193,7 +193,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let address = helpers::serialize(&address);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
   
-    self.transport.execute("eth_getBalance", Some(vec![address, block]))
+    self.transport.execute("eth_getBalance", vec![address, block])
       .and_then(helpers::to_u256)
       .boxed()
   }
@@ -204,11 +204,11 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let result = match block {
       BlockId::Hash(hash) => {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getBlockByHash", Some(vec![hash, include_txs]))
+        self.transport.execute("eth_getBlockByHash", vec![hash, include_txs])
       },
       BlockId::Number(num) => {
         let num = helpers::serialize(&num);
-        self.transport.execute("eth_getBlockByNumber", Some(vec![num, include_txs]))
+        self.transport.execute("eth_getBlockByNumber", vec![num, include_txs])
       },
     };
 
@@ -221,11 +221,11 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let result = match block {
       BlockId::Hash(hash) => {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getBlockTransactionCountByHash", Some(vec![hash]))
+        self.transport.execute("eth_getBlockTransactionCountByHash", vec![hash])
       },
       BlockId::Number(num) => {
         let num = helpers::serialize(&num);
-        self.transport.execute("eth_getBlockTransactionCountByNumber", Some(vec![num]))
+        self.transport.execute("eth_getBlockTransactionCountByNumber", vec![num])
       },
     };
 
@@ -238,13 +238,13 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let address = helpers::serialize(&address);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
   
-    self.transport.execute("eth_getCode", Some(vec![address, block]))
+    self.transport.execute("eth_getCode", vec![address, block])
       .and_then(helpers::to_bytes)
       .boxed()
   }
 
   fn compilers(&self) -> Result<Vec<String>> {
-    self.transport.execute("eth_getCompilers", None)
+    self.transport.execute("eth_getCompilers", vec![])
       .and_then(helpers::to_vector)
       .boxed()
   }
@@ -254,7 +254,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let idx = helpers::serialize(&idx);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    self.transport.execute("eth_getStorageAt", Some(vec![address, idx, block]))
+    self.transport.execute("eth_getStorageAt", vec![address, idx, block])
       .and_then(helpers::to_h256)
       .boxed()
   }
@@ -263,7 +263,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let address = helpers::serialize(&address);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-   self.transport.execute("eth_getTransactionCount", Some(vec![address, block]))
+   self.transport.execute("eth_getTransactionCount", vec![address, block])
       .and_then(helpers::to_u256)
       .boxed()
   }
@@ -272,17 +272,17 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let result = match id {
       TransactionId::Hash(hash) => {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getTransactionByHash", Some(vec![hash]))
+        self.transport.execute("eth_getTransactionByHash", vec![hash])
       },
       TransactionId::Block(BlockId::Hash(hash), index) => {
         let hash = helpers::serialize(&hash);
         let idx = helpers::serialize(&index);
-        self.transport.execute("eth_getTransactionByBlockHashAndIndex", Some(vec![hash, idx]))
+        self.transport.execute("eth_getTransactionByBlockHashAndIndex", vec![hash, idx])
       },
       TransactionId::Block(BlockId::Number(number), index) => {
         let number = helpers::serialize(&number);
         let idx = helpers::serialize(&index);
-        self.transport.execute("eth_getTransactionByBlockNumberAndIndex", Some(vec![number, idx]))
+        self.transport.execute("eth_getTransactionByBlockNumberAndIndex", vec![number, idx])
       },
     };
 
@@ -294,7 +294,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   fn transaction_receipt(&self, hash: H256) -> Result<Option<TransactionReceipt>> {
     let hash = helpers::serialize(&hash);
   
-    self.transport.execute("eth_getTransactionReceipt", Some(vec![hash]))
+    self.transport.execute("eth_getTransactionReceipt", vec![hash])
       .and_then(|_| Ok(Some(())))
       .boxed()
   }
@@ -305,11 +305,11 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let result = match block {
       BlockId::Hash(hash) => {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getUncleByBlockHashAndIndex", Some(vec![hash, index]))
+        self.transport.execute("eth_getUncleByBlockHashAndIndex", vec![hash, index])
       },
       BlockId::Number(num) => {
         let num = helpers::serialize(&num);
-        self.transport.execute("eth_getUncleByBlockNumberAndIndex", Some(vec![num, index]))
+        self.transport.execute("eth_getUncleByBlockNumberAndIndex", vec![num, index])
       },
     };
   
@@ -322,11 +322,11 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let result = match block {
       BlockId::Hash(hash) => {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getUncleCountByBlockHash", Some(vec![hash]))
+        self.transport.execute("eth_getUncleCountByBlockHash", vec![hash])
       },
       BlockId::Number(num) => {
         let num = helpers::serialize(&num);
-        self.transport.execute("eth_getUncleCountByBlockNumber", Some(vec![num]))
+        self.transport.execute("eth_getUncleCountByBlockNumber", vec![num])
       },
     };
 
@@ -336,51 +336,51 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   }
 
   fn work(&self) -> Result<Work> {
-    self.transport.execute("eth_getWork", None)
+    self.transport.execute("eth_getWork", vec![])
       .and_then(|_| Ok(()))
       .boxed()
   }
 
   fn hashrate(&self) -> Result<U256> {
-    self.transport.execute("eth_hashrate", None)
+    self.transport.execute("eth_hashrate", vec![])
       .and_then(helpers::to_u256)
       .boxed()
   }
 
   fn mining(&self) -> Result<bool> {
-    self.transport.execute("eth_mining", None)
+    self.transport.execute("eth_mining", vec![])
       .and_then(helpers::to_bool)
       .boxed()
   }
 
   fn new_block_filter(&self) -> Result<U256> {
-    self.transport.execute("eth_newBlockFilter", None)
+    self.transport.execute("eth_newBlockFilter", vec![])
       .and_then(helpers::to_u256)
       .boxed()
   }
 
   fn new_pending_transaction_filter(&self) -> Result<U256> {
-    self.transport.execute("eth_newPendingTransactionFilter", None)
+    self.transport.execute("eth_newPendingTransactionFilter", vec![])
       .and_then(helpers::to_u256)
       .boxed()
   }
 
   fn protocol_version(&self) -> Result<String> {
-    self.transport.execute("eth_protocolVersion", None)
+    self.transport.execute("eth_protocolVersion", vec![])
       .and_then(helpers::to_string)
       .boxed()
   }
 
   fn send_raw_transaction(&self, rlp: Bytes) -> Result<H256> {
     let rlp = helpers::serialize(&rlp);
-    self.transport.execute("eth_sendRawTransaction", Some(vec![rlp]))
+    self.transport.execute("eth_sendRawTransaction", vec![rlp])
       .and_then(helpers::to_h256)
       .boxed()
   }
 
   fn send_transaction(&self, tx: TransactionRequest) -> Result<H256> {
     let tx = helpers::serialize(&tx);
-    self.transport.execute("eth_sendTransaction", Some(vec![tx]))
+    self.transport.execute("eth_sendTransaction", vec![tx])
       .and_then(helpers::to_h256)
       .boxed()
   }
@@ -388,7 +388,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   fn sign(&self, address: Address, data: Bytes) -> Result<H512> {
     let address = helpers::serialize(&address);
     let data = helpers::serialize(&data);
-    self.transport.execute("eth_sign", Some(vec![address, data]))
+    self.transport.execute("eth_sign", vec![address, data])
       .and_then(helpers::to_h512)
       .boxed()
   }
@@ -396,7 +396,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
   fn submit_hashrate(&self, rate: U256, id: H256) -> Result<bool> {
     let rate = helpers::serialize(&rate);
     let id = helpers::serialize(&id);
-    self.transport.execute("eth_submitHashrate", Some(vec![rate, id]))
+    self.transport.execute("eth_submitHashrate", vec![rate, id])
       .and_then(helpers::to_bool)
       .boxed()
   }
@@ -405,13 +405,13 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
     let nonce = helpers::serialize(&nonce);
     let pow_hash = helpers::serialize(&pow_hash);
     let mix_hash = helpers::serialize(&mix_hash);
-    self.transport.execute("eth_submitWork", Some(vec![nonce, pow_hash, mix_hash]))
+    self.transport.execute("eth_submitWork", vec![nonce, pow_hash, mix_hash])
       .and_then(helpers::to_bool)
       .boxed()
   }
 
   fn syncing(&self) -> Result<bool> {
-    self.transport.execute("eth_syncing", None)
+    self.transport.execute("eth_syncing", vec![])
       .and_then(helpers::to_bool)
       .boxed()
   }

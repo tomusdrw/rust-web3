@@ -5,6 +5,9 @@ Rust Ethereum JSON-RPC client (Web3).
 
 # TODO
 
+## General
+- [ ] Batch Requests
+
 ## Transports
 - [ ] HTTP transport
 - [ ] IPC transport
