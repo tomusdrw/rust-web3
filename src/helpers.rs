@@ -32,6 +32,11 @@ pub fn to_h256(val: rpc::Value) -> Result<types::H256, Error> {
   to_string(val)
 }
 
+pub fn to_h512(val: rpc::Value) -> Result<types::H512, Error> {
+  // TODO [ToDr] proper type
+  to_string(val)
+}
+
 pub fn to_u256_option(val: rpc::Value) -> Result<Option<types::U256>, Error> {
   Ok(if val == rpc::Value::Null {
     None

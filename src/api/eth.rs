@@ -4,8 +4,8 @@ use futures::Future;
 
 use helpers;
 use types::{
-  Address, Block, BlockId, BlockNumber, Bytes,
-  H256, Index,
+  Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
+  H64, H256, H512, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
   U256, Work,
 };
@@ -20,7 +20,7 @@ pub trait EthApi {
   fn block_number(&self) -> Result<U256>;
 
   /// Call a constant method of contract without changing the state of the blockchain.
-  fn call(&self, options: TransactionRequest, block: Option<BlockNumber>) -> Result<Bytes>;
+  fn call(&self, options: CallRequest, block: Option<BlockNumber>) -> Result<Bytes>;
 
   /// Get coinbase address
   fn coinbase(&self) -> Result<Address>;
@@ -35,7 +35,7 @@ pub trait EthApi {
   fn compile_serpent(&self, String) -> Result<Bytes>;
 
   /// Call a contract without changing the state of the blockchain to estimate gas usage.
-  fn estimate_gas(&self, options: TransactionRequest, block: Option<BlockNumber>) -> Result<U256>;
+  fn estimate_gas(&self, options: CallRequest, block: Option<BlockNumber>) -> Result<U256>;
 
   /// Get current recommended gas price
   fn gas_price(&self) -> Result<U256>;
@@ -91,6 +91,21 @@ pub trait EthApi {
   /// Start new pending transaction filter
   fn protocol_version(&self) -> Result<String>;
 
+  /// Sends a rlp-encoded signed transaction
+  fn send_raw_transaction(&self, rlp: Bytes) -> Result<H256>;
+
+  /// Sends a transaction transaction
+  fn send_transaction(&self, tx: TransactionRequest) -> Result<H256>;
+
+  /// Signs a hash of given data
+  fn sign(&self, address: Address, data: Bytes) -> Result<H512>;
+
+  /// Submit hashrate of external miner
+  fn submit_hashrate(&self, rate: U256, id: H256) -> Result<bool>;
+
+  /// Submit work of external miner
+  fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> Result<bool>;
+
   // TODO [ToDr] Proper type?
   /// Get syncing status
   fn syncing(&self) -> Result<bool>;
@@ -123,7 +138,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
       .boxed()
   }
 
-  fn call(&self, req: TransactionRequest, block: Option<BlockNumber>) -> Result<Bytes> {
+  fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> Result<Bytes> {
     let req = helpers::serialize(&req);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
@@ -159,7 +174,7 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
       .boxed()
   }
 
-  fn estimate_gas(&self, req: TransactionRequest, block: Option<BlockNumber>) -> Result<U256> {
+  fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> Result<U256> {
     let req = helpers::serialize(&req);
     let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
@@ -356,6 +371,45 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
       .boxed()
   }
 
+  fn send_raw_transaction(&self, rlp: Bytes) -> Result<H256> {
+    let rlp = helpers::serialize(&rlp);
+    self.transport.execute("eth_sendRawTransaction", Some(vec![rlp]))
+      .and_then(helpers::to_h256)
+      .boxed()
+  }
+
+  fn send_transaction(&self, tx: TransactionRequest) -> Result<H256> {
+    let tx = helpers::serialize(&tx);
+    self.transport.execute("eth_sendTransaction", Some(vec![tx]))
+      .and_then(helpers::to_h256)
+      .boxed()
+  }
+
+  fn sign(&self, address: Address, data: Bytes) -> Result<H512> {
+    let address = helpers::serialize(&address);
+    let data = helpers::serialize(&data);
+    self.transport.execute("eth_sign", Some(vec![address, data]))
+      .and_then(helpers::to_h512)
+      .boxed()
+  }
+
+  fn submit_hashrate(&self, rate: U256, id: H256) -> Result<bool> {
+    let rate = helpers::serialize(&rate);
+    let id = helpers::serialize(&id);
+    self.transport.execute("eth_submitHashrate", Some(vec![rate, id]))
+      .and_then(helpers::to_bool)
+      .boxed()
+  }
+
+  fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> Result<bool> {
+    let nonce = helpers::serialize(&nonce);
+    let pow_hash = helpers::serialize(&pow_hash);
+    let mix_hash = helpers::serialize(&mix_hash);
+    self.transport.execute("eth_submitWork", Some(vec![nonce, pow_hash, mix_hash]))
+      .and_then(helpers::to_bool)
+      .boxed()
+  }
+
   fn syncing(&self) -> Result<bool> {
     self.transport.execute("eth_syncing", None)
       .and_then(helpers::to_bool)
@@ -368,6 +422,7 @@ mod tests {
   use futures::Future;
   use types::{
     BlockId, BlockNumber, Bytes,
+    CallRequest,
     TransactionId, TransactionRequest,
   };
   use rpc::Value;
@@ -385,7 +440,7 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:call, TransactionRequest {
+    Eth:call, CallRequest {
       from: None, to: "0x123".into(),
       gas: None, gas_price: None,
       value: Some("0x1".into()), data: None,
@@ -416,7 +471,7 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:estimate_gas, TransactionRequest {
+    Eth:estimate_gas, CallRequest {
       from: None, to: "0x123".into(),
       gas: None, gas_price: None,
       value: Some("0x1".into()), data: None,
@@ -583,12 +638,45 @@ mod tests {
     Value::String("0x123".into()) => "0x123"
   );
 
-  // eth_sendRawTransaction
-  // eth_sendTransaction
-  // eth_sign
-  // eth_signTransaction
-  // eth_submitHashrate
-  // eth_submitWork
+  rpc_test! (
+    Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
+    =>
+    "eth_sendRawTransaction", vec![r#""0x01020304""#];
+    Value::String("0x123".into()) => "0x123"
+  );
+
+  rpc_test! (
+    Eth:send_transaction, TransactionRequest {
+      from: "0x123".into(), to: Some("0x123".into()),
+      gas: None, gas_price: Some("0x1".into()),
+      value: Some("0x1".into()), data: None,
+      nonce: None, min_block: None,
+    }
+    =>
+    "eth_sendTransaction", vec![r#"{"from":"0x123","to":"0x123","gasPrice":"0x1","value":"0x1"}"#];
+    Value::String("0x123".into()) => "0x123"
+  );
+
+  rpc_test! (
+    Eth:sign, "0x123", Bytes(vec![1, 2, 3, 4])
+    =>
+    "eth_sign", vec![r#""0x123""#, r#""0x01020304""#];
+    Value::String("0x123".into()) => "0x123"
+  );
+
+  rpc_test! (
+    Eth:submit_hashrate, "0x123", "0x456"
+    =>
+    "eth_submitHashrate", vec![r#""0x123""#, r#""0x456""#];
+    Value::Bool(true) => true
+  );
+
+  rpc_test! (
+    Eth:submit_work, "0x123", "0x456", "0x789"
+    =>
+    "eth_submitWork", vec![r#""0x123""#, r#""0x456""#, r#""0x789""#];
+    Value::Bool(true) => true
+  );
   
   rpc_test! (
     Eth:syncing => "eth_syncing";
