@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.1.0"
+version = "0.0.1"
 description = "Ethereum JSON-RPC client."
 authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 build = "build.rs"

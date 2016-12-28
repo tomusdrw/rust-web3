@@ -9,6 +9,7 @@ See [Examples folder](./examples).
 # TODO
 
 ## General
+- [ ] Contract calls (ABI encoding; `debris/ethabi`)
 - [ ] Batch Requests
 
 ## Transports
