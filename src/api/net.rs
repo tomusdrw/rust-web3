@@ -1,11 +1,9 @@
 //! `Net` namespace
 
-use futures::Future;
-
 use api::Namespace;
-use helpers::{self, CallResult};
+use helpers::CallResult;
 
-use {Result, Transport};
+use {Transport};
 
 /// `Net` namespace
 pub struct Net<'a, T: 'a> {
@@ -21,14 +19,17 @@ impl<'a, T: Transport + 'a> Namespace<'a, T> for Net<'a, T> {
 }
 
 impl<'a, T: Transport + 'a> Net<'a, T> {
+  /// Returns protocol version
   pub fn version(&self) -> CallResult<String, T::Out> {
     CallResult::new(self.transport.execute("net_version", vec![]))
   }
 
+  /// Returns number of peers connected to node.
   pub fn peer_count(&self) -> CallResult<String, T::Out> {
     CallResult::new(self.transport.execute("net_peerCount", vec![]))
   }
 
+  /// Whether the node is listening for network connections
   pub fn is_listening(&self) -> CallResult<bool, T::Out> {
     CallResult::new(self.transport.execute("net_listening", vec![]))
   }

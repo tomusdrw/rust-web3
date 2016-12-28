@@ -1,12 +1,10 @@
 //! `Web3` namespace
 
-use futures::Future;
-
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Bytes, H256};
 
-use {Result, Transport};
+use {Transport};
 
 /// `Web3` namespace
 pub struct Web3<'a, T: 'a> {

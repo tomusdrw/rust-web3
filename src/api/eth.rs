@@ -1,7 +1,5 @@
 //! `Eth` namespace
 
-use futures::Future;
-
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{
@@ -10,7 +8,7 @@ use types::{
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
   U256, Work,
 };
-use {Result, Transport};
+use {Transport};
 
 /// List of methods from `eth` namespace
 pub trait Eth<T: Transport> {
