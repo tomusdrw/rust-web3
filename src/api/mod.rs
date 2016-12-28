@@ -35,7 +35,7 @@ impl<T: Transport> Web3Main<T> {
   }
 
   /// Access methods from `eth` namespace
-  pub fn eth(&self) -> eth::EthApi<T> {
+  pub fn eth(&self) -> eth::Eth<T> {
     self.api()
   }
 
