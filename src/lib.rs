@@ -41,3 +41,9 @@ pub trait Transport {
   /// Execute remote method with given parameters.
   fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value>;
 }
+
+impl<'a, T: 'a + ?Sized> Transport for &'a T where T: Transport {
+  fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value> {
+    (&**self).execute(method, params)
+  }
+}
