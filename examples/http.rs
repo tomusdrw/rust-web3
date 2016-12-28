@@ -5,12 +5,12 @@ extern crate web3;
 
 use std::thread;
 use futures::Future;
-use web3::api::eth::EthApi;
+use web3::api::Eth;
 
 fn main() {
   let mut event_loop = tokio_core::reactor::Core::new().unwrap();
   let remote = event_loop.remote();
-  
+
   thread::spawn(move || {
     let pool = futures_cpupool::CpuPool::new(4);
 

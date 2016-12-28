@@ -2,7 +2,7 @@ extern crate futures;
 extern crate web3;
 
 use futures::Future;
-use web3::api::eth::EthApi;
+use web3::api::Eth;
 
 fn main() {
   let web3 = web3::Web3::new(web3::transports::Http::new("http://localhost:8545").unwrap());

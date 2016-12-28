@@ -8,7 +8,7 @@ use helpers;
 use {Result, Transport};
 
 /// List of methods from `net` namespace
-pub trait NetApi {
+pub trait Net {
   /// Returns protocol version
   fn version(&self) -> Result<String>;
 
@@ -19,20 +19,20 @@ pub trait NetApi {
   fn is_listening(&self) -> Result<bool>;
 }
 
-/// `Net` namespace
-pub struct Net<'a, T: 'a> {
+/// `NetApi` namespace
+pub struct NetApi<'a, T: 'a> {
   transport: &'a T,
 }
 
-impl<'a, T: Transport + 'a> Namespace<'a, T> for Net<'a, T> {
+impl<'a, T: Transport + 'a> Namespace<'a, T> for NetApi<'a, T> {
   fn new(transport: &'a T) -> Self where Self: Sized {
-    Net {
+    NetApi {
       transport: transport,
     }
   }
 }
 
-impl<'a, T: Transport + 'a> NetApi for Net<'a, T> {
+impl<'a, T: Transport + 'a> Net for NetApi<'a, T> {
   fn version(&self) -> Result<String> {
     self.transport.execute("net_version", vec![])
       .and_then(helpers::to_string)
@@ -59,20 +59,20 @@ mod tests {
   use api::Namespace;
   use rpc::Value;
 
-  use super::{Net, NetApi};
+  use super::{NetApi, Net};
 
   rpc_test! (
-    Net:version => "net_version";
+    NetApi:version => "net_version";
     Value::String("Test123".into()) => "Test123"
   );
 
   rpc_test! (
-    Net:peer_count => "net_peerCount";
+    NetApi:peer_count => "net_peerCount";
     Value::String("Test123".into()) => "Test123"
   );
 
   rpc_test! (
-    Net:is_listening => "net_listening";
+    NetApi:is_listening => "net_listening";
     Value::Bool(true) => true
   );
 }

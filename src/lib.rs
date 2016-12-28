@@ -18,7 +18,7 @@ pub mod api;
 mod types;
 pub mod transports;
 
-pub use api::Web3;
+pub use api::Web3Main as Web3;
 
 /// RPC result
 pub type Result<T> = futures::BoxFuture<T, Error>;

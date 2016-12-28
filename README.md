@@ -1,10 +1,32 @@
 # rust-web3
-Rust Ethereum JSON-RPC client (Web3).
+
+Ethereum JSON-RPC multi-transport client.
+Rust implementation of Web3.js library.
+
+[![Build Status][travis-image]][travis-url]
+
+[travis-image]: https://travis-ci.org/tomusdrw/rust-web3.svg?branch=master
+[travis-url]: https://travis-ci.org/tomusdrw/rust-web3
 
 [Documentation](http://tomusdrw.github.io/rust-web3/index.html)
 
 # Examples
-See [Examples folder](./examples).
+```rust
+extern crate futures;
+extern crate web3;
+
+use futures::Future;
+use web3::api::Eth;
+
+fn main() {
+  let web3 = web3::Web3::new(web3::transports::Http::new("http://localhost:8545").unwrap());
+  let accounts = web3.eth().accounts().wait().unwrap();
+
+  println!("Accounts: {:?}", accounts);
+}
+```
+
+For more see [examples folder](./examples).
 
 # TODO
 

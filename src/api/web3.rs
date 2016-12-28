@@ -9,7 +9,7 @@ use types::{Bytes, H256};
 use {Result, Transport};
 
 /// List of methods from `web3` namespace
-pub trait Web3Api {
+pub trait Web3 {
   /// Returns client version
   fn client_version(&self) -> Result<String>;
 
@@ -17,20 +17,20 @@ pub trait Web3Api {
   fn sha3(&self, bytes: Bytes) -> Result<H256>;
 }
 
-/// `Web3` namespace
-pub struct Web3<'a, T: 'a> {
+/// `Web3Api` namespace
+pub struct Web3Api<'a, T: 'a> {
   transport: &'a T,
 }
 
-impl<'a, T: Transport + 'a> Namespace<'a, T> for Web3<'a, T> {
+impl<'a, T: Transport + 'a> Namespace<'a, T> for Web3Api<'a, T> {
   fn new(transport: &'a T) -> Self where Self: Sized {
-    Web3 {
+    Web3Api {
       transport: transport,
     }
   }
 }
 
-impl<'a, T: Transport + 'a> Web3Api for Web3<'a, T> {
+impl<'a, T: Transport + 'a> Web3 for Web3Api<'a, T> {
   fn client_version(&self) -> Result<String> {
     self.transport.execute("web3_clientVersion", vec![])
       .and_then(helpers::to_string)
@@ -56,12 +56,12 @@ mod tests {
   use super::{Web3, Web3Api};
 
   rpc_test! (
-    Web3:client_version => "web3_clientVersion";
+    Web3Api:client_version => "web3_clientVersion";
     Value::String("Test123".into()) => "Test123"
   );
 
   rpc_test! (
-    Web3:sha3, Bytes(vec![1, 2, 3, 4])
+    Web3Api:sha3, Bytes(vec![1, 2, 3, 4])
     =>
     "web3_sha3", vec![r#""0x01020304""#];
     Value::String("0x123".into()) => "0x123"

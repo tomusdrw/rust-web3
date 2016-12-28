@@ -4,6 +4,10 @@ pub mod eth;
 pub mod net;
 pub mod web3;
 
+pub use self::eth::Eth;
+pub use self::net::Net;
+pub use self::web3::Web3;
+
 use {Transport};
 
 /// Common API for all namespaces
@@ -13,14 +17,14 @@ pub trait Namespace<'a, T: Transport + 'a> {
 }
 
 /// `Web3` wrapper for all namespaces
-pub struct Web3<T: Transport> {
+pub struct Web3Main<T: Transport> {
   transport: T,
 }
 
-impl<T: Transport> Web3<T> {
+impl<T: Transport> Web3Main<T> {
   /// Create new `Web3` with given transport
   pub fn new(transport: T) -> Self {
-    Web3 {
+    Web3Main {
       transport: transport,
     }
   }
@@ -31,17 +35,17 @@ impl<T: Transport> Web3<T> {
   }
 
   /// Access methods from `eth` namespace
-  pub fn eth(&self) -> eth::Eth<T> {
+  pub fn eth(&self) -> eth::EthApi<T> {
     self.api()
   }
 
   /// Access methods from `net` namespace
-  pub fn net(&self) -> net::Net<T> {
+  pub fn net(&self) -> net::NetApi<T> {
     self.api()
   }
 
   /// Access methods from `web3` namespace
-  pub fn web3(&self) -> web3::Web3<T> {
+  pub fn web3(&self) -> web3::Web3Api<T> {
     self.api()
   }
 
