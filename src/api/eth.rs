@@ -2,6 +2,7 @@
 
 use futures::Future;
 
+use api::Namespace;
 use helpers;
 use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
@@ -116,9 +117,8 @@ pub struct Eth<'a, T: 'a> {
   transport: &'a T,
 }
 
-impl<'a, T: Transport + 'a> Eth<'a, T> {
-  /// New `Eth` namespace with given transport.
-  pub fn new(transport: &'a T) -> Self {
+impl<'a, T: Transport + 'a> Namespace<'a, T> for Eth<'a, T> {
+  fn new(transport: &'a T) -> Self where Self: Sized {
     Eth {
       transport: transport,
     }
@@ -420,6 +420,8 @@ impl<'a, T: Transport + 'a> EthApi for Eth<'a, T> {
 #[cfg(test)]
 mod tests {
   use futures::Future;
+
+  use api::Namespace;
   use types::{
     BlockId, BlockNumber, Bytes,
     CallRequest,
