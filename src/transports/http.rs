@@ -9,7 +9,7 @@ use std::sync::atomic::{self, AtomicUsize};
 use futures::{self, Future};
 use helpers;
 use rpc;
-use {Transport, Result as RpcResult, Error as RpcError};
+use {Transport, Error as RpcError};
 
 impl From<reqwest::Error> for RpcError {
   fn from(err: reqwest::Error) -> Self {
@@ -23,7 +23,7 @@ impl From<io::Error> for RpcError {
   }
 }
 
-/// HTTP Transport
+/// HTTP Transport (synchronous)
 pub struct Http {
   id: AtomicUsize,
   client: Arc<reqwest::Client>,
@@ -41,11 +41,13 @@ impl Http {
       client: Arc::new(client),
       url: url.into(),
     })
-  } 
+  }
 }
 
 impl Transport for Http {
-  fn execute(&self, method: &str, params: Vec<String>) -> RpcResult<rpc::Value> {
+  type Out = FetchTask;
+
+  fn execute(&self, method: &str, params: Vec<String>) -> FetchTask {
     let id = self.id.fetch_add(1, atomic::Ordering::Relaxed);
     let request = helpers::build_request(id, method, params);
     debug!("Calling: {}", request);
@@ -55,11 +57,13 @@ impl Transport for Http {
       url: self.url.clone(),
       client: self.client.clone(),
       request: request,
-    }.boxed()
+    }
   }
 }
 
-struct FetchTask {
+/// Future which will represents a task to fetch data.
+/// Will execute synchronously when first polled.
+pub struct FetchTask {
   id: usize,
 	url: String,
 	client: Arc<reqwest::Client>,
