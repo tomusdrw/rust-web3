@@ -11,14 +11,17 @@ extern crate serde_json;
 #[macro_use]
 extern crate log;
 
+mod types;
+
 #[macro_use]
 mod helpers;
 
+use futures::Future;
+
 pub mod api;
-mod types;
 pub mod transports;
 
-pub use api::Web3Main as Web3;
+pub use api::{Web3Main as Web3, ErasedWeb3};
 
 /// RPC result
 pub type Result<T> = futures::BoxFuture<T, Error>;
@@ -53,10 +56,40 @@ impl From<rpc::Error> for Error {
 /// Transport implementation
 pub trait Transport {
   /// The type of future this transport returns when a call is made.
-  type Out: futures::Future<Item=rpc::Value, Error=Error> + Send + 'static;
+  type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
   /// Execute remote method with given parameters.
   fn execute(&self, method: &str, params: Vec<String>) -> Self::Out;
+
+  /// Erase the type of the transport by boxing it and boxing all produced
+  /// futures.
+  fn erase(self) -> Erased where Self: Sized + 'static, Self::Out: Send + 'static {
+    Erased(Box::new(Eraser(self)))
+  }
+}
+
+// Transport eraser.
+struct Eraser<T: Transport>(T);
+
+impl<T: Transport> Transport for Eraser<T>
+  where T::Out: Send + 'static
+{
+  type Out = Result<rpc::Value>;
+
+  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out {
+    self.0.execute(method, params).boxed()
+  }
+}
+
+/// Transport with erased output type.
+pub struct Erased(Box<Transport<Out=Result<rpc::Value>>>);
+
+impl Transport for Erased {
+  type Out = Result<rpc::Value>;
+
+  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out {
+    self.0.execute(method, params)
+  }
 }
 
 impl<'a, T: 'a + ?Sized> Transport for &'a T where T: Transport {

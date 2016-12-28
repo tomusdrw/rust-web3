@@ -6,19 +6,19 @@ use helpers::CallResult;
 use {Transport};
 
 /// `Net` namespace
-pub struct Net<'a, T: 'a> {
-  transport: &'a T,
+pub struct Net<T> {
+  transport: T,
 }
 
-impl<'a, T: Transport + 'a> Namespace<'a, T> for Net<'a, T> {
-  fn new(transport: &'a T) -> Self where Self: Sized {
+impl<T: Transport> Namespace<T> for Net<T> {
+  fn new(transport: T) -> Self where Self: Sized {
     Net {
       transport: transport,
     }
   }
 }
 
-impl<'a, T: Transport + 'a> Net<'a, T> {
+impl<T: Transport> Net<T> {
   /// Returns protocol version
   pub fn version(&self) -> CallResult<String, T::Out> {
     CallResult::new(self.transport.execute("net_version", vec![]))

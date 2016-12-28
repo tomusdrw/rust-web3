@@ -11,15 +11,20 @@ pub use self::web3::Web3;
 use {Transport};
 
 /// Common API for all namespaces
-pub trait Namespace<'a, T: Transport + 'a> {
+pub trait Namespace<T: Transport> {
   /// Creates new API namespace
-  fn new(transport: &'a T) -> Self where Self: Sized;
+  fn new(transport: T) -> Self where Self: Sized;
 }
 
 /// `Web3` wrapper for all namespaces
 pub struct Web3Main<T: Transport> {
   transport: T,
 }
+
+/// Transport-erased `Web3 wrapper.
+/// Create this by calling `Web3Main::new` with a transport you've
+/// previously called `erase()` on.
+pub type ErasedWeb3 = Web3Main<::Erased>;
 
 impl<T: Transport> Web3Main<T> {
   /// Create new `Web3` with given transport
@@ -30,22 +35,22 @@ impl<T: Transport> Web3Main<T> {
   }
 
   /// Access methods from custom namespace
-  pub fn api<'a, A: Namespace<'a, T>>(&'a self) -> A {
+  pub fn api<'a, A: Namespace<&'a T>>(&'a self) -> A {
     A::new(&self.transport)
   }
 
   /// Access methods from `eth` namespace
-  pub fn eth(&self) -> eth::Eth<T> {
+  pub fn eth(&self) -> eth::Eth<&T> {
     self.api()
   }
 
   /// Access methods from `net` namespace
-  pub fn net(&self) -> net::Net<T> {
+  pub fn net(&self) -> net::Net<&T> {
     self.api()
   }
 
   /// Access methods from `web3` namespace
-  pub fn web3(&self) -> web3::Web3<T> {
+  pub fn web3(&self) -> web3::Web3<&T> {
     self.api()
   }
 
