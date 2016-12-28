@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 futures = "0.1"
-jsonrpc-core = { git = "https://github.com/ethcore/jsonrpc" }
+jsonrpc-core = "5.0"
 log = "0.3"
 rustc-serialize = "0.3"
 serde = "0.8"
