@@ -1,6 +1,7 @@
 //! `Web3` implementation
 
 pub mod eth;
+pub mod net;
 pub mod web3;
 
 use {Transport};
@@ -31,6 +32,11 @@ impl<T: Transport> Web3<T> {
 
   /// Access methods from `eth` namespace
   pub fn eth(&self) -> eth::Eth<T> {
+    self.api()
+  }
+
+  /// Access methods from `net` namespace
+  pub fn net(&self) -> net::Net<T> {
     self.api()
   }
 

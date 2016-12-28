@@ -3,13 +3,16 @@ Rust Ethereum JSON-RPC client (Web3).
 
 [Documentation](http://tomusdrw.github.io/rust-web3/index.html)
 
+# Examples
+See [Examples folder](./examples).
+
 # TODO
 
 ## General
 - [ ] Batch Requests
 
 ## Transports
-- [ ] HTTP transport
+- [x] HTTP transport
 - [ ] IPC transport
 - [ ] WebSockets transport
 
@@ -25,8 +28,8 @@ Rust Ethereum JSON-RPC client (Web3).
 ## APIs
 - [x] Eth: `eth_*`
 - [ ] Eth filters: `eth_*`
-- [ ] `net_*`
-- [ ] `web3_*`
+- [x] `net_*`
+- [x] `web3_*`
 - [ ] `personal_*`
 - [ ] `traces_*`
 
@@ -36,7 +39,7 @@ Rust Ethereum JSON-RPC client (Web3).
 - [ ] Parity set: `parity_*`
 - [ ] `signer_*`
 
-- [ ] Own APIs (Extendable)
+- [x] Own APIs (Extendable)
 ```rust
 let web3 = Web3::new(transport);
 web3.api::<CustomNamespace>().custom_method().wait().unwrap()
