@@ -1,5 +1,11 @@
 # rust-web3
-Rust Ethereum JSON-RPC client (Web3).
+Ethereum JSON-RPC multi-transport client.
+Rust implementation of Web3.js library.
+
+[![Build Status][travis-image]][travis-url]
+
+[travis-image]: https://travis-ci.org/tomusdrw/rust-web3.svg?branch=master
+[travis-url]: https://travis-ci.org/tomusdrw/rust-web3
 
 [Documentation](http://tomusdrw.github.io/rust-web3/index.html)
 
