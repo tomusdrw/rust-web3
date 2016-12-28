@@ -24,7 +24,7 @@ pub use api::Web3Main as Web3;
 pub type Result<T> = futures::BoxFuture<T, Error>;
 
 /// RPC error
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
   /// Server is unreachable
   Unreachable,
@@ -32,18 +32,37 @@ pub enum Error {
   InvalidResponse(String),
   /// Transport Error
   Transport(String),
+  /// JSON decoding error.
+  Decoder(String),
   /// Error returned by RPC
   Rpc(rpc::Error),
 }
 
+impl From<serde_json::Error> for Error {
+  fn from(err: serde_json::Error) -> Self {
+    Error::Decoder(format!("{:?}", err))
+  }
+}
+
+impl From<rpc::Error> for Error {
+  fn from(err: rpc::Error) -> Self {
+    Error::Rpc(err)
+  }
+}
+
 /// Transport implementation
 pub trait Transport {
+  /// The type of future this transport returns when a call is made.
+  type Out: futures::Future<Item=rpc::Value, Error=Error> + Send + 'static;
+
   /// Execute remote method with given parameters.
-  fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value>;
+  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out;
 }
 
 impl<'a, T: 'a + ?Sized> Transport for &'a T where T: Transport {
-  fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value> {
+  type Out = T::Out;
+
+  fn execute(&self, method: &str, params: Vec<String>) -> T::Out {
     (&**self).execute(method, params)
   }
 }

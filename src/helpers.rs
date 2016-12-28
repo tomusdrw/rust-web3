@@ -1,79 +1,43 @@
+use std::marker::PhantomData;
+
 use rpc;
-use rustc_serialize::hex::FromHex;
+use futures::{Async, Poll, Future};
 use serde;
 use serde_json;
-use types;
 use {Error};
+
+/// Value-decoder future.
+/// Takes any type which is deserializable from rpc::Value,
+/// a future which yields that type, and
+pub struct CallResult<T, F> {
+  inner: F,
+  _marker: PhantomData<T>,
+}
+
+impl<T, F> CallResult<T, F> {
+  /// Create a new CallResult wrapping the inner future.
+  pub fn new(inner: F) -> Self {
+    CallResult { inner: inner, _marker: PhantomData }
+  }
+}
+
+impl<T: serde::Deserialize, F> Future for CallResult<T, F>
+  where F: Future<Item=rpc::Value, Error=Error>
+{
+  type Item = T;
+  type Error = Error;
+
+  fn poll(&mut self) -> Poll<T, Error> {
+    match self.inner.poll() {
+      Ok(Async::Ready(x)) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
+      Ok(Async::NotReady) => Ok(Async::NotReady),
+      Err(e) => Err(e),
+    }
+  }
+}
 
 pub fn serialize<T: serde::Serialize>(t: &T) -> String {
   serde_json::to_string(t).expect("Types serialization is never failing.")
-}
-
-pub fn to_vector(val: rpc::Value) -> Result<Vec<String>, Error> {
-  let invalid = Error::InvalidResponse(format!("Expected vector of strings, got {:?}", val));
-
-  if let rpc::Value::Array(val) = val {
-    val.into_iter().map(|v| match v {
-     rpc::Value::String(s) => Ok(s),
-      _ => Err(invalid.clone()),
-    }).collect()
-  } else {
-    Err(invalid)
-  }
-}
-
-pub fn to_u256(val: rpc::Value) -> Result<types::U256, Error> {
-  // TODO [ToDr] proper type
-  to_string(val)
-}
-
-pub fn to_h256(val: rpc::Value) -> Result<types::H256, Error> {
-  // TODO [ToDr] proper type
-  to_string(val)
-}
-
-pub fn to_h512(val: rpc::Value) -> Result<types::H512, Error> {
-  // TODO [ToDr] proper type
-  to_string(val)
-}
-
-pub fn to_u256_option(val: rpc::Value) -> Result<Option<types::U256>, Error> {
-  Ok(if val == rpc::Value::Null {
-    None
-  } else {
-    Some(to_u256(val)?)
-  })
-}
-
-pub fn to_address(val: rpc::Value) -> Result<types::Address, Error> {
-  // TODO [ToDr] proper type
-  to_string(val)
-}
-
-pub fn to_string(val: rpc::Value) -> Result<String, Error> {
-  if let rpc::Value::String(s) = val {
-    Ok(s)
-  } else {
-    Err(Error::InvalidResponse(format!("Expected string, got {:?}", val)))
-  }
-}
-
-pub fn to_bytes(val: rpc::Value) -> Result<types::Bytes, Error> {
-  if let rpc::Value::String(s) = val {
-    s[2..].from_hex().map(types::Bytes).map_err(|e| Error::InvalidResponse(
-      format!("Invalid hex string returned: {:?}", e)      
-    ))
-  } else {
-    Err(Error::InvalidResponse(format!("Expected bytes, got {:?}", val)))
-  }
-}
-
-pub fn to_bool(val: rpc::Value) -> Result<bool, Error> {
-  if let rpc::Value::Bool(b) = val {
-    Ok(b)
-  } else {
-    Err(Error::InvalidResponse(format!("Expected bool, got {:?}", val)))
-  }
 }
 
 pub fn build_request(id: usize, method: &str, params: Vec<String>) -> String {
@@ -113,6 +77,8 @@ pub mod tests {
   }
 
   impl Transport for TestTransport {
+    type Out = Result<rpc::Value>;
+
     fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value> {
       self.requests.borrow_mut().push((method.into(), params));
       match self.response.borrow_mut().take() {

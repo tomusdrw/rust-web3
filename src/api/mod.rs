@@ -35,17 +35,17 @@ impl<T: Transport> Web3Main<T> {
   }
 
   /// Access methods from `eth` namespace
-  pub fn eth(&self) -> eth::EthApi<T> {
+  pub fn eth(&self) -> eth::Eth<T> {
     self.api()
   }
 
   /// Access methods from `net` namespace
-  pub fn net(&self) -> net::NetApi<T> {
+  pub fn net(&self) -> net::Net<T> {
     self.api()
   }
 
   /// Access methods from `web3` namespace
-  pub fn web3(&self) -> web3::Web3Api<T> {
+  pub fn web3(&self) -> web3::Web3<T> {
     self.api()
   }
 

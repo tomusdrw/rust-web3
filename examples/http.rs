@@ -5,7 +5,6 @@ extern crate web3;
 
 use std::thread;
 use futures::Future;
-use web3::api::Eth;
 
 fn main() {
   let mut event_loop = tokio_core::reactor::Core::new().unwrap();
