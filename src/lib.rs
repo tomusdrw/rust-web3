@@ -21,7 +21,7 @@ use futures::Future;
 pub mod api;
 pub mod transports;
 
-pub use api::Web3Main as Web3;
+pub use api::{Web3Main as Web3, ErasedWeb3};
 
 /// RPC result
 pub type Result<T> = futures::BoxFuture<T, Error>;

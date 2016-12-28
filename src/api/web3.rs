@@ -7,19 +7,19 @@ use types::{Bytes, H256};
 use {Transport};
 
 /// `Web3` namespace
-pub struct Web3<'a, T: 'a> {
-  transport: &'a T,
+pub struct Web3<T> {
+  transport: T,
 }
 
-impl<'a, T: Transport + 'a> Namespace<'a, T> for Web3<'a, T> {
-  fn new(transport: &'a T) -> Self where Self: Sized {
+impl<T: Transport> Namespace<T> for Web3<T> {
+  fn new(transport: T) -> Self where Self: Sized {
     Web3 {
       transport: transport,
     }
   }
 }
 
-impl<'a, T: Transport + 'a> Web3<'a, T> {
+impl<T: Transport> Web3<T> {
   /// Returns client version
   pub fn client_version(&self) -> CallResult<String, T::Out> {
     CallResult::new(self.transport.execute("web3_clientVersion", vec![]))

@@ -11,19 +11,19 @@ use types::{
 use {Transport};
 
 /// `Eth` namespace
-pub struct Eth<'a, T: 'a> {
-  transport: &'a T,
+pub struct Eth<T> {
+  transport: T,
 }
 
-impl<'a, T: Transport + 'a> Namespace<'a, T> for Eth<'a, T> {
-  fn new(transport: &'a T) -> Self where Self: Sized {
+impl<T: Transport> Namespace<T> for Eth<T> {
+  fn new(transport: T) -> Self where Self: Sized {
     Eth {
       transport: transport,
     }
   }
 }
 
-impl<'a, T: Transport + 'a> Eth<'a, T> {
+impl<T: Transport> Eth<T> {
   /// Get list of available accounts.
   pub fn accounts(&self) -> CallResult<Vec<Address>, T::Out> {
     CallResult::new(self.transport.execute("eth_accounts", vec![]))
