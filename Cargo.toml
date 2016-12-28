@@ -2,6 +2,11 @@
 name = "web3"
 version = "0.0.1"
 description = "Ethereum JSON-RPC client."
+homepage = "https://github.com/tomusdrw/rust-web3"
+repository = "https://github.com/tomusdrw/rust-web3"
+documentation = "https://tomusdrw.github.io/rust-web3/web3/index.html"
+license = "LGPL-3.0"
+keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
 authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 build = "build.rs"
 
