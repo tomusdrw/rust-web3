@@ -300,28 +300,28 @@ mod tests {
 
   rpc_test! (
     Eth:accounts => "eth_accounts";
-    Value::Array(vec![Value::String("0x123".into())]) => vec!["0x123".into()]
+    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![0x123.into()]
   );
 
   rpc_test! (
     Eth:block_number => "eth_blockNumber";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
     Eth:call, CallRequest {
-      from: None, to: "0x123".into(),
+      from: None, to: 0x123.into(),
       gas: None, gas_price: None,
-      value: Some("0x1".into()), data: None,
+      value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_call", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#];
+    "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
     Value::String("0x010203".into()) => Bytes(vec![1, 2, 3])
   );
 
   rpc_test! (
     Eth:coinbase => "eth_coinbase";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
@@ -341,31 +341,31 @@ mod tests {
 
   rpc_test! (
     Eth:estimate_gas, CallRequest {
-      from: None, to: "0x123".into(),
+      from: None, to: 0x123.into(),
       gas: None, gas_price: None,
-      value: Some("0x1".into()), data: None,
+      value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_estimateGas", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
     Eth:gas_price => "eth_gasPrice";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:balance, "0x123", None
+    Eth:balance, 0x123, None
     =>
-    "eth_getBalance", vec![r#""0x123""#, r#""latest""#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:block:block_by_hash, BlockId::Hash("0x123".into()), true
+    Eth:block:block_by_hash, BlockId::Hash(0x123.into()), true
     =>
-    "eth_getBlockByHash", vec![r#""0x123""#, r#"true"#];
+    "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"true"#];
     Value::Null => ()
   );
 
@@ -377,10 +377,10 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:block_transaction_count:block_tx_count_by_hash, "0x123".to_owned()
+    Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(0x123.into())
     =>
-    "eth_getBlockTransactionCountByHash", vec![r#""0x123""#];
-    Value::String("0x123".into()) => Some("0x123".into())
+    "eth_getBlockTransactionCountByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+    Value::String("0x123".into()) => Some(0x123.into())
   );
 
   rpc_test! (
@@ -391,9 +391,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:code, "0x123", Some(BlockNumber::Pending)
+    Eth:code, 0x123, Some(BlockNumber::Pending)
     =>
-    "eth_getCode", vec![r#""0x123""#, r#""pending""#];
+    "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
@@ -403,40 +403,44 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:storage, "0x123", "0x456", None
+    Eth:storage, 0x123, 0x456, None
     =>
-    "eth_getStorageAt", vec![r#""0x123""#, r#""0x456""#, r#""latest""#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_getStorageAt", vec![
+      r#""0x0000000000000000000000000000000000000123""#,
+      r#""0x456""#,
+      r#""latest""#
+    ];
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:transaction_count, "0x123", None
+    Eth:transaction_count, 0x123, None
     =>
-    "eth_getTransactionCount", vec![r#""0x123""#, r#""latest""#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_getTransactionCount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:transaction:tx_by_hash, TransactionId::Hash("0x123".into())
+    Eth:transaction:tx_by_hash, TransactionId::Hash(0x123.into())
     =>
-    "eth_getTransactionByHash", vec![r#""0x123""#];
+    "eth_getTransactionByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
     Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
-      BlockId::Hash("0x123".into()),
-      "0x5".into()
+      BlockId::Hash(0x123.into()),
+      5.into()
     )
     =>
-    "eth_getTransactionByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    "eth_getTransactionByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
     Eth:transaction:tx_by_block_no_and_index, TransactionId::Block(
       BlockNumber::Pending.into(),
-      "0x5".into()
+      5.into()
     )
     =>
     "eth_getTransactionByBlockNumberAndIndex", vec![r#""pending""#, r#""0x5""#];
@@ -444,31 +448,31 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:transaction_receipt, "0x123".to_owned()
+    Eth:transaction_receipt, 0x123
     =>
-    "eth_getTransactionReceipt", vec![r#""0x123""#];
+    "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
-    Eth:uncle:uncle_by_hash, BlockId::Hash("0x123".into()), "0x5"
+    Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), 5
     =>
-    "eth_getUncleByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
-    Eth:uncle:uncle_by_no, BlockNumber::Earliest, "0x5"
+    Eth:uncle:uncle_by_no, BlockNumber::Earliest, 5
     =>
     "eth_getUncleByBlockNumberAndIndex", vec![r#""earliest""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
-    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash("0x123".into())
+    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(0x123.into())
     =>
-    "eth_getUncleCountByBlockHash", vec![r#""0x123""#];
-    Value::String("0x123".into())=> Some("0x123".into())
+    "eth_getUncleCountByBlockHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+    Value::String("0x123".into())=> Some(0x123.into())
   );
 
   rpc_test! (
@@ -485,7 +489,7 @@ mod tests {
 
   rpc_test! (
     Eth:hashrate => "eth_hashrate";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
@@ -495,11 +499,11 @@ mod tests {
 
   rpc_test! (
     Eth:new_block_filter => "eth_newBlockFilter";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x123".into()) => 0x123
   );
   rpc_test! (
     Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x123".into()) => 0x123
   );
 
   rpc_test! (
@@ -511,39 +515,39 @@ mod tests {
     Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sendRawTransaction", vec![r#""0x01020304""#];
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
     Eth:send_transaction, TransactionRequest {
-      from: "0x123".into(), to: Some("0x123".into()),
-      gas: None, gas_price: Some("0x1".into()),
-      value: Some("0x1".into()), data: None,
+      from: 0x123.into(), to: Some(0x123.into()),
+      gas: None, gas_price: Some(0x1.into()),
+      value: Some(0x1.into()), data: None,
       nonce: None, min_block: None,
     }
     =>
-    "eth_sendTransaction", vec![r#"{"from":"0x123","to":"0x123","gasPrice":"0x1","value":"0x1"}"#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#];
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:sign, "0x123", Bytes(vec![1, 2, 3, 4])
+    Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
-    "eth_sign", vec![r#""0x123""#, r#""0x01020304""#];
-    Value::String("0x123".into()) => "0x123"
+    "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
+    Value::String("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:submit_hashrate, "0x123", "0x456"
+    Eth:submit_hashrate, 0x123, 0x456
     =>
-    "eth_submitHashrate", vec![r#""0x123""#, r#""0x456""#];
+    "eth_submitHashrate", vec![r#""0x123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#];
     Value::Bool(true) => true
   );
 
   rpc_test! (
-    Eth:submit_work, "0x123", "0x456", "0x789"
+    Eth:submit_work, 0x123, 0x456, 0x789
     =>
-    "eth_submitWork", vec![r#""0x123""#, r#""0x456""#, r#""0x789""#];
+    "eth_submitWork", vec![r#""0x0000000000000123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#, r#""0x0000000000000000000000000000000000000000000000000000000000000789""#];
     Value::Bool(true) => true
   );
 
