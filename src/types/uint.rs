@@ -191,6 +191,7 @@ impl_uint!(U256, 32);
 
 impl_uint!(hash => H64, 8);
 impl_uint!(hash => H128, 16);
+impl_uint!(hash => H160, 20);
 impl_uint!(hash => H256, 32);
 impl_uint!(hash => H512, 64);
 

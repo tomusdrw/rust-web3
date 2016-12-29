@@ -300,7 +300,7 @@ mod tests {
 
   rpc_test! (
     Eth:accounts => "eth_accounts";
-    Value::Array(vec![Value::String("0x123".into())]) => vec!["0x123".into()]
+    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![0x123.into()]
   );
 
   rpc_test! (
@@ -310,18 +310,18 @@ mod tests {
 
   rpc_test! (
     Eth:call, CallRequest {
-      from: None, to: "0x123".into(),
+      from: None, to: 0x123.into(),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_call", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#];
+    "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
     Value::String("0x010203".into()) => Bytes(vec![1, 2, 3])
   );
 
   rpc_test! (
     Eth:coinbase => "eth_coinbase";
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
@@ -341,12 +341,12 @@ mod tests {
 
   rpc_test! (
     Eth:estimate_gas, CallRequest {
-      from: None, to: "0x123".into(),
+      from: None, to: 0x123.into(),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_estimateGas", vec![r#"{"to":"0x123","value":"0x1"}"#, r#""latest""#];
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
@@ -356,9 +356,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:balance, "0x123", None
+    Eth:balance, 0x123, None
     =>
-    "eth_getBalance", vec![r#""0x123""#, r#""latest""#];
+    "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
@@ -391,9 +391,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:code, "0x123", Some(BlockNumber::Pending)
+    Eth:code, 0x123, Some(BlockNumber::Pending)
     =>
-    "eth_getCode", vec![r#""0x123""#, r#""pending""#];
+    "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
@@ -403,16 +403,20 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:storage, "0x123", 0x456, None
+    Eth:storage, 0x123, 0x456, None
     =>
-    "eth_getStorageAt", vec![r#""0x123""#, r#""0x456""#, r#""latest""#];
+    "eth_getStorageAt", vec![
+      r#""0x0000000000000000000000000000000000000123""#,
+      r#""0x456""#,
+      r#""latest""#
+    ];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:transaction_count, "0x123", None
+    Eth:transaction_count, 0x123, None
     =>
-    "eth_getTransactionCount", vec![r#""0x123""#, r#""latest""#];
+    "eth_getTransactionCount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
@@ -516,20 +520,20 @@ mod tests {
 
   rpc_test! (
     Eth:send_transaction, TransactionRequest {
-      from: "0x123".into(), to: Some("0x123".into()),
+      from: 0x123.into(), to: Some(0x123.into()),
       gas: None, gas_price: Some(0x1.into()),
       value: Some(0x1.into()), data: None,
       nonce: None, min_block: None,
     }
     =>
-    "eth_sendTransaction", vec![r#"{"from":"0x123","to":"0x123","gasPrice":"0x1","value":"0x1"}"#];
+    "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:sign, "0x123", Bytes(vec![1, 2, 3, 4])
+    Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
-    "eth_sign", vec![r#""0x123""#, r#""0x01020304""#];
+    "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
     Value::String("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
