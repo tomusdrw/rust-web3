@@ -30,6 +30,7 @@ For more see [examples folder](./examples).
 # TODO
 
 ## General
+- [ ] More flexible API (accept `Into<X>`)
 - [ ] Contract calls (ABI encoding; `debris/ethabi`)
 - [ ] Batch Requests
 
@@ -39,8 +40,8 @@ For more see [examples folder](./examples).
 - [ ] WebSockets transport
 
 ## Types
-- [ ] Types for `U256,H256,Address(H160)` from `ethcore/bigint` crate
-- [ ] Index type (numeric, encoded to hex)
+- [x] Types for `U256,H256,Address(H160)`
+- [x] Index type (numeric, encoded to hex)
 - [ ] Transaction type (`Transaction` from Parity)
 - [ ] Transaction receipt type (`TransactionReceipt` from Parity)
 - [ ] Block type (`RichBlock` from Parity)

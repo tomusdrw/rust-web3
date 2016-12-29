@@ -187,6 +187,7 @@ macro_rules! impl_uint {
   };
 }
 
+impl_uint!(U64, 8);
 impl_uint!(U256, 32);
 
 impl_uint!(hash => H64, 8);

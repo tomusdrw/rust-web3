@@ -430,7 +430,7 @@ mod tests {
   rpc_test! (
     Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
       BlockId::Hash(0x123.into()),
-      "0x5".into()
+      5.into()
     )
     =>
     "eth_getTransactionByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
@@ -440,7 +440,7 @@ mod tests {
   rpc_test! (
     Eth:transaction:tx_by_block_no_and_index, TransactionId::Block(
       BlockNumber::Pending.into(),
-      "0x5".into()
+      5.into()
     )
     =>
     "eth_getTransactionByBlockNumberAndIndex", vec![r#""pending""#, r#""0x5""#];
@@ -455,14 +455,14 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), "0x5"
+    Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), 5
     =>
     "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
-    Eth:uncle:uncle_by_no, BlockNumber::Earliest, "0x5"
+    Eth:uncle:uncle_by_no, BlockNumber::Earliest, 5
     =>
     "eth_getUncleByBlockNumberAndIndex", vec![r#""earliest""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
