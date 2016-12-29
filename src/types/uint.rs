@@ -93,13 +93,6 @@ macro_rules! impl_uint {
       }
     }
 
-    // TODO [ToDr] Get rid of this implementation in favour of `.parse()`
-    impl<'a> From<&'a str> for $name {
-      fn from(string: &'a str) -> Self {
-        string.parse().expect("From<&str> is deprecated. Use `.parse()` instead to handle possible errors.")
-      }
-    }
-
     impl FromStr for $name {
       type Err = FromStrError;
 
