@@ -46,3 +46,9 @@ impl From<H256> for BlockId {
     BlockId::Hash(hash)
   }
 }
+
+impl From<String> for BlockId {
+  fn from(hash: String) -> Self {
+    BlockId::Hash(hash.as_str().into())
+  }
+}

@@ -363,9 +363,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:block:block_by_hash, BlockId::Hash("0x123".into()), true
+    Eth:block:block_by_hash, BlockId::Hash(0x123.into()), true
     =>
-    "eth_getBlockByHash", vec![r#""0x123""#, r#"true"#];
+    "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"true"#];
     Value::Null => ()
   );
 
@@ -377,9 +377,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:block_transaction_count:block_tx_count_by_hash, "0x123".to_owned()
+    Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(0x123.into())
     =>
-    "eth_getBlockTransactionCountByHash", vec![r#""0x123""#];
+    "eth_getBlockTransactionCountByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into()) => Some("0x123".into())
   );
 
@@ -403,10 +403,10 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:storage, "0x123", "0x456", None
+    Eth:storage, "0x123", 0x456, None
     =>
     "eth_getStorageAt", vec![r#""0x123""#, r#""0x456""#, r#""latest""#];
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
@@ -417,19 +417,19 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:transaction:tx_by_hash, TransactionId::Hash("0x123".into())
+    Eth:transaction:tx_by_hash, TransactionId::Hash(0x123.into())
     =>
-    "eth_getTransactionByHash", vec![r#""0x123""#];
+    "eth_getTransactionByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
     Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
-      BlockId::Hash("0x123".into()),
+      BlockId::Hash(0x123.into()),
       "0x5".into()
     )
     =>
-    "eth_getTransactionByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    "eth_getTransactionByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
@@ -444,16 +444,16 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:transaction_receipt, "0x123".to_owned()
+    Eth:transaction_receipt, 0x123
     =>
-    "eth_getTransactionReceipt", vec![r#""0x123""#];
+    "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::Array(vec![]) => Some(())
   );
 
   rpc_test! (
-    Eth:uncle:uncle_by_hash, BlockId::Hash("0x123".into()), "0x5"
+    Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), "0x5"
     =>
-    "eth_getUncleByBlockHashAndIndex", vec![r#""0x123""#, r#""0x5""#];
+    "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     Value::Array(vec![]) => Some(())
   );
 
@@ -465,9 +465,9 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash("0x123".into())
+    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(0x123.into())
     =>
-    "eth_getUncleCountByBlockHash", vec![r#""0x123""#];
+    "eth_getUncleCountByBlockHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into())=> Some("0x123".into())
   );
 
@@ -511,7 +511,7 @@ mod tests {
     Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sendRawTransaction", vec![r#""0x01020304""#];
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
@@ -523,27 +523,27 @@ mod tests {
     }
     =>
     "eth_sendTransaction", vec![r#"{"from":"0x123","to":"0x123","gasPrice":"0x1","value":"0x1"}"#];
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
     Eth:sign, "0x123", Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x123""#, r#""0x01020304""#];
-    Value::String("0x123".into()) => "0x123"
+    Value::String("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
-    Eth:submit_hashrate, "0x123", "0x456"
+    Eth:submit_hashrate, "0x123", 0x456
     =>
-    "eth_submitHashrate", vec![r#""0x123""#, r#""0x456""#];
+    "eth_submitHashrate", vec![r#""0x123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#];
     Value::Bool(true) => true
   );
 
   rpc_test! (
-    Eth:submit_work, "0x123", "0x456", "0x789"
+    Eth:submit_work, 0x123, 0x456, 0x789
     =>
-    "eth_submitWork", vec![r#""0x123""#, r#""0x456""#, r#""0x789""#];
+    "eth_submitWork", vec![r#""0x0000000000000123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#, r#""0x0000000000000000000000000000000000000000000000000000000000000789""#];
     Value::Bool(true) => true
   );
 
