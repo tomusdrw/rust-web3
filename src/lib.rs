@@ -2,7 +2,6 @@
 
 #![warn(missing_docs)]
 
-extern crate futures;
 extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
@@ -22,6 +21,13 @@ pub mod api;
 pub mod transports;
 
 pub use api::{Web3Main as Web3, ErasedWeb3};
+
+/// Re-export of types from the `futures` crate.
+pub mod futures {
+  extern crate futures;
+
+  pub use self::futures::*;
+}
 
 /// RPC result
 pub type Result<T> = futures::BoxFuture<T, Error>;

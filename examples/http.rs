@@ -1,10 +1,9 @@
-extern crate futures;
 extern crate futures_cpupool;
 extern crate tokio_core;
 extern crate web3;
 
 use std::thread;
-use futures::Future;
+use web3::futures::Future;
 
 fn main() {
   let mut event_loop = tokio_core::reactor::Core::new().unwrap();
