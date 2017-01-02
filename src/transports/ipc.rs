@@ -323,7 +323,6 @@ impl ReadStream {
 
 #[cfg(test)]
 mod tests {
-  extern crate env_logger;
   extern crate tokio_core;
   extern crate tokio_uds;
 
@@ -335,7 +334,6 @@ mod tests {
 
   #[test]
   fn should_send_a_request() {
-    env_logger::init().unwrap();
     // given
     let mut eloop = tokio_core::reactor::Core::new().unwrap();
     let handle = eloop.handle();

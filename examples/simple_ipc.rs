@@ -1,12 +1,9 @@
-extern crate env_logger;
 extern crate futures;
 extern crate web3;
 
 use futures::Future;
 
 fn main() {
-  env_logger::init().unwrap();
-
   let (_el, transport) = web3::transports::Ipc::with_event_loop("./jsonrpc.ipc").unwrap();
   let web3 = web3::Web3::new(transport);
 
