@@ -36,18 +36,18 @@ impl<T: serde::Deserialize, F> Future for CallResult<T, F>
   }
 }
 
-pub fn serialize<T: serde::Serialize>(t: &T) -> String {
-  serde_json::to_string(t).expect("Types serialization is never failing.")
+pub fn serialize<T: serde::Serialize>(t: &T) -> rpc::Value {
+  serde_json::to_value(t)
 }
 
-pub fn build_request(id: usize, method: &str, params: Vec<String>) -> String {
+pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String {
   let request = rpc::Request::Single(rpc::Call::MethodCall(rpc::MethodCall {
     jsonrpc: Some(rpc::Version::V2),
     method: method.into(),
-    params: Some(rpc::Params::Array(params.into_iter().map(rpc::Value::String).collect())),
+    params: Some(rpc::Params::Array(params)),
     id: rpc::Id::Num(id as u64),
   }));
-  serialize(&request)
+  serde_json::to_string(&request).expect("String serialization never fails.")
 }
 
 pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
@@ -64,6 +64,7 @@ pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
+  use serde_json;
   use std::cell::RefCell;
   use futures::{self, Future};
   use rpc;
@@ -72,14 +73,14 @@ pub mod tests {
   #[derive(Default)]
   pub struct TestTransport {
     asserted: usize,
-    requests: RefCell<Vec<(String, Vec<String>)>>,
+    requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
     response: RefCell<Option<rpc::Value>>,
   }
 
   impl Transport for TestTransport {
     type Out = Result<rpc::Value>;
 
-    fn execute(&self, method: &str, params: Vec<String>) -> Result<rpc::Value> {
+    fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Result<rpc::Value> {
       self.requests.borrow_mut().push((method.into(), params));
       match self.response.borrow_mut().take() {
         Some(response) => futures::finished(response).boxed(),
@@ -99,6 +100,7 @@ pub mod tests {
 
       let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
       assert_eq!(&m, method);
+      let p: Vec<String> = p.into_iter().map(|p| serde_json::to_string(&p).unwrap()).collect();
       assert_eq!(p, params);
     }
 
