@@ -2,12 +2,13 @@
 
 #![warn(missing_docs)]
 
-extern crate futures;
 extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
 
+#[macro_use]
+extern crate futures;
 #[macro_use]
 extern crate log;
 
