@@ -47,7 +47,7 @@ impl Http {
 impl Transport for Http {
   type Out = FetchTask;
 
-  fn execute(&self, method: &str, params: Vec<String>) -> FetchTask {
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> FetchTask {
     let id = self.id.fetch_add(1, atomic::Ordering::Relaxed);
     let request = helpers::build_request(id, method, params);
     debug!("Calling: {}", request);
