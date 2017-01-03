@@ -59,7 +59,7 @@ pub trait Transport {
   type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
   /// Execute remote method with given parameters.
-  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out;
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out;
 
   /// Erase the type of the transport by boxing it and boxing all produced
   /// futures.
@@ -76,7 +76,7 @@ impl<T: Transport> Transport for Eraser<T>
 {
   type Out = Result<rpc::Value>;
 
-  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out {
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
     self.0.execute(method, params).boxed()
   }
 }
@@ -87,7 +87,7 @@ pub struct Erased(Box<Transport<Out=Result<rpc::Value>>>);
 impl Transport for Erased {
   type Out = Result<rpc::Value>;
 
-  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out {
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
     self.0.execute(method, params)
   }
 }
@@ -95,7 +95,7 @@ impl Transport for Erased {
 impl<'a, T: 'a + ?Sized> Transport for &'a T where T: Transport {
   type Out = T::Out;
 
-  fn execute(&self, method: &str, params: Vec<String>) -> T::Out {
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> T::Out {
     (&**self).execute(method, params)
   }
 }
