@@ -1,7 +1,6 @@
-extern crate futures;
 extern crate web3;
 
-use futures::Future;
+use web3::futures::Future;
 
 fn main() {
   let (_el, transport) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
