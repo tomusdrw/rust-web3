@@ -12,6 +12,9 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 
+/// Re-export of the `futures` crate.
+pub extern crate futures;
+
 mod types;
 
 #[macro_use]
