@@ -4,7 +4,7 @@ extern crate web3;
 use futures::Future;
 
 fn main() {
-  let (_el, transport) = web3::transports::Ipc::with_event_loop("./jsonrpc.ipc").unwrap();
+  let (_el, transport) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
   let web3 = web3::Web3::new(transport);
 
   println!("Calling accounts.");

@@ -2,18 +2,20 @@
 
 extern crate tokio_core;
 extern crate tokio_uds;
+extern crate parking_lot;
 
-use std::thread;
-use std::sync::{self, atomic, Arc};
+use std::{mem, thread};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 use std::path::Path;
+use std::sync::{self, atomic, Arc};
 
+use self::parking_lot::Mutex;
 use self::tokio_core::reactor;
 use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
 use self::tokio_uds::UnixStream;
 
-use futures::{self, Sink, Stream, Future, BoxFuture};
+use futures::{self, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
 use rpc::{self, Value as RpcValue};
@@ -26,24 +28,11 @@ macro_rules! try_nb {
       return Ok(futures::Async::NotReady)
     }
     Err(e) => {
-      warn!("Error: {:?}", e);
+      warn!("Unexpected IO error: {:?}", e);
       return Err(())
     },
   })
 }
-
-/// Error returned while initializing IPC transport
-#[derive(Debug)]
-pub enum IpcError {
-  /// Wrapped IO error
-  Io(io::Error),
-}
-
-impl From<io::Error> for IpcError {
-  fn from(err: io::Error) -> Self { IpcError::Io(err) }
-}
-
-type Pending = oneshot::Sender<Result<RpcValue, RpcError>>;
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
@@ -62,16 +51,23 @@ impl Drop for EventLoopHandle {
   }
 }
 
+
+/// Error returned while initializing IPC transport
+pub type IpcError = io::Error;
+
+type Pending = oneshot::Sender<Result<RpcValue, RpcError>>;
+type PendingResult = oneshot::Receiver<Result<RpcValue, RpcError>>;
+
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
   id: atomic::AtomicUsize,
-  write_sender: mpsc::Sender<String>,
-  read_sender: mpsc::Sender<(usize, Pending)>,
+  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
+  write_sender: mpsc::Sender<Vec<u8>>,
 }
 
 impl Ipc {
   /// Create new IPC transport within existing Event Loop.
-  pub fn new<P>(path: P, handle: &reactor::Handle) -> Result<Self, IpcError> where
+  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self, IpcError> where
     P: AsRef<Path>,
   {
     trace!("Connecting to: {:?}", path.as_ref());
@@ -83,12 +79,11 @@ impl Ipc {
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self, IpcError> {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::channel(2);
-    let (read_sender, read_receiver) = mpsc::channel(2);
+    let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
       read: read,
-      incoming: read_receiver,
-      pending: Default::default(),
+      pending: pending.clone(),
       buffer: vec![],
       current_pos: 0,
     };
@@ -105,13 +100,13 @@ impl Ipc {
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
       write_sender: write_sender,
-      read_sender: read_sender,
+      pending: pending,
     })
   }
 
   /// Create new IPC transport with separate event loop.
   /// NOTE: Dropping event loop handle will stop the transport layer!
-  pub fn with_event_loop<P>(path: P) -> Result<(EventLoopHandle, Self), IpcError> where
+  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self), IpcError> where
     P: AsRef<Path>,
   {
     let done = Arc::new(atomic::AtomicBool::new(false));
@@ -122,7 +117,7 @@ impl Ipc {
     let eloop = thread::spawn(move || {
       let run = move || {
         let event_loop = reactor::Core::new()?;
-        let ipc = Self::new(path, &event_loop.handle())?;
+        let ipc = Self::with_event_loop(path, &event_loop.handle())?;
         Ok((ipc, event_loop))
       };
 
@@ -153,24 +148,65 @@ impl Ipc {
 }
 
 impl Transport for Ipc {
-  type Out = BoxFuture<RpcValue, RpcError>;
+  type Out = IpcTask;
 
-  fn execute(&self, method: &str, params: Vec<String>) -> Self::Out {
-    let id = self.id.fetch_add(1, atomic::Ordering::Relaxed);
+  fn execute(&self, method: &str, params: Vec<RpcValue>) -> Self::Out {
+    let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
     let request = helpers::build_request(id, method, params);
     debug!("Calling: {}", request);
 
-
     // When the response is ready
     let (tx, rx) = futures::oneshot();
-    let read_sender = self.read_sender.clone();
-    let write_sender = self.write_sender.clone();
+    self.pending.lock().insert(id, tx);
 
-    read_sender.send((id, tx))
-      .then(|_| write_sender.send(request))
-      .then(|_| rx)
-      .then(|result| result.unwrap_or(Err(RpcError::Unreachable)))
-      .boxed()
+    let sending = self.write_sender.clone().send(request.into_bytes());
+
+    IpcTask {
+      state: IpcTaskState::Sending(sending, rx),
+    }
+  }
+}
+
+enum IpcTaskState {
+  Sending(futures::sink::Send<mpsc::Sender<Vec<u8>>>, PendingResult),
+  WaitingForResult(PendingResult),
+  Done,
+}
+
+/// A future represeting IPC transport method execution.
+/// First it sends a message to writing half and waits for completion
+/// and then starts to listen for expected response.
+pub struct IpcTask {
+  state: IpcTaskState,
+}
+
+impl Future for IpcTask {
+  type Item = RpcValue;
+  type Error = RpcError;
+
+  fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+
+    loop {
+      match self.state {
+        IpcTaskState::Sending(ref mut send, _) => {
+          try_ready!(send.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
+        },
+        IpcTaskState::WaitingForResult(ref mut rx) => {
+          let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
+          return result.map(futures::Async::Ready);
+        },
+        IpcTaskState::Done => {
+          return Err(RpcError::Unreachable);
+        },
+      }
+      // Proceeed to the next state
+      let state = mem::replace(&mut self.state, IpcTaskState::Done);
+      self.state = if let IpcTaskState::Sending(_, rx) = state {
+        IpcTaskState::WaitingForResult(rx)
+      } else {
+        state
+      }
+    }
   }
 }
 
@@ -186,7 +222,7 @@ enum WriteState {
 /// Awaits new requests using `mpsc::Receiver` and writes them to the socket.
 struct WriteStream {
   write: WriteHalf<UnixStream>,
-  incoming: mpsc::Receiver<String>,
+  incoming: mpsc::Receiver<Vec<u8>>,
   state: WriteState
 }
 
@@ -195,47 +231,45 @@ impl Future for WriteStream {
   type Error = ();
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-    let new_state = match self.state {
-      WriteState::WaitingForRequest => {
-        // Ask for more to write
-        let to_send = try_ready!(self.incoming.poll());
-        if let Some(to_send) = to_send {
-          trace!("Got new message to write: {:?}", to_send);
-          WriteState::Writing {
-            buffer: to_send.into_bytes(),
-            current_pos: 0,
+    loop {
+      self.state = match self.state {
+        WriteState::WaitingForRequest => {
+          // Ask for more to write
+          let to_send = try_ready!(self.incoming.poll());
+          if let Some(to_send) = to_send {
+            trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
+            WriteState::Writing {
+              buffer: to_send,
+              current_pos: 0,
+            }
+          } else {
+            return Ok(futures::Async::NotReady);
           }
-        } else {
-          return Ok(futures::Async::NotReady);
-        }
-      },
-      WriteState::Writing { ref buffer, ref mut current_pos } => {
-        try_ready!(Ok(self.write.poll_write()));
+        },
+        WriteState::Writing { ref buffer, ref mut current_pos } => {
+          try_ready!(Ok(self.write.poll_write()));
 
-        // Write everything in the buffer
-        while *current_pos < buffer.len() {
-          let n = try_nb!(self.write.write(&buffer[*current_pos..]));
-          *current_pos += n;
-          if n == 0 {
-            warn!("Zero write.");
-            return Err(()); // zero write?
+          // Write everything in the buffer
+          while *current_pos < buffer.len() {
+            let n = try_nb!(self.write.write(&buffer[*current_pos..]));
+            *current_pos += n;
+            if n == 0 {
+              warn!("IO Error: Zero write.");
+              return Err(()); // zero write?
+            }
           }
-        }
 
-        WriteState::WaitingForRequest
-      },
-    };
-
-    self.state = new_state;
-    self.poll()
+          WriteState::WaitingForRequest
+        },
+      };
+    }
   }
 }
 /// Reading part of the IPC transport.
 /// Reads data on the socket and tries to dispatch it to awaiting requests.
 struct ReadStream {
   read: ReadHalf<UnixStream>,
-  incoming: mpsc::Receiver<(usize, Pending)>,
-  pending: BTreeMap<usize, Pending>,
+  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
   buffer: Vec<u8>,
   current_pos: usize,
 }
@@ -245,12 +279,6 @@ impl Future for ReadStream {
   type Error = ();
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-    // Check new incoming response channels
-    let response = self.incoming.poll();
-    if let Ok(futures::Async::Ready(Some((id, response)))) = response {
-      self.pending.insert(id, response);
-    }
-
     const DEFAULT_BUF_SIZE: usize = 4096;
     let mut new_write_size = 128;
     loop {
@@ -285,14 +313,14 @@ impl Future for ReadStream {
 }
 
 impl ReadStream {
-  fn respond(&mut self, output: rpc::Output) {
+  fn respond(&self, output: rpc::Output) {
     let id = match output {
       rpc::Output::Success(ref success) => success.id.clone(),
       rpc::Output::Failure(ref failure) => failure.id.clone(),
     };
 
     if let rpc::Id::Num(num) = id {
-      if let Some(request) = self.pending.remove(&(num as usize)) {
+      if let Some(request) = self.pending.lock().remove(&(num as usize)) {
         trace!("Responding to (id: {:?}) with {:?}", num, output);
         request.complete(helpers::to_result_from_output(output));
       } else {
@@ -368,7 +396,7 @@ mod tests {
     });
 
     // when
-    let res = ipc.execute("eth_accounts", vec!["1".into()]);
+    let res = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
     // then
     assert_eq!(eloop.run(res), Ok(rpc::Value::String("x".into())));
