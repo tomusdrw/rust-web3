@@ -11,6 +11,7 @@ extern crate serde_json;
 extern crate log;
 
 /// Re-export of the `futures` crate.
+#[macro_use]
 pub extern crate futures;
 
 mod types;

@@ -35,7 +35,7 @@ For more see [examples folder](./examples).
 
 ## Transports
 - [x] HTTP transport
-- [ ] IPC transport
+- [x] IPC transport
 - [ ] WebSockets transport
 
 ## Types

@@ -65,22 +65,22 @@ impl Transport for Http {
 /// Will execute synchronously when first polled.
 pub struct FetchTask {
   id: usize,
-	url: String,
-	client: Arc<reqwest::Client>,
+  url: String,
+  client: Arc<reqwest::Client>,
   request: String,
 }
 
 impl Future for FetchTask {
-	type Item = rpc::Value;
-	type Error = RpcError;
+  type Item = rpc::Value;
+  type Error = RpcError;
 
-	fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-		trace!("[{}] Starting fetch task.", self.id);
-		let mut result = self.client.post(&self.url)
-              .body(self.request.as_str())
-						  .header(reqwest::header::ContentType::json())
-						  .header(reqwest::header::UserAgent("web3.rs".into()))
-						  .send()?;
+  fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+    trace!("[{}] Starting fetch task.", self.id);
+    let mut result = self.client.post(&self.url)
+      .body(self.request.as_str())
+      .header(reqwest::header::ContentType::json())
+      .header(reqwest::header::UserAgent("web3.rs".into()))
+      .send()?;
 
     trace!("[{}] Finished fetch.", self.id);
 
@@ -92,7 +92,7 @@ impl Future for FetchTask {
 
     debug!("[{}] Success: {}", self.id, response);
 
-		Ok(futures::Async::Ready(response))
-	}
+    Ok(futures::Async::Ready(response))
+  }
 }
 

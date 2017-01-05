@@ -50,13 +50,24 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String
   serde_json::to_string(&request).expect("String serialization never fails.")
 }
 
+pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
+  serde_json::from_slice(response)
+    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+}
+
+pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
+  match output {
+    rpc::Output::Success(success) => Ok(success.result),
+    rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error)),
+  }
+}
+
 pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
-  let response: rpc::Response = serde_json::from_str(response)
+  let response = serde_json::from_str(response)
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
 
   match response {
-    rpc::Response::Single(rpc::Output::Success(success)) => Ok(success.result),
-    rpc::Response::Single(rpc::Output::Failure(failure)) => Err(Error::Rpc(failure.error)),
+    rpc::Response::Single(output) => to_result_from_output(output),
     _ => Err(Error::InvalidResponse("Expected single, got batch.".into())),
   }
 }
