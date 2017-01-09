@@ -5,7 +5,7 @@ use futures::{Future, Async, Poll};
 use serde;
 
 use contract;
-use contract::output::Output;
+use contract::tokens::Output;
 use helpers;
 use rpc;
 use types::Bytes;

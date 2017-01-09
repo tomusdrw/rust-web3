@@ -4,7 +4,7 @@ use ethabi;
 
 use api::Eth;
 use contract::result::QueryResult;
-use contract::output::Output;
+use contract::tokens::{Output, Tokens};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, U256};
 use {Transport, Error as ApiError};
 
@@ -80,29 +80,14 @@ impl<T: Transport> Contract<T> {
     Ok(Self::new(eth, address, abi))
   }
 
-  /// Call constant function with no parameters
-  pub fn query0<O, A, P>(&self, func: &str, from: A, options: P) -> QueryResult<O, T::Out> where
-    O: Output,
-    A: Into<Option<Address>>,
-    P: Into<Option<Options>>,
-  {
-    self.query(func, &[], from, options)
-  }
-
-  /// Call function with no parameters
-  pub fn call0<P>(&self, func: &str, from: Address, options: P) -> QueryResult<H256, T::Out> where
-    P: Into<Option<Options>>,
-  {
-    self.call(func, &[], from, options)
-  }
-
   /// Execute a contract function
-  pub fn call<P>(&self, func: &str, params: &[ethabi::Token], from: Address, options: P) -> QueryResult<H256, T::Out> where
-    P: Into<Option<Options>>,
+  pub fn call<P, O>(&self, func: &str, params: P, from: Address, options: O) -> QueryResult<H256, T::Out> where
+    P: Tokens,
+    O: Into<Option<Options>>,
   {
     let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.to_vec()))
+      .and_then(|function| function.encode_call(params.into_tokens()))
       .map(|data| {
         let result = self.eth.send_transaction(TransactionRequest {
           from: from,
@@ -120,12 +105,13 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Estimate gas required for this function call.
-  pub fn estimate_gas<P>(&self, func: &str, params: &[ethabi::Token], from: Address, options: P) -> QueryResult<U256, T::Out> where
-    P: Into<Option<Options>>,
+  pub fn estimate_gas<P, O>(&self, func: &str, params: P, from: Address, options: O) -> QueryResult<U256, T::Out> where
+    P: Tokens,
+    O: Into<Option<Options>>,
   {
     let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.to_vec()))
+      .and_then(|function| function.encode_call(params.into_tokens()))
       .map(|data| {
         let result = self.eth.estimate_gas(CallRequest {
           from: Some(from),
@@ -141,14 +127,15 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Call constant function
-  pub fn query<O, A, P>(&self, func: &str, params: &[ethabi::Token], from: A, options: P) -> QueryResult<O, T::Out> where
-    O: Output,
+  pub fn query<R, A, P, O>(&self, func: &str, params: P, from: A, options: O) -> QueryResult<R, T::Out> where
+    R: Output,
     A: Into<Option<Address>>,
-    P: Into<Option<Options>>,
+    P: Tokens,
+    O: Into<Option<Options>>,
   {
     let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.to_vec()).map(|call| (call, function)))
+      .and_then(|function| function.encode_call(params.into_tokens()).map(|call| (call, function)))
       .map(|(call, function)| {
         let result = self.eth.call(CallRequest {
           from: from.into(),
@@ -189,7 +176,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query0("name", None, None).wait().unwrap()
+      token.query("name", (), None, None).wait().unwrap()
     };
 
     // then
@@ -211,7 +198,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query0("name", Address::from(5), Options::with(|mut options| {
+      token.query("name", (), Address::from(5), Options::with(|mut options| {
         options.gas_price = Some(10_000_000.into());
       })).wait().unwrap()
     };
@@ -235,7 +222,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.call0("name", 5.into(), None).wait().unwrap()
+      token.call("name", (), 5.into(), None).wait().unwrap()
     };
 
     // then
@@ -256,7 +243,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.estimate_gas("name", &[], 5.into(), None).wait().unwrap()
+      token.estimate_gas("name", (), 5.into(), None).wait().unwrap()
     };
 
     // then
@@ -266,5 +253,27 @@ mod tests {
     ]);
     transport.assert_no_more_requests();
     assert_eq!(result, 5.into());
+  }
+
+  #[test]
+  fn should_query_single_parameter_function() {
+    // given
+    let mut transport = TestTransport::default();
+    transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020".into()));
+
+    let result: U256 = {
+      let token = contract(&transport);
+
+      // when
+      token.query("balanceOf", (Address::from(5)), None, None).wait().unwrap()
+    };
+
+    // then
+    transport.assert_request("eth_call", &[
+      "{\"data\":\"0x70a082310000000000000000000000000000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
+      "\"latest\"".into(),
+    ]);
+    transport.assert_no_more_requests();
+    assert_eq!(result, 0x20.into());
   }
 }
