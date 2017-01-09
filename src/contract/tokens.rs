@@ -134,3 +134,27 @@ impl Tokenizable for U256 {
     Token::Uint(self.0)
   }
 }
+
+impl Tokenizable for bool {
+  fn from_token(token: Token) -> Result<Self, Error> {
+    match token {
+      Token::Bool(data) => Ok(data),
+      other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other))),
+    }
+  }
+  fn into_token(self) -> Token {
+    Token::Bool(self)
+  }
+}
+
+impl Tokenizable for Vec<u8> {
+  fn from_token(token: Token) -> Result<Self, Error> {
+    match token {
+      Token::Bytes(data) => Ok(data),
+      other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other))),
+    }
+  }
+  fn into_token(self) -> Token {
+    Token::Bytes(self)
+  }
+}
