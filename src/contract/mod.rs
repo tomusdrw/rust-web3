@@ -1,3 +1,5 @@
+//! Ethereum Contract Interface
+
 mod contract;
 mod helpers;
 pub mod output;

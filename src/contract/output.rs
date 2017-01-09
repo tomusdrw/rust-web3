@@ -1,8 +1,12 @@
+//! Contract Functions Output types.
+
 use ethabi;
 use contract::Error;
 use types::H256;
 
+/// Output type possible to deserialize from Contract ABI
 pub trait Output {
+  /// Creates a new instance from parsed ABI tokens.
   fn from_tokens(tokens: Vec<ethabi::Token>) -> Result<Self, Error> where Self: Sized;
 }
 
@@ -12,7 +16,9 @@ impl Output for Vec<ethabi::Token> {
   }
 }
 
+/// Simplified output type for single value.
 pub trait SingleOutput: Output {
+  /// Converts a `Token` into expected type.
   fn from_token(token: ethabi::Token) -> Result<Self, Error> where Self: Sized;
 }
 
