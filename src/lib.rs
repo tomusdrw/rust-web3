@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+extern crate ethabi;
 extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
@@ -14,6 +15,7 @@ extern crate log;
 #[macro_use]
 pub extern crate futures;
 
+mod contract;
 mod types;
 
 #[macro_use]
