@@ -2,17 +2,18 @@ use std::marker::PhantomData;
 use std::mem;
 use ethabi;
 use futures::{Future, Async, Poll};
+use serde;
 
 use contract;
 use contract::output::Output;
 use helpers;
 use rpc;
-use types::{Bytes, H256};
+use types::Bytes;
 use {Error as ApiError};
 
 enum ResultType<T, F> {
-  Call(helpers::CallResult<Bytes, F>, ethabi::Function),
-  Hash(helpers::CallResult<H256, F>),
+  Decodable(helpers::CallResult<Bytes, F>, ethabi::Function),
+  Simple(helpers::CallResult<T, F>),
   Constant(Result<T, contract::Error>),
   Done,
 }
@@ -42,7 +43,14 @@ impl<T, F> QueryResult<T, F> where
   /// Create a new `QueryResult` wrapping the inner future.
   pub fn new(inner: helpers::CallResult<Bytes, F>, function: ethabi::Function) -> Self {
     QueryResult {
-      inner: ResultType::Call(inner, function),
+      inner: ResultType::Decodable(inner, function),
+      _marker: PhantomData,
+    }
+  }
+
+  pub fn simple(inner: helpers::CallResult<T, F>) -> Self {
+    QueryResult {
+      inner: ResultType::Simple(inner),
       _marker: PhantomData,
     }
   }
@@ -55,47 +63,27 @@ impl<T, F> QueryResult<T, F> where
   }
 }
 
-impl<F> QueryResult<H256, F> where
-  F: Future<Item=rpc::Value, Error=ApiError>,
-{
-  /// Create a new `QueryResult` for transaction hash: `H256`.
-  pub fn for_hash(hash: helpers::CallResult<H256, F>) -> Self {
-    QueryResult {
-      inner: ResultType::Hash(hash),
-      _marker: PhantomData,
-    }
-  }
-}
-
-impl<T: Output, F> Future for QueryResult<T, F> where
+impl<T: Output + serde::Deserialize, F> Future for QueryResult<T, F> where
   F: Future<Item=rpc::Value, Error=ApiError>,
 {
   type Item = T;
   type Error = contract::Error;
 
   fn poll(&mut self) -> Poll<T, contract::Error> {
-    match self.inner {
-      ResultType::Hash(ref mut inner) => {
-        let result: Poll<H256, _> = inner.poll();
-        return match result {
-          Ok(Async::Ready(hash)) => T::from_tokens(vec![ethabi::Token::FixedBytes(hash.0.to_vec())])
-            .map(Async::Ready)
-            .map_err(Into::into),
-          Ok(Async::NotReady) => Ok(Async::NotReady),
-          Err(e) => Err(e.into()),
-        };
+    let result = match self.inner {
+      ResultType::Simple(ref mut inner) => {
+        let hash: T = try_ready!(inner.poll());
+        Some(Ok(hash))
       },
-      ResultType::Call(ref mut inner, ref function) => {
-        let result: Poll<Bytes, _> = inner.poll();
-        return match result {
-          Ok(Async::Ready(x)) => T::from_tokens(function.decode_output(x.0)?)
-            .map(Async::Ready)
-            .map_err(Into::into),
-          Ok(Async::NotReady) => Ok(Async::NotReady),
-          Err(e) => Err(e.into()),
-        };
+      ResultType::Decodable(ref mut inner, ref function) => {
+        let bytes: Bytes = try_ready!(inner.poll());
+        Some(T::from_tokens(function.decode_output(bytes.0)?))
       },
-      _ => {},
+      _ => None,
+    };
+
+    if let Some(res) = result {
+      return res.map(Async::Ready).map_err(Into::into);
     }
 
     match mem::replace(&mut self.inner, ResultType::Done) {

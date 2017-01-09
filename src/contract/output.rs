@@ -2,7 +2,7 @@
 
 use ethabi;
 use contract::Error;
-use types::H256;
+use types::{H256, U256};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Output {
@@ -55,6 +55,16 @@ impl SingleOutput for H256 {
         Ok(H256(data))
       },
       other => Err(Error::InvalidOutputType(format!("Expected `H256`, got {:?}", other))),
+    }
+  }
+}
+
+
+impl SingleOutput for U256 {
+  fn from_token(token: ethabi::Token) -> Result<Self, Error> {
+    match token {
+      ethabi::Token::Uint(data) => Ok(U256(data)),
+      other => Err(Error::InvalidOutputType(format!("Expected `U256`, got {:?}", other))),
     }
   }
 }

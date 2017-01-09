@@ -3,7 +3,7 @@
 use ethabi;
 
 use api::Eth;
-use contract::helpers::QueryResult;
+use contract::result::QueryResult;
 use contract::output::Output;
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, U256};
 use {Transport, Error as ApiError};
@@ -114,7 +114,28 @@ impl<T: Transport> Contract<T> {
           data: Some(Bytes(data)),
           min_block: options.min_block,
         });
-        QueryResult::for_hash(result)
+        QueryResult::simple(result)
+      })
+      .unwrap_or_else(Into::into)
+  }
+
+  /// Estimate gas required for this function call.
+  pub fn estimate_gas<P>(&self, func: &str, params: &[ethabi::Token], from: Address, options: P) -> QueryResult<U256, T::Out> where
+    P: Into<Option<Options>>,
+  {
+    let options = options.into().unwrap_or(Options::default());
+    self.abi.function(func.into())
+      .and_then(|function| function.encode_call(params.to_vec()))
+      .map(|data| {
+        let result = self.eth.estimate_gas(CallRequest {
+          from: Some(from),
+          to: self.address.clone(),
+          gas: options.gas,
+          gas_price: options.gas_price,
+          value: options.value,
+          data: Some(Bytes(data)),
+        }, None);
+        QueryResult::simple(result)
       })
       .unwrap_or_else(Into::into)
   }
@@ -149,7 +170,7 @@ mod tests {
   use futures::Future;
   use helpers::tests::TestTransport;
   use rpc;
-  use types::{Address, H256};
+  use types::{Address, H256, U256};
   use {Transport};
   use super::{Contract, Options};
 
@@ -220,6 +241,28 @@ mod tests {
     // then
     transport.assert_request("eth_sendTransaction", &[
       "{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
+    ]);
+    transport.assert_no_more_requests();
+    assert_eq!(result, 5.into());
+  }
+
+  #[test]
+  fn should_estimate_gas_usage() {
+    // given
+    let mut transport = TestTransport::default();
+    transport.set_response(rpc::Value::String(format!("{:?}", U256::from(5))));
+
+    let result = {
+      let token = contract(&transport);
+
+      // when
+      token.estimate_gas("name", &[], 5.into(), None).wait().unwrap()
+    };
+
+    // then
+    transport.assert_request("eth_estimateGas", &[
+      "{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
+      "\"latest\"".into(),
     ]);
     transport.assert_no_more_requests();
     assert_eq!(result, 5.into());
