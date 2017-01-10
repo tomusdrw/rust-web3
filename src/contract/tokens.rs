@@ -73,6 +73,15 @@ impl<T: Tokenizable> Output for T {
   }
 }
 
+impl Tokenizable for Token {
+  fn from_token(token: Token) -> Result<Self, Error> {
+    Ok(token)
+  }
+  fn into_token(self) -> Token {
+    self
+  }
+}
+
 impl Tokenizable for String {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
