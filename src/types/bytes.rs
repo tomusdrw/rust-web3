@@ -2,6 +2,7 @@ use serde::{Serialize, Serializer, Deserialize, Deserializer, Error};
 use serde::de::Visitor;
 use rustc_serialize::hex::{FromHex, ToHex};
 
+/// Raw bytes wrapper
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bytes(pub Vec<u8>);
 

@@ -1,11 +1,16 @@
 use serde::{Serialize, Serializer};
 use types::H256;
 
+/// Block Number
 #[derive(Clone, Debug, PartialEq)]
 pub enum BlockNumber {
+  /// Latest block
   Latest,
+  /// Earliest block (genesis)
   Earliest,
+  /// Pending block (not yet part of the blockchain)
   Pending,
+  /// Block by number from canon chain
   Number(u64),
 }
 
@@ -20,9 +25,12 @@ impl Serialize for BlockNumber {
 	}
 }
 
+/// Block Identifier
 #[derive(Clone, Debug, PartialEq)]
 pub enum BlockId {
+  /// By Hash
   Hash(H256),
+  /// By Number
   Number(BlockNumber),
 }
 

@@ -84,11 +84,9 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Execute a contract function
-  pub fn call<P, O>(&self, func: &str, params: P, from: Address, options: O) -> QueryResult<H256, T::Out> where
+  pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<H256, T::Out> where
     P: Tokens,
-    O: Into<Option<Options>>,
   {
-    let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()))
       .map(|data| {
@@ -108,11 +106,9 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Estimate gas required for this function call.
-  pub fn estimate_gas<P, O>(&self, func: &str, params: P, from: Address, options: O) -> QueryResult<U256, T::Out> where
+  pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<U256, T::Out> where
     P: Tokens,
-    O: Into<Option<Options>>,
   {
-    let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()))
       .map(|data| {
@@ -130,13 +126,11 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Call constant function
-  pub fn query<R, A, P, O>(&self, func: &str, params: P, from: A, options: O) -> QueryResult<R, T::Out> where
+  pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options) -> QueryResult<R, T::Out> where
     R: Output,
     A: Into<Option<Address>>,
     P: Tokens,
-    O: Into<Option<Options>>,
   {
-    let options = options.into().unwrap_or(Options::default());
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()).map(|call| (call, function)))
       .map(|(call, function)| {
@@ -179,7 +173,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), None, None).wait().unwrap()
+      token.query("name", (), None, Options::default()).wait().unwrap()
     };
 
     // then
@@ -225,7 +219,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.call("name", (), 5.into(), None).wait().unwrap()
+      token.call("name", (), 5.into(), Options::default()).wait().unwrap()
     };
 
     // then
@@ -246,7 +240,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.estimate_gas("name", (), 5.into(), None).wait().unwrap()
+      token.estimate_gas("name", (), 5.into(), Options::default()).wait().unwrap()
     };
 
     // then
@@ -268,7 +262,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("balanceOf", (Address::from(5)), None, None).wait().unwrap()
+      token.query("balanceOf", (Address::from(5)), None, Options::default()).wait().unwrap()
     };
 
     // then

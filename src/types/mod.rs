@@ -1,3 +1,5 @@
+//! Web3 Types
+
 #![cfg_attr(feature = "serde_derive", feature(proc_macro))]
 
 #[cfg(feature = "serde_derive")]
