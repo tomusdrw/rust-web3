@@ -11,6 +11,7 @@ authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 build = "build.rs"
 
 [dependencies]
+ethabi = "0.2"
 futures = "0.1"
 jsonrpc-core = "5.0"
 log = "0.3"

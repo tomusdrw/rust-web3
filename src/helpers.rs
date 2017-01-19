@@ -105,7 +105,7 @@ pub mod tests {
       *self.response.borrow_mut() = Some(value);
     }
 
-    pub fn assert_request(&mut self, method: &str, params: Vec<String>) {
+    pub fn assert_request(&mut self, method: &str, params: &[String]) {
       let idx = self.asserted;
       self.asserted += 1;
 
@@ -140,7 +140,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, $results.into_iter().map(Into::into).collect());
+        transport.assert_request($method, &$results.into_iter().map(Into::into).collect::<Vec<_>>());
         transport.assert_no_more_requests();
         assert_eq!(result.wait(), Ok($expected.into()));
       }
@@ -174,7 +174,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, vec![]);
+        transport.assert_request($method, &[]);
         transport.assert_no_more_requests();
         assert_eq!(result.wait(), Ok($expected.into()));
       }

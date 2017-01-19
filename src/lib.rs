@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+extern crate ethabi;
 extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
@@ -14,15 +15,15 @@ extern crate log;
 #[macro_use]
 pub extern crate futures;
 
-mod types;
-
 #[macro_use]
 mod helpers;
 
 use futures::Future;
 
 pub mod api;
+pub mod contract;
 pub mod transports;
+pub mod types;
 
 pub use api::{Web3Main as Web3, ErasedWeb3};
 

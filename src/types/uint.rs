@@ -45,7 +45,7 @@ macro_rules! impl_uint {
 
   ($name: ident, $len: expr, $strict: expr) => {
     /// Uint serialization.
-    pub struct $name([u8; $len]);
+    pub struct $name(pub [u8; $len]);
 
     impl Default for $name {
       fn default() -> Self {
