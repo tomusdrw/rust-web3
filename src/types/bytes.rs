@@ -3,7 +3,7 @@ use serde::de::Visitor;
 use rustc_serialize::hex::{FromHex, ToHex};
 
 /// Raw bytes wrapper
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bytes(pub Vec<u8>);
 
 impl Serialize for Bytes {

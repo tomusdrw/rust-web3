@@ -1,5 +1,89 @@
 use serde::{Serialize, Serializer};
-use types::H256;
+use types::{Bytes, Transaction, U256, H256, H160, H2048};
+
+/// Block transactions: either hashes or full transactions,
+/// based on flag in request.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum BlockTransactions {
+  /// Full transactions.
+  Full(Vec<Transaction>),
+  /// Transaction hashes.
+  Hashes(Vec<H256>),
+}
+
+impl BlockTransactions {
+  /// Convert to `Option<Vec<Transaction>>`. Some on `Full` variant, None otherwise.
+  pub fn full(self) -> Option<Vec<Transaction>> {
+    match self {
+      BlockTransactions::Full(txs) => Some(txs),
+      BlockTransactions::Hashes(_) => None,
+    }
+  }
+
+  /// Convert to `Option<Vec<Transaction>>`. Some on `Hashes` variant, None otherwise.
+  pub fn hashes(self) -> Option<Vec<H256>> {
+    match self {
+      BlockTransactions::Hashes(txs) => Some(txs),
+      BlockTransactions::Full(_) => None,
+    }
+  }
+}
+
+/// The block type returned from RPC calls.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Block {
+  /// Hash of the block
+	pub hash: Option<H256>,
+	/// Hash of the parent
+	#[serde(rename="parentHash")]
+	pub parent_hash: H256,
+	/// Hash of the uncles
+	#[serde(rename="sha3Uncles")]
+	pub uncles_hash: H256,
+	/// Authors address
+	pub author: H160,
+  /// Miner/author's address.
+  pub miner: H160,
+	/// State root hash
+	#[serde(rename="stateRoot")]
+	pub state_root: H256,
+	/// Transactions root hash
+	#[serde(rename="transactionsRoot")]
+	pub transactions_root: H256,
+	/// Transactions receipts root hash
+	#[serde(rename="receiptsRoot")]
+	pub receipts_root: H256,
+	/// Block number. Null if pending.
+	pub number: Option<u64>,
+	/// Gas Used
+	#[serde(rename="gasUsed")]
+	pub gas_used: U256,
+	/// Gas Limit
+	#[serde(rename="gasLimit")]
+	pub gas_limit: U256,
+	/// Extra data
+	#[serde(rename="extraData")]
+	pub extra_data: Bytes,
+	/// Logs bloom
+	#[serde(rename="logsBloom")]
+	pub logs_bloom: H2048,
+	/// Timestamp
+	pub timestamp: U256,
+	/// Difficulty
+	pub difficulty: U256,
+	/// Total difficulty
+	#[serde(rename="totalDifficulty")]
+	pub total_difficulty: U256,
+	/// Seal fields
+	#[serde(rename="sealFields")]
+	pub seal_fields: Vec<Bytes>,
+	/// Uncles' hashes
+	pub uncles: Vec<H256>,
+	/// Transactions
+	pub transactions: BlockTransactions,
+	/// Size in bytes
+	pub size: Option<U256>,
+}
 
 /// Block Number
 #[derive(Clone, Debug, PartialEq)]
