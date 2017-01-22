@@ -49,55 +49,55 @@ impl Deserialize for BlockTransactions {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Block {
   /// Hash of the block
-	pub hash: Option<H256>,
-	/// Hash of the parent
-	#[serde(rename="parentHash")]
-	pub parent_hash: H256,
-	/// Hash of the uncles
-	#[serde(rename="sha3Uncles")]
-	pub uncles_hash: H256,
+  pub hash: Option<H256>,
+  /// Hash of the parent
+  #[serde(rename="parentHash")]
+  pub parent_hash: H256,
+  /// Hash of the uncles
+  #[serde(rename="sha3Uncles")]
+  pub uncles_hash: H256,
   /// Miner/author's address.
   #[serde(rename="miner")]
   pub author: H160,
-	/// State root hash
-	#[serde(rename="stateRoot")]
-	pub state_root: H256,
-	/// Transactions root hash
-	#[serde(rename="transactionsRoot")]
-	pub transactions_root: H256,
-	/// Transactions receipts root hash
-	#[serde(rename="receiptsRoot")]
-	pub receipts_root: H256,
-	/// Block number. Null if pending.
-	pub number: Option<U64>,
-	/// Gas Used
-	#[serde(rename="gasUsed")]
-	pub gas_used: U256,
-	/// Gas Limit
-	#[serde(rename="gasLimit")]
-	pub gas_limit: U256,
-	/// Extra data
-	#[serde(rename="extraData")]
-	pub extra_data: Bytes,
-	/// Logs bloom
-	#[serde(rename="logsBloom")]
-	pub logs_bloom: H2048,
-	/// Timestamp
-	pub timestamp: U256,
-	/// Difficulty
-	pub difficulty: U256,
-	/// Total difficulty
-	#[serde(rename="totalDifficulty")]
-	pub total_difficulty: U256,
-	/// Seal fields
-	#[serde(rename="sealFields")]
-	pub seal_fields: Vec<Bytes>,
-	/// Uncles' hashes
-	pub uncles: Vec<H256>,
-	/// Transactions
-	pub transactions: BlockTransactions,
-	/// Size in bytes
-	pub size: Option<U256>,
+  /// State root hash
+  #[serde(rename="stateRoot")]
+  pub state_root: H256,
+  /// Transactions root hash
+  #[serde(rename="transactionsRoot")]
+  pub transactions_root: H256,
+  /// Transactions receipts root hash
+  #[serde(rename="receiptsRoot")]
+  pub receipts_root: H256,
+  /// Block number. Null if pending.
+  pub number: Option<U64>,
+  /// Gas Used
+  #[serde(rename="gasUsed")]
+  pub gas_used: U256,
+  /// Gas Limit
+  #[serde(rename="gasLimit")]
+  pub gas_limit: U256,
+  /// Extra data
+  #[serde(rename="extraData")]
+  pub extra_data: Bytes,
+  /// Logs bloom
+  #[serde(rename="logsBloom")]
+  pub logs_bloom: H2048,
+  /// Timestamp
+  pub timestamp: U256,
+  /// Difficulty
+  pub difficulty: U256,
+  /// Total difficulty
+  #[serde(rename="totalDifficulty")]
+  pub total_difficulty: U256,
+  /// Seal fields
+  #[serde(rename="sealFields")]
+  pub seal_fields: Vec<Bytes>,
+  /// Uncles' hashes
+  pub uncles: Vec<H256>,
+  /// Transactions
+  pub transactions: BlockTransactions,
+  /// Size in bytes
+  pub size: Option<U256>,
 }
 
 /// Block Number
@@ -120,14 +120,14 @@ impl From<u64> for BlockNumber {
 }
 
 impl Serialize for BlockNumber {
-	fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
-		match *self {
-			BlockNumber::Number(ref x) => serializer.serialize_str(&format!("0x{:x}", x)),
-			BlockNumber::Latest => serializer.serialize_str("latest"),
-			BlockNumber::Earliest => serializer.serialize_str("earliest"),
-			BlockNumber::Pending => serializer.serialize_str("pending"),
-		}
-	}
+  fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
+    match *self {
+      BlockNumber::Number(ref x) => serializer.serialize_str(&format!("0x{:x}", x)),
+      BlockNumber::Latest => serializer.serialize_str("latest"),
+      BlockNumber::Earliest => serializer.serialize_str("earliest"),
+      BlockNumber::Pending => serializer.serialize_str("pending"),
+    }
+  }
 }
 
 /// Block Identifier
@@ -140,12 +140,12 @@ pub enum BlockId {
 }
 
 impl Serialize for BlockId {
-	fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
-		match *self {
-			BlockId::Hash(ref x) => serializer.serialize_str(&format!("0x{}", x)),
-			BlockId::Number(ref num) => num.serialize(serializer),
-		}
-	}
+  fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
+    match *self {
+      BlockId::Hash(ref x) => serializer.serialize_str(&format!("0x{}", x)),
+      BlockId::Number(ref num) => num.serialize(serializer),
+    }
+  }
 }
 
 impl From<u64> for BlockId {
