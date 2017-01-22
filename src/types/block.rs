@@ -113,6 +113,12 @@ pub enum BlockNumber {
   Number(u64),
 }
 
+impl From<u64> for BlockNumber {
+  fn from(num: u64) -> Self {
+    BlockNumber::Number(num)
+  }
+}
+
 impl Serialize for BlockNumber {
 	fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
 		match *self {
@@ -140,6 +146,12 @@ impl Serialize for BlockId {
 			BlockId::Number(ref num) => num.serialize(serializer),
 		}
 	}
+}
+
+impl From<u64> for BlockId {
+  fn from(num: u64) -> Self {
+    BlockNumber::Number(num).into()
+  }
 }
 
 impl From<BlockNumber> for BlockId {
