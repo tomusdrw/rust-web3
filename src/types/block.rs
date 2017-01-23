@@ -68,7 +68,7 @@ pub struct Block {
   /// Transactions receipts root hash
   #[serde(rename="receiptsRoot")]
   pub receipts_root: H256,
-  /// Block number. Null if pending.
+  /// Block number. None if pending.
   pub number: Option<U64>,
   /// Gas Used
   #[serde(rename="gasUsed")]

@@ -7,18 +7,18 @@ pub struct Transaction {
   pub hash: H256,
   /// Nonce
   pub nonce: U256,
-  /// Block hash. Null when pending.
+  /// Block hash. None when pending.
   #[serde(rename="blockHash")]
   pub block_hash: Option<H256>,
-  /// Block number. Null when pending.
+  /// Block number. None when pending.
   #[serde(rename="blockNumber")]
   pub block_number: Option<U256>,
-  /// Transaction Index. Null when pending.
+  /// Transaction Index. None when pending.
   #[serde(rename="transactionIndex")]
   pub transaction_index: Option<Index>,
   /// Sender
   pub from: H160,
-  /// Recipient (null when contract creation)
+  /// Recipient (None when contract creation)
   pub to: Option<H160>,
   /// Transfered value
   pub value: U256,
@@ -27,7 +27,7 @@ pub struct Transaction {
   pub gas_price: U256,
   /// Gas amount
   pub gas: U256,
-  /// Inpur data
+  /// Input data
   pub input: Bytes,
 }
 
