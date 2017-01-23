@@ -6,7 +6,7 @@ mod transaction_id;
 mod transaction_request;
 mod uint;
 
-pub use self::block::{Block, BlockTransactions, BlockId, BlockNumber};
+pub use self::block::{Block, BlockId, BlockNumber};
 pub use self::bytes::Bytes;
 pub use self::log::Log;
 pub use self::transaction::{Transaction, Receipt as TransactionReceipt};

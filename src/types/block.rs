@@ -1,53 +1,10 @@
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use types::{Bytes, Transaction, U64, U256, H256, H160, H2048};
-
-/// Block transactions: either hashes or full transactions,
-/// based on flag in request.
-#[derive(Debug, Clone, PartialEq)]
-pub enum BlockTransactions {
-  /// Full transactions.
-  Full(Vec<Transaction>),
-  /// Transaction hashes.
-  Hashes(Vec<H256>),
-  /// No transactions.
-  None,
-}
-
-impl BlockTransactions {
-  /// Convert to `Option<Vec<Transaction>>`. Some on `Full` variant, None otherwise.
-  pub fn full(self) -> Option<Vec<Transaction>> {
-    match self {
-      BlockTransactions::Full(txs) => Some(txs),
-      _ => None,
-    }
-  }
-
-  /// Convert to `Option<Vec<Transaction>>`. Some on `Hashes` variant, None otherwise.
-  pub fn hashes(self) -> Option<Vec<H256>> {
-    match self {
-      BlockTransactions::Hashes(txs) => Some(txs),
-      _ => None,
-    }
-  }
-}
-
-impl Deserialize for BlockTransactions {
-  fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
-    where D: Deserializer
-  {
-    let res = Vec::<Transaction>::deserialize(deserializer).map(BlockTransactions::Full)
-      .or_else(|_| Vec::<H256>::deserialize(deserializer).map(BlockTransactions::Hashes));
-    match res {
-      Ok(BlockTransactions::Full(ref v)) if v.is_empty() => Ok(BlockTransactions::None),
-      Ok(BlockTransactions::Hashes(ref v)) if v.is_empty() => Ok(BlockTransactions::None),
-      other => other,
-    }
-  }
-}
+use serde::{Serialize, Serializer, Deserialize};
+use types::{Bytes, U64, U256, H256, H160, H2048};
 
 /// The block type returned from RPC calls.
+/// This is generic over a `TX` type.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct Block {
+pub struct Block<TX: Deserialize> {
   /// Hash of the block
   pub hash: Option<H256>,
   /// Hash of the parent
@@ -95,7 +52,7 @@ pub struct Block {
   /// Uncles' hashes
   pub uncles: Vec<H256>,
   /// Transactions
-  pub transactions: BlockTransactions,
+  pub transactions: Vec<TX>,
   /// Size in bytes
   pub size: Option<U256>,
 }

@@ -86,9 +86,9 @@ impl<T: Transport> Eth<T> {
     CallResult::new(self.transport.execute("eth_getBalance", vec![address, block]))
   }
 
-  /// Get block details
-  pub fn block(&self, block: BlockId, include_txs: bool) -> CallResult<Block, T::Out> {
-    let include_txs = helpers::serialize(&include_txs);
+  /// Get block details with transaction hashes.
+  pub fn block(&self, block: BlockId) -> CallResult<Block<H256>, T::Out> {
+    let include_txs = helpers::serialize(&false);
 
     let result = match block {
       BlockId::Hash(hash) => {
@@ -103,6 +103,25 @@ impl<T: Transport> Eth<T> {
 
     CallResult::new(result)
   }
+
+  /// Get block details with full transaction objects.
+  pub fn block_with_txs(&self, block: BlockId) -> CallResult<Block<Transaction>, T::Out> {
+    let include_txs = helpers::serialize(&true);
+
+    let result = match block {
+      BlockId::Hash(hash) => {
+        let hash = helpers::serialize(&hash);
+        self.transport.execute("eth_getBlockByHash", vec![hash, include_txs])
+      },
+      BlockId::Number(num) => {
+        let num = helpers::serialize(&num);
+        self.transport.execute("eth_getBlockByNumber", vec![num, include_txs])
+      },
+    };
+
+    CallResult::new(result)
+  }
+
 
   /// Get number of transactions in block
   pub fn block_transaction_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
@@ -179,8 +198,8 @@ impl<T: Transport> Eth<T> {
     CallResult::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
   }
 
-  /// Get uncle
-  pub fn uncle(&self, block: BlockId, index: Index) -> CallResult<Option<Block>, T::Out> {
+  /// Get uncle by block ID and uncle index -- transactions only has hashes.
+  pub fn uncle(&self, block: BlockId, index: Index) -> CallResult<Option<Block<H256>>, T::Out> {
     let index = helpers::serialize(&index);
 
     let result = match block {
@@ -291,7 +310,7 @@ mod tests {
   use api::Namespace;
   use types::{
     Block, BlockId, BlockNumber, Bytes,
-    CallRequest, Transaction, TransactionId,
+    CallRequest, H256, Transaction, TransactionId,
     TransactionReceipt, TransactionRequest,
   };
   use rpc::Value;
@@ -419,19 +438,27 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:block:block_by_hash, BlockId::Hash(0x123.into()), true
+    Eth:block:block_by_hash, BlockId::Hash(0x123.into())
     =>
-    "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"true"#];
+    "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"false"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => ::serde_json::from_str::<Block>(EXAMPLE_BLOCK).unwrap()
+    => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
   );
 
   rpc_test! (
-    Eth:block, BlockNumber::Pending, true
+    Eth:block, BlockNumber::Pending
+    =>
+    "eth_getBlockByNumber", vec![r#""pending""#, r#"false"#];
+    ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
+    => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
+  );
+
+  rpc_test! (
+    Eth:block_with_txs, BlockNumber::Pending
     =>
     "eth_getBlockByNumber", vec![r#""pending""#, r#"true"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => ::serde_json::from_str::<Block>(EXAMPLE_BLOCK).unwrap()
+    => ::serde_json::from_str::<Block<Transaction>>(EXAMPLE_BLOCK).unwrap()
   );
 
   rpc_test! (
@@ -520,7 +547,7 @@ mod tests {
     =>
     "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => Some(::serde_json::from_str::<Block>(EXAMPLE_BLOCK).unwrap())
+    => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
   );
 
   rpc_test! (
