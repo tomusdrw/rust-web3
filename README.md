@@ -30,7 +30,7 @@ For more see [examples folder](./examples).
 
 ## General
 - [ ] More flexible API (accept `Into<X>`)
-- [ ] Contract calls (ABI encoding; `debris/ethabi`)
+- [x] Contract calls (ABI encoding; `debris/ethabi`)
 - [ ] Batch Requests
 
 ## Transports
@@ -41,9 +41,9 @@ For more see [examples folder](./examples).
 ## Types
 - [x] Types for `U256,H256,Address(H160)`
 - [x] Index type (numeric, encoded to hex)
-- [ ] Transaction type (`Transaction` from Parity)
-- [ ] Transaction receipt type (`TransactionReceipt` from Parity)
-- [ ] Block type (`RichBlock` from Parity)
+- [x] Transaction type (`Transaction` from Parity)
+- [x] Transaction receipt type (`TransactionReceipt` from Parity)
+- [x] Block type (`RichBlock` from Parity)
 - [ ] Work type (`Work` from Parity)
 - [ ] Syncing type (`SyncStats` from Parity)
 
