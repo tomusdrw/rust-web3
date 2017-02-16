@@ -159,24 +159,28 @@ macro_rules! impl_uint {
     }
 
     impl serde::Serialize for $name {
-      fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: serde::Serializer {
+      fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
         serializer.serialize_str(&format!("0x{:x}", self))
       }
     }
 
     impl serde::Deserialize for $name {
-      fn deserialize<D>(deserializer: &mut D) -> Result<$name, D::Error>
+      fn deserialize<D>(deserializer: D) -> Result<$name, D::Error>
         where D: serde::Deserializer {
           struct UintVisitor;
 
           impl serde::de::Visitor for UintVisitor {
             type Value = $name;
 
-            fn visit_str<E>(&mut self, value: &str) -> Result<Self::Value, E> where E: serde::Error {
-              value.parse().map_err(|e| serde::Error::custom(format!("Invalid hex value: {:?}", e)))
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+              write!(formatter, "a 0x-prefixed hex-encoded number")
             }
 
-            fn visit_string<E>(&mut self, value: String) -> Result<Self::Value, E> where E: serde::Error {
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error {
+              value.parse().map_err(|e| E::custom(format!("Invalid hex value: {:?}", e)))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E> where E: serde::de::Error {
               self.visit_str(&value)
             }
           }

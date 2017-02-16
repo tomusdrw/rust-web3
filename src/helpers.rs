@@ -37,7 +37,7 @@ impl<T: serde::Deserialize, F> Future for CallResult<T, F>
 }
 
 pub fn serialize<T: serde::Serialize>(t: &T) -> rpc::Value {
-  serde_json::to_value(t)
+  serde_json::to_value(t).expect("Types never fail to serialize.")
 }
 
 pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String {

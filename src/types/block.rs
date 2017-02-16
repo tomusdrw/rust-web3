@@ -77,7 +77,7 @@ impl From<u64> for BlockNumber {
 }
 
 impl Serialize for BlockNumber {
-  fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
     match *self {
       BlockNumber::Number(ref x) => serializer.serialize_str(&format!("0x{:x}", x)),
       BlockNumber::Latest => serializer.serialize_str("latest"),
@@ -97,7 +97,7 @@ pub enum BlockId {
 }
 
 impl Serialize for BlockId {
-  fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
     match *self {
       BlockId::Hash(ref x) => serializer.serialize_str(&format!("0x{}", x)),
       BlockId::Number(ref num) => num.serialize(serializer),

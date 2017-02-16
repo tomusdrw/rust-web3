@@ -10,6 +10,8 @@ extern crate serde_json;
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate serde_derive;
 
 /// Re-export of the `futures` crate.
 #[macro_use]
