@@ -1,13 +1,24 @@
 //! Web3 Types
 
-#![cfg_attr(feature = "serde_derive", feature(proc_macro))]
+mod block;
+mod bytes;
+mod log;
+mod transaction;
+mod transaction_id;
+mod transaction_request;
+mod uint;
 
-#[cfg(feature = "serde_derive")]
-#[macro_use]
-extern crate serde_derive;
+pub use self::block::{Block, BlockId, BlockNumber};
+pub use self::bytes::Bytes;
+pub use self::log::Log;
+pub use self::transaction::{Transaction, Receipt as TransactionReceipt};
+pub use self::transaction_id::TransactionId;
+pub use self::transaction_request::{TransactionRequest, CallRequest};
+pub use self::uint::{H64, H128, H160, H256, H512, H2048, U64, U256};
 
-#[cfg(feature = "serde_derive")]
-include!("mod.in.rs");
-
-#[cfg(feature = "serde_codegen")]
-include!(concat!(env!("OUT_DIR"), "/types.rs"));
+/// Address
+pub type Address = H160;
+/// Index in block
+pub type Index = U64;
+/// TODO [ToDr] Work
+pub type Work = ();
