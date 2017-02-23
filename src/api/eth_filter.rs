@@ -57,7 +57,7 @@ pub struct FilterResult<T, F, X> {
 }
 
 impl<T, F, X> FilterResult<T, F, X> {
-  /// Create a new CallResult wrapping the inner future.
+  /// Create a new `FilterResult` wrapping the inner future.
   pub fn new(transport: T, inner: F) -> Self {
     FilterResult { transport: transport, inner: inner, _output: PhantomData }
   }
