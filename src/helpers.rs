@@ -77,6 +77,7 @@ pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
 pub mod tests {
   use serde_json;
   use std::cell::RefCell;
+  use std::collections::VecDeque;
   use futures::{self, Future};
   use rpc;
   use {Result, Error, Transport};
@@ -85,7 +86,7 @@ pub mod tests {
   pub struct TestTransport {
     asserted: usize,
     requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
-    response: RefCell<Option<rpc::Value>>,
+    response: RefCell<VecDeque<rpc::Value>>,
   }
 
   impl Transport for TestTransport {
@@ -93,7 +94,7 @@ pub mod tests {
 
     fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Result<rpc::Value> {
       self.requests.borrow_mut().push((method.into(), params));
-      match self.response.borrow_mut().take() {
+      match self.response.borrow_mut().pop_front() {
         Some(response) => futures::finished(response).boxed(),
         None => futures::failed(Error::Unreachable).boxed(),
       }
@@ -102,7 +103,11 @@ pub mod tests {
 
   impl TestTransport {
     pub fn set_response(&mut self, value: rpc::Value) {
-      *self.response.borrow_mut() = Some(value);
+      *self.response.borrow_mut() = vec![value].into();
+    }
+
+    pub fn add_response(&mut self, value: rpc::Value) {
+      self.response.borrow_mut().push_back(value);
     }
 
     pub fn assert_request(&mut self, method: &str, params: &[String]) {
@@ -156,13 +161,13 @@ pub mod tests {
       );
     };
 
-    // No params entry point
+    // No params entry point (explicit name)
     (
-      $namespace: ident: $name: ident => $method: expr;
+      $namespace: ident: $name: ident: $test_name: ident => $method: expr;
       $returned: expr => $expected: expr
     ) => {
       #[test]
-      fn $name() {
+      fn $test_name() {
         // given
         let mut transport = $crate::helpers::tests::TestTransport::default();
         transport.set_response($returned);
@@ -178,6 +183,17 @@ pub mod tests {
         transport.assert_no_more_requests();
         assert_eq!(result.wait(), Ok($expected.into()));
       }
+    };
+
+    // No params entry point
+    (
+      $namespace: ident: $name: ident => $method: expr;
+      $returned: expr => $expected: expr
+    ) => {
+      rpc_test! (
+        $namespace: $name: $name => $method;
+        $returned => $expected
+      );
     }
   }
 }
