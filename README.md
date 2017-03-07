@@ -44,12 +44,12 @@ For more see [examples folder](./examples).
 - [x] Transaction type (`Transaction` from Parity)
 - [x] Transaction receipt type (`TransactionReceipt` from Parity)
 - [x] Block type (`RichBlock` from Parity)
-- [ ] Work type (`Work` from Parity)
+- [x] Work type (`Work` from Parity)
 - [ ] Syncing type (`SyncStats` from Parity)
 
 ## APIs
 - [x] Eth: `eth_*`
-- [ ] Eth filters: `eth_*`
+- [x] Eth filters: `eth_*`
 - [x] `net_*`
 - [x] `web3_*`
 - [ ] `personal_*`

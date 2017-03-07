@@ -312,6 +312,7 @@ mod tests {
     Block, BlockId, BlockNumber, Bytes,
     CallRequest, H256, Transaction, TransactionId,
     TransactionReceipt, TransactionRequest,
+    Work,
   };
   use rpc::Value;
 
@@ -572,8 +573,32 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:work => "eth_getWork";
-    Value::Null => ()
+    Eth:work:work_3 => "eth_getWork";
+    Value::Array(vec![
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
+    ]) => Work {
+      pow_hash: 0x123.into(),
+      seed_hash: 0x456.into(),
+      target: 0x789.into(),
+      number: None,
+    }
+  );
+
+  rpc_test! (
+    Eth:work:work_4 => "eth_getWork";
+    Value::Array(vec![
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
+      Value::Number(5.into()),
+    ]) => Work {
+      pow_hash: 0x123.into(),
+      seed_hash: 0x456.into(),
+      target: 0x789.into(),
+      number: Some(5),
+    }
   );
 
   rpc_test! (
