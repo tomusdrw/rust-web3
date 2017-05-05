@@ -93,6 +93,16 @@ macro_rules! impl_uint {
       }
     }
 
+    impl<'a> From<&'a [u8]> for $name {
+      fn from(num: &'a [u8]) -> Self {
+        let mut arr = [0; $len];
+        for i in 0..::std::cmp::min(num.len(), $len) {
+          arr[$len - 1 - i] = num[num.len() - 1 - i]
+        }
+        $name(arr)
+      }
+    }
+
     impl FromStr for $name {
       type Err = FromStrError;
 
