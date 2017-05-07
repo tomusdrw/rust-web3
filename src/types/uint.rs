@@ -116,11 +116,10 @@ macro_rules! impl_uint {
     }
 
     impl<'a> From<&'a [u8]> for $name {
-      fn from(num: &'a [u8]) -> Self {
+      fn from(x: &'a [u8]) -> Self {
         let mut arr = [0; $len];
-        for i in 0..cmp::min(num.len(), $len) {
-          arr[$len - 1 - i] = num[num.len() - 1 - i]
-        }
+        let len = cmp::min(x.len(), $len);
+        arr[$len - len .. ].copy_from_slice(&x[x.len() - $len .. ]);
         $name(arr)
       }
     }
