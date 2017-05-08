@@ -1,6 +1,6 @@
 //! HTTP Transport
 
-extern crate reqwest;
+extern crate hyper;
 
 use std::io::{self, Read};
 use std::sync::Arc;
@@ -11,8 +11,8 @@ use helpers;
 use rpc;
 use {Transport, Error as RpcError};
 
-impl From<reqwest::Error> for RpcError {
-  fn from(err: reqwest::Error) -> Self {
+impl From<hyper::Error> for RpcError {
+  fn from(err: hyper::Error) -> Self {
     RpcError::Transport(format!("{:?}", err))
   }
 }
@@ -26,15 +26,17 @@ impl From<io::Error> for RpcError {
 /// HTTP Transport (synchronous)
 pub struct Http {
   id: AtomicUsize,
-  client: Arc<reqwest::Client>,
+  client: Arc<hyper::Client>,
   url: String,
 }
 
 impl Http {
   /// Create new HTTP transport with given URL
-  pub fn new(url: &str) -> Result<Self, reqwest::Error> {
-    let mut client = reqwest::Client::new()?;
-		client.redirect(reqwest::RedirectPolicy::limited(1));
+  pub fn new(url: &str) -> Result<Self, hyper::Error> {
+    let mut client = hyper::Client::with_pool_config(hyper::client::pool::Config {
+      max_idle: 1024,
+    });
+    client.set_redirect_policy(hyper::client::RedirectPolicy::FollowAll);
 
     Ok(Http {
       id: Default::default(),
@@ -66,7 +68,7 @@ impl Transport for Http {
 pub struct FetchTask {
   id: usize,
   url: String,
-  client: Arc<reqwest::Client>,
+  client: Arc<hyper::Client>,
   request: String,
 }
 
@@ -78,8 +80,8 @@ impl Future for FetchTask {
     trace!("[{}] Starting fetch task.", self.id);
     let mut result = self.client.post(&self.url)
       .body(self.request.as_str())
-      .header(reqwest::header::ContentType::json())
-      .header(reqwest::header::UserAgent("web3.rs".into()))
+      .header(hyper::header::ContentType::json())
+      .header(hyper::header::UserAgent("web3.rs".into()))
       .send()?;
 
     trace!("[{}] Finished fetch.", self.id);
