@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::fmt;
+use std::{cmp, fmt};
 use serde;
 
 const PREFIX: usize = 2;
@@ -66,6 +66,28 @@ macro_rules! impl_uint {
       }
     }
 
+    impl Ord for $name {
+      fn cmp(&self, other: &Self) -> cmp::Ordering {
+        for i in 0..$len {
+          if self.0[i] < other.0[i] {
+            return cmp::Ordering::Less;
+          }
+
+          if self.0[i] > other.0[i] {
+            return cmp::Ordering::Greater;
+          }
+        }
+
+        cmp::Ordering::Equal
+      }
+    }
+
+    impl PartialOrd for $name {
+      fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+      }
+    }
+
     impl Copy for $name {}
 
     impl Clone for $name {
@@ -89,6 +111,15 @@ macro_rules! impl_uint {
           arr[$len - 1 - i] =  num as u8;
           num = num >> 8;
         }
+        $name(arr)
+      }
+    }
+
+    impl<'a> From<&'a [u8]> for $name {
+      fn from(x: &'a [u8]) -> Self {
+        let mut arr = [0; $len];
+        let len = cmp::min(x.len(), $len);
+        arr[$len - len .. ].copy_from_slice(&x[x.len() - $len .. ]);
         $name(arr)
       }
     }
@@ -209,14 +240,36 @@ mod tests {
   type Res = Result<U256, serde_json::Error>;
 
   #[test]
-  fn should_display_correctly() {
-    let mut arr = [0; 32];
+  fn should_compare_correctly() {
+    let mut arr = [0u8; 32];
     arr[31] = 0;
     arr[30] = 15;
     arr[29] = 1;
     arr[28] = 0;
     arr[27] = 10;
-    let a = U256(arr);
+    let a = U256::from(arr.as_ref());
+    arr[27] = 9;
+    let b = U256::from(arr.as_ref());
+    let c = U256::from(0);
+    let d = U256::from(10_000);
+
+    assert!(b < a);
+    assert!(d < a);
+    assert!(d < b);
+    assert!(c < a);
+    assert!(c < b);
+    assert!(c < d);
+  }
+
+  #[test]
+  fn should_display_correctly() {
+    let mut arr = [0u8; 32];
+    arr[31] = 0;
+    arr[30] = 15;
+    arr[29] = 1;
+    arr[28] = 0;
+    arr[27] = 10;
+    let a = U256::from(arr.as_ref());
     let b = U256::from(1023);
     let c = U256::from(0);
     let d = U256::from(10000);

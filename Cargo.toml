@@ -19,10 +19,10 @@ serde = "0.9"
 serde_json = "0.9"
 serde_derive = "0.9"
 # Optional deps
-reqwest = { version = "0.2", optional = true }
+reqwest = { version = "0.5", optional = true }
 tokio-core = { version = "0.1", optional = true }
 tokio-uds = { version = "0.1", optional = true }
-parking_lot = { version = "0.3", optional = true }
+parking_lot = { version = "0.4", optional = true }
 
 [dev-dependencies]
 # For examples
