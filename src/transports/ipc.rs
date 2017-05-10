@@ -38,7 +38,15 @@ macro_rules! try_nb {
 /// NOTE: Event loop is stopped when handle is dropped!
 pub struct EventLoopHandle {
   thread: Option<thread::JoinHandle<()>>,
+  remote: reactor::Remote,
   done: Arc<atomic::AtomicBool>,
+}
+
+impl EventLoopHandle {
+  /// Returns event loop remote.
+  pub fn remote(&self) -> &reactor::Remote {
+    &self.remote
+  }
 }
 
 impl Drop for EventLoopHandle {
@@ -129,7 +137,7 @@ impl Ipc {
       match res {
         Err(e) => send(Err(e)),
         Ok((ipc, mut event_loop)) => {
-          send(Ok(ipc));
+          send(Ok((ipc, event_loop.remote())));
 
           while !done2.load(atomic::Ordering::Relaxed) {
             event_loop.turn(None);
@@ -140,8 +148,8 @@ impl Ipc {
 
     rx.recv()
       .expect("Thread is always spawned.")
-      .map(|ipc| (
-        EventLoopHandle { thread: Some(eloop), done: done },
+      .map(|(ipc, remote)| (
+        EventLoopHandle { thread: Some(eloop), remote: remote, done: done },
         ipc,
       ))
   }
