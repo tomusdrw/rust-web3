@@ -38,7 +38,15 @@ macro_rules! try_nb {
 /// NOTE: Event loop is stopped when handle is dropped!
 pub struct EventLoopHandle {
   thread: Option<thread::JoinHandle<()>>,
+  remote: reactor::Remote,
   done: Arc<atomic::AtomicBool>,
+}
+
+impl EventLoopHandle {
+  /// Returns event loop remote.
+  pub fn remote(&self) -> &reactor::Remote {
+    &self.remote
+  }
 }
 
 impl Drop for EventLoopHandle {
@@ -129,7 +137,7 @@ impl Ipc {
       match res {
         Err(e) => send(Err(e)),
         Ok((ipc, mut event_loop)) => {
-          send(Ok(ipc));
+          send(Ok((ipc, event_loop.remote())));
 
           while !done2.load(atomic::Ordering::Relaxed) {
             event_loop.turn(None);
@@ -140,8 +148,8 @@ impl Ipc {
 
     rx.recv()
       .expect("Thread is always spawned.")
-      .map(|ipc| (
-        EventLoopHandle { thread: Some(eloop), done: done },
+      .map(|(ipc, remote)| (
+        EventLoopHandle { thread: Some(eloop), remote: remote, done: done },
         ipc,
       ))
   }
@@ -297,16 +305,24 @@ impl Future for ReadStream {
         return Ok(futures::Async::NotReady);
       }
 
-      let min = self.current_pos;
+      let mut min = self.current_pos;
       self.current_pos += read;
-      if let Some((output, len)) = Self::extract_response(&self.buffer[0..self.current_pos], min) {
+      while let Some((output, len)) = Self::extract_response(&self.buffer[0..self.current_pos], min) {
+        // Respond
+        self.respond(output);
+
         // copy rest of buffer to the beginning
         for i in len..self.current_pos {
           self.buffer.swap(i, i - len);
         }
-        self.buffer.truncate(self.current_pos - len + new_write_size);
-        self.current_pos = 0;
-        self.respond(output);
+
+        // truncate the buffer
+        let new_len = self.current_pos - len;
+        self.buffer.truncate(new_len + new_write_size);
+
+        // Set new positions
+        self.current_pos = new_len;
+        min = 0;
       }
     }
   }
@@ -336,7 +352,8 @@ impl ReadStream {
       // Look for end character
       if buf[pos] == b']' || buf[pos] == b'}' {
         // Try to deserialize
-        match helpers::to_response_from_slice(&buf[0..pos + 1]) {
+        let pos = pos + 1;
+        match helpers::to_response_from_slice(&buf[0..pos]) {
           Ok(rpc::Response::Single(output)) => return Some((output, pos)),
           Ok(rpc::Response::Batch(_)) => panic!("Unsupported batch response"),
           // just continue
@@ -400,5 +417,51 @@ mod tests {
 
     // then
     assert_eq!(eloop.run(res), Ok(rpc::Value::String("x".into())));
+  }
+
+  #[test]
+  fn should_handle_double_response() {
+    // given
+    let mut eloop = tokio_core::reactor::Core::new().unwrap();
+    let handle = eloop.handle();
+    let (server, client) = tokio_uds::UnixStream::pair(&handle).unwrap();
+    let ipc = Ipc::with_stream(client, &handle).unwrap();
+
+    eloop.remote().spawn(move |_| {
+      struct Task {
+        server: tokio_uds::UnixStream,
+      }
+
+      impl Future for Task {
+        type Item = ();
+        type Error = ();
+        fn poll(&mut self) -> futures::Poll<(), ()> {
+          let mut data = [0; 2048];
+          // Read request
+          let read = self.server.read(&mut data).unwrap();
+          let request = String::from_utf8(data[0..read].to_vec()).unwrap();
+          assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":2}"#);
+
+          // Write response
+          let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}{"jsonrpc":"2.0","id":2,"result":"x"}"#;
+          self.server.write_all(response.as_bytes()).unwrap();
+          self.server.flush().unwrap();
+
+          Ok(futures::Async::Ready(()))
+        }
+      }
+
+      Task { server: server }
+    });
+
+    // when
+    let res1 = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
+    let res2 = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
+
+    // then
+    assert_eq!(eloop.run(res1.join(res2)), Ok((
+      rpc::Value::String("x".into()),
+      rpc::Value::String("x".into())
+    )));
   }
 }
