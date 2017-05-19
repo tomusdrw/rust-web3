@@ -18,7 +18,7 @@ extern crate serde_derive;
 pub extern crate futures;
 
 #[macro_use]
-mod helpers;
+pub mod helpers;
 
 use futures::Future;
 
