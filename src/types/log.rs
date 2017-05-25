@@ -1,27 +1,35 @@
-use types::{BlockNumber, Bytes, U256, H160, H256, Index};
+use types::{BlockNumber, Bytes, U256, H160, H256};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Log {
-  /// Log index in block.
-  #[serde(rename="logIndex")]
-  pub log_index: Index,
-  /// Block number this log occurred in.
-  #[serde(rename="blockNumber")]
-  pub block_number: U256,
-  /// Hash of block this log occurred in.
-  #[serde(rename="blockHash")]
-  pub block_hash: H256,
-  /// Transaction this log occurred in.
-  #[serde(rename="transactionHash")]
-  pub transaction_hash: H256,
-  /// Index of this log within the transaction.
-  #[serde(rename="transactionIndex")]
-  pub transaction_index: Index,
-  /// Log data.
-  pub data: Bytes,
-  /// List of topics this log contains.
+  /// H160
+  pub address: H160,
+  /// Topics
   pub topics: Vec<H256>,
+  /// Data
+  pub data: Bytes,
+  /// Block Hash
+  #[serde(rename="blockHash")]
+  pub block_hash: Option<H256>,
+  /// Block Number
+  #[serde(rename="blockNumber")]
+  pub block_number: Option<U256>,
+  /// Transaction Hash
+  #[serde(rename="transactionHash")]
+  pub transaction_hash: Option<H256>,
+  /// Transaction Index
+  #[serde(rename="transactionIndex")]
+  pub transaction_index: Option<U256>,
+  /// Log Index in Block
+  #[serde(rename="logIndex")]
+  pub log_index: Option<U256>,
+  /// Log Index in Transaction
+  #[serde(rename="transactionLogIndex")]
+  pub transaction_log_index: Option<U256>,
+  /// Log Type
+  #[serde(rename="type")]
+  pub log_type: String,
 }
 
 /// Filter
