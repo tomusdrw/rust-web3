@@ -1,11 +1,10 @@
-use serde::{Serialize, Serializer, Deserialize};
-use serde::de::DeserializeOwned;
+use serde::{Serialize, Serializer};
 use types::{Bytes, U64, U256, H256, H160, H2048};
 
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct Block<TX: DeserializeOwned> {
+pub struct Block<TX> {
   /// Hash of the block
   pub hash: Option<H256>,
   /// Hash of the parent
@@ -53,7 +52,6 @@ pub struct Block<TX: DeserializeOwned> {
   /// Uncles' hashes
   pub uncles: Vec<H256>,
   /// Transactions
-  #[serde(deserialize_with = "Deserialize::deserialize")]
   pub transactions: Vec<TX>,
   /// Size in bytes
   pub size: Option<U256>,
