@@ -63,7 +63,7 @@ impl<T, F> QueryResult<T, F> where
   }
 }
 
-impl<T: Output + serde::Deserialize, F> Future for QueryResult<T, F> where
+impl<T: Output + serde::de::DeserializeOwned, F> Future for QueryResult<T, F> where
   F: Future<Item=rpc::Value, Error=ApiError>,
 {
   type Item = T;
