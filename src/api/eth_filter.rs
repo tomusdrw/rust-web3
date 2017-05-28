@@ -241,13 +241,16 @@ mod tests {
   fn logs_filter_get_logs() {
     // given
     let log = Log {
-      log_index: 0.into(),
-      block_number: 1.into(),
-      block_hash: 2.into(),
-      transaction_hash: 3.into(),
-      transaction_index: 0.into(),
-      data: Bytes(vec![]),
+      address: 1.into(),
       topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: "mined".to_owned(),
     };
 
     let mut transport = TestTransport::default();
@@ -279,13 +282,16 @@ mod tests {
   fn logs_filter_poll() {
     // given
     let log = Log {
-      log_index: 0.into(),
-      block_number: 1.into(),
-      block_hash: 2.into(),
-      transaction_hash: 3.into(),
-      transaction_index: 0.into(),
-      data: Bytes(vec![]),
+      address: 1.into(),
       topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: "mined".to_owned(),
     };
 
     let mut transport = TestTransport::default();
