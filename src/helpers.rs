@@ -1,4 +1,4 @@
-///! Web3 helpers.
+//! Web3 helpers.
 
 use std::marker::PhantomData;
 

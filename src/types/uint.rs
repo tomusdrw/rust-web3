@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::{cmp, fmt};
+use std::{cmp, fmt, ops};
 use serde;
 
 const PREFIX: usize = 2;
@@ -46,6 +46,13 @@ macro_rules! impl_uint {
   ($name: ident, $len: expr, $strict: expr) => {
     /// Uint serialization.
     pub struct $name(pub [u8; $len]);
+
+    impl ops::Deref for $name {
+      type Target = [u8];
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
 
     impl Default for $name {
       fn default() -> Self {
