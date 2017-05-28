@@ -1,9 +1,9 @@
 //! `Web3` implementation
 
-pub mod eth;
-pub mod eth_filter;
-pub mod net;
-pub mod web3;
+mod eth;
+mod eth_filter;
+mod net;
+mod web3;
 
 pub use self::eth::Eth;
 pub use self::eth_filter::{EthFilter, LogsFilter, BlocksFilter, PendingTransactionsFilter};
