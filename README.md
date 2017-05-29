@@ -52,7 +52,7 @@ For more see [examples folder](./examples).
 - [x] Eth filters: `eth_*`
 - [x] `net_*`
 - [x] `web3_*`
-- [ ] `personal_*`
+- [x] `personal_*`
 - [ ] `traces_*`
 
 ### Parity-specific APIs
