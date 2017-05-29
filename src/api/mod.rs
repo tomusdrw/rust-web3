@@ -3,11 +3,13 @@
 mod eth;
 mod eth_filter;
 mod net;
+mod personal;
 mod web3;
 
 pub use self::eth::Eth;
 pub use self::eth_filter::{EthFilter, LogsFilter, BlocksFilter, PendingTransactionsFilter};
 pub use self::net::Net;
+pub use self::personal::Personal;
 pub use self::web3::Web3;
 
 use {Transport};
@@ -58,6 +60,11 @@ impl<T: Transport> Web3Main<T> {
 
   /// Access filter methods from `eth` namespace
   pub fn eth_filter(&self) -> eth_filter::EthFilter<&T> {
+    self.api()
+  }
+
+  /// Access methods from `personal` namespace
+  pub fn personal(&self) -> personal::Personal<&T> {
     self.api()
   }
 }
