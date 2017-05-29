@@ -23,7 +23,7 @@ impl<T, F> CallResult<T, F> {
   }
 }
 
-impl<T: serde::Deserialize, F> Future for CallResult<T, F>
+impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F>
   where F: Future<Item=rpc::Value, Error=Error>
 {
   type Item = T;
