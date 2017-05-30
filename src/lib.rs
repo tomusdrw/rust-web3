@@ -18,7 +18,7 @@ extern crate serde_derive;
 pub extern crate futures;
 
 #[macro_use]
-mod helpers;
+pub mod helpers;
 
 use futures::Future;
 
@@ -78,7 +78,7 @@ pub trait Transport {
 struct Eraser<T: Transport>(T);
 
 impl<T: Transport> Transport for Eraser<T>
-  where T::Out: Send + 'static
+  where T::Out: Send + 'static,
 {
   type Out = Result<rpc::Value>;
 
@@ -98,10 +98,39 @@ impl Transport for Erased {
   }
 }
 
-impl<'a, T: 'a + ?Sized> Transport for &'a T where T: Transport {
+impl<X, T> Transport for X where
+  T: Transport + ?Sized,
+  X: ::std::ops::Deref<Target=T>,
+{
   type Out = T::Out;
 
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> T::Out {
-    (&**self).execute(method, params)
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
+    (**self).execute(method, params)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::sync::Arc;
+  use api::Web3Main;
+  use futures::BoxFuture;
+  use super::{rpc, Error, Transport};
+
+  struct FakeTransport;
+  impl Transport for FakeTransport {
+    type Out = BoxFuture<rpc::Value, Error>;
+
+    fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
+      unimplemented!()
+    }
+  }
+
+  #[test]
+  fn should_allow_to_use_arc_as_transport() {
+    let transport = Arc::new(FakeTransport);
+    let transport2 = transport.clone();
+
+    let _web3_1 = Web3Main::new(transport);
+    let _web3_2 = Web3Main::new(transport2);
   }
 }

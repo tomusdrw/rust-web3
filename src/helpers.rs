@@ -1,3 +1,5 @@
+//! Web3 helpers.
+
 use std::marker::PhantomData;
 
 use rpc;
@@ -36,10 +38,12 @@ impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F>
   }
 }
 
+/// Serialize a type. Panics if the type is returns error during serialization.
 pub fn serialize<T: serde::Serialize>(t: &T) -> rpc::Value {
   serde_json::to_value(t).expect("Types never fail to serialize.")
 }
 
+/// Build a JSON-RPC request.
 pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String {
   let request = rpc::Request::Single(rpc::Call::MethodCall(rpc::MethodCall {
     jsonrpc: Some(rpc::Version::V2),
@@ -50,11 +54,13 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String
   serde_json::to_string(&request).expect("String serialization never fails.")
 }
 
+/// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
   serde_json::from_slice(response)
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
 }
 
+/// Parse `rpc::Output` into `Result`.
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
   match output {
     rpc::Output::Success(success) => Ok(success.result),
@@ -62,6 +68,7 @@ pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
   }
 }
 
+/// Parse string-encoded RPC response into `Result`.
 pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
   let response = serde_json::from_str(response)
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
