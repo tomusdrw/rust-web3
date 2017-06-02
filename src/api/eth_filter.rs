@@ -36,7 +36,7 @@ impl<T: Transport + Clone> EthFilter<T> {
   pub fn new_blocks_filter(&self) -> FilterResult<T, CallResult<U256, T::Out>, BlocksFilter<T>> {
     FilterResult::new(
       self.transport.clone(),
-      CallResult::new(self.transport.execute("eth_newFilter", vec![]))
+      CallResult::new(self.transport.execute("eth_newBlockFilter", vec![]))
     )
   }
 
@@ -44,7 +44,7 @@ impl<T: Transport + Clone> EthFilter<T> {
   pub fn new_pending_transactions_filter(&self) -> FilterResult<T, CallResult<U256, T::Out>, PendingTransactionsFilter<T>> {
     FilterResult::new(
       self.transport.clone(),
-      CallResult::new(self.transport.execute("eth_newFilter", vec![]))
+      CallResult::new(self.transport.execute("eth_newPendingTransactionFilter", vec![]))
     )
   }
 }
@@ -333,7 +333,7 @@ mod tests {
     };
 
     // then
-    transport.assert_request("eth_newFilter", &[]);
+    transport.assert_request("eth_newBlockFilter", &[]);
     transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
@@ -357,7 +357,7 @@ mod tests {
 
     // then
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
-    transport.assert_request("eth_newFilter", &[]);
+    transport.assert_request("eth_newBlockFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
@@ -377,7 +377,7 @@ mod tests {
     };
 
     // then
-    transport.assert_request("eth_newFilter", &[]);
+    transport.assert_request("eth_newPendingTransactionFilter", &[]);
     transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
@@ -394,14 +394,14 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_blocks_filter().wait().unwrap();
+      let filter = eth.new_pending_transactions_filter().wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
       filter.poll().wait()
     };
 
     // then
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
-    transport.assert_request("eth_newFilter", &[]);
+    transport.assert_request("eth_newPendingTransactionFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
