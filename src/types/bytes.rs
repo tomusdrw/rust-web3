@@ -7,6 +7,12 @@ use rustc_serialize::hex::{FromHex, ToHex};
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bytes(pub Vec<u8>);
 
+impl<T: Into<Vec<u8>>> From<T> for Bytes {
+  fn from(data: T) -> Self {
+    Bytes(data.into())
+  }
+}
+
 impl Serialize for Bytes {
   fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
