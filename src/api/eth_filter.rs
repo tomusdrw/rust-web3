@@ -1,10 +1,14 @@
 //! `Eth` namespace, filters.
 
+
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::time::Duration;
+use serde::de::DeserializeOwned;
+use tokio_timer::Timer;
+use futures::{Async, Poll, Future, Stream, stream};
 
 use api::Namespace;
-use futures::{Async, Poll, Future};
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error};
@@ -101,6 +105,20 @@ impl<T: Transport, R> BaseFilter<T, R> {
   pub fn poll(&self) -> CallResult<Option<Vec<R>>, T::Out> {
     let id = helpers::serialize(&self.id);
     CallResult::new(self.transport.execute("eth_getFilterChanges", vec![id]))
+  }
+
+  pub fn stream<'a>(&'a self, poll_interval: Duration) -> Box<Stream<Item = R, Error = Error> + 'a> where
+    T: Sync,
+    R: DeserializeOwned + Send + Sync + 'static,
+    T::Out: Send + 'static,
+  {
+    let result = Timer::default().interval(poll_interval)
+      .map_err(|_| Error::Unreachable)
+      .then(move |_| self.poll().map(|optional| optional.unwrap_or_else(Default::default)))
+      .map(|res| res.into_iter().map(Ok).collect::<Vec<Result<_, Error>>>())
+      .map(stream::iter)
+      .flatten();
+    Box::new(result)
   }
 
   /// Uninstalls the filter
@@ -205,13 +223,14 @@ impl<T: Transport> Deref for PendingTransactionsFilter<T> {
 
 #[cfg(test)]
 mod tests {
-  use futures::Future;
+  use std::time::Duration;
+  use futures::{Future, Stream};
+  use serde_json;
+  use rpc::Value;
 
   use api::Namespace;
   use helpers::tests::TestTransport;
   use types::{Bytes, Log, FilterBuilder};
-  use rpc::Value;
-  use serde_json;
 
   use super::EthFilter;
 
@@ -361,6 +380,40 @@ mod tests {
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
+  }
+
+  #[test]
+  fn blocks_filter_stream() {
+    // given
+    let mut transport = TestTransport::default();
+    transport.set_response(Value::String("0x123".into()));
+    transport.add_response(Value::Array(vec![
+      Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
+    ]));
+    transport.add_response(Value::Array(vec![
+      Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()),
+      Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()),
+    ]));
+    transport.add_response(Value::Array(vec![
+      Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()),
+    ]));
+    let result = {
+      let eth = EthFilter::new(&transport);
+
+      // when
+      let filter = eth.new_blocks_filter().wait().unwrap();
+      assert_eq!(filter.id, 0x123.into());
+      let result = filter.stream(Duration::from_secs(0)).take(4).collect().wait();
+      result
+    };
+
+    // then
+    assert_eq!(result, Ok(vec![0x456.into(), 0x457.into(), 0x458.into(), 0x459.into()]));
+    transport.assert_request("eth_newBlockFilter", &[]);
+    transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
+    transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
+    transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
+    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
   }
 
   #[test]

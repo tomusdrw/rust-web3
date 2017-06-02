@@ -255,7 +255,7 @@ impl Future for WriteStream {
           }
         },
         WriteState::Writing { ref buffer, ref mut current_pos } => {
-          try_ready!(Ok(self.write.poll_write()));
+          try_ready!(Ok(self.write.poll_write()) as Result<_, ()>);
 
           // Write everything in the buffer
           while *current_pos < buffer.len() {
@@ -291,7 +291,7 @@ impl Future for ReadStream {
     let mut new_write_size = 128;
     loop {
       // Read pending responses
-      try_ready!(Ok(self.read.poll_read()));
+      try_ready!(Ok(self.read.poll_read()) as Result<_, ()>);
 
       if self.current_pos == self.buffer.len() {
         if new_write_size < DEFAULT_BUF_SIZE {

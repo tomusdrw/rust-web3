@@ -78,6 +78,7 @@ pub mod tests {
   use serde_json;
   use std::cell::RefCell;
   use std::collections::VecDeque;
+  use parking_lot::RwLock;
   use futures::{self, Future};
   use rpc;
   use {Result, Error, Transport};
@@ -85,16 +86,16 @@ pub mod tests {
   #[derive(Default)]
   pub struct TestTransport {
     asserted: usize,
-    requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
-    response: RefCell<VecDeque<rpc::Value>>,
+    requests: RwLock<Vec<(String, Vec<rpc::Value>)>>,
+    response: RwLock<VecDeque<rpc::Value>>,
   }
 
   impl Transport for TestTransport {
     type Out = Result<rpc::Value>;
 
     fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Result<rpc::Value> {
-      self.requests.borrow_mut().push((method.into(), params));
-      match self.response.borrow_mut().pop_front() {
+      self.requests.write().push((method.into(), params));
+      match self.response.write().pop_front() {
         Some(response) => futures::finished(response).boxed(),
         None => futures::failed(Error::Unreachable).boxed(),
       }
@@ -103,25 +104,25 @@ pub mod tests {
 
   impl TestTransport {
     pub fn set_response(&mut self, value: rpc::Value) {
-      *self.response.borrow_mut() = vec![value].into();
+      *self.response.write() = vec![value].into();
     }
 
     pub fn add_response(&mut self, value: rpc::Value) {
-      self.response.borrow_mut().push_back(value);
+      self.response.write().push_back(value);
     }
 
     pub fn assert_request(&mut self, method: &str, params: &[String]) {
       let idx = self.asserted;
       self.asserted += 1;
 
-      let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
+      let (m, p) = self.requests.read().get(idx).expect("Expected result.").clone();
       assert_eq!(&m, method);
       let p: Vec<String> = p.into_iter().map(|p| serde_json::to_string(&p).unwrap()).collect();
       assert_eq!(p, params);
     }
 
     pub fn assert_no_more_requests(&mut self) {
-      let requests = self.requests.borrow();
+      let requests = self.requests.read();
       assert_eq!(self.asserted, requests.len(), "Expected no more requests, got: {:?}", &requests[self.asserted..]);
     }
   }

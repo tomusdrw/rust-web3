@@ -22,6 +22,7 @@ serde_derive = "1.0"
 hyper = { version = "0.10", optional = true }
 tokio-core = { version = "0.1", optional = true }
 tokio-uds = { version = "0.1", optional = true }
+tokio-timer = "0.1"
 parking_lot = { version = "0.4", optional = true }
 
 [dev-dependencies]
@@ -34,3 +35,5 @@ default = ["http", "ipc"]
 # TODO [ToDr] move transports to separate crates
 http = ["hyper"]
 ipc = ["tokio-uds", "tokio-core", "parking_lot"]
+
+[workspace]
