@@ -8,7 +8,6 @@ extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
 extern crate tokio_timer;
-extern crate parking_lot;
 
 #[macro_use]
 extern crate log;

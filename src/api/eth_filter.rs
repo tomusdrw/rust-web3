@@ -180,8 +180,7 @@ mod tests {
 
   use api::Namespace;
   use helpers::tests::TestTransport;
-  use types::{Bytes, Log, FilterBuilder, H256};
-  use Error;
+  use types::{Bytes, Log, FilterBuilder};
 
   use super::EthFilter;
 
