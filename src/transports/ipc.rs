@@ -2,7 +2,6 @@
 
 extern crate tokio_core;
 extern crate tokio_uds;
-extern crate parking_lot;
 
 use std::{mem, thread};
 use std::collections::BTreeMap;
@@ -10,7 +9,6 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::sync::{self, atomic, Arc};
 
-use self::parking_lot::Mutex;
 use self::tokio_core::reactor;
 use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
 use self::tokio_uds::UnixStream;
@@ -18,8 +16,9 @@ use self::tokio_uds::UnixStream;
 use futures::{self, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
+use parking_lot::Mutex;
 use rpc::{self, Value as RpcValue};
-use {Transport, Error as RpcError};
+use {Transport, Error as RpcError, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -69,7 +68,7 @@ type PendingResult = oneshot::Receiver<Result<RpcValue, RpcError>>;
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
   id: atomic::AtomicUsize,
-  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
+  pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
   write_sender: mpsc::Sender<Vec<u8>>,
 }
 
@@ -86,18 +85,18 @@ impl Ipc {
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self, IpcError> {
     let (read, write) = stream.split();
-    let (write_sender, write_receiver) = mpsc::channel(2);
+    let (write_sender, write_receiver) = mpsc::channel(8);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
-      read: read,
+      read,
       pending: pending.clone(),
       buffer: vec![],
       current_pos: 0,
     };
 
     let w = WriteStream {
-      write: write,
+      write,
       incoming: write_receiver,
       state: WriteState::WaitingForRequest,
     };
@@ -107,8 +106,8 @@ impl Ipc {
 
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
-      write_sender: write_sender,
-      pending: pending,
+      write_sender,
+      pending,
     })
   }
 
@@ -155,15 +154,22 @@ impl Ipc {
   }
 }
 
+pub type WriteTask= futures::sink::Send<mpsc::Sender<Vec<u8>>>;
+
 impl Transport for Ipc {
   type Out = IpcTask;
 
-  fn execute(&self, method: &str, params: Vec<RpcValue>) -> Self::Out {
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
     let request = helpers::build_request(id, method, params);
+
+    (id, request)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    let request = helpers::to_string(&rpc::Request::Single(request));
     debug!("Calling: {}", request);
 
-    // When the response is ready
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
 
@@ -176,7 +182,7 @@ impl Transport for Ipc {
 }
 
 enum IpcTaskState {
-  Sending(futures::sink::Send<mpsc::Sender<Vec<u8>>>, PendingResult),
+  Sending(WriteTask, PendingResult),
   WaitingForResult(PendingResult),
   Done,
 }
@@ -277,7 +283,7 @@ impl Future for WriteStream {
 /// Reads data on the socket and tries to dispatch it to awaiting requests.
 struct ReadStream {
   read: ReadHalf<UnixStream>,
-  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
+  pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
   buffer: Vec<u8>,
   current_pos: usize,
 }
@@ -329,33 +335,35 @@ impl Future for ReadStream {
 }
 
 impl ReadStream {
-  fn respond(&self, output: rpc::Output) {
-    let id = match output {
-      rpc::Output::Success(ref success) => success.id.clone(),
-      rpc::Output::Failure(ref failure) => failure.id.clone(),
-    };
+  fn respond(&self, outputs: Vec<rpc::Output>) {
+    for output in outputs {
+      let id = match output {
+        rpc::Output::Success(ref success) => success.id.clone(),
+        rpc::Output::Failure(ref failure) => failure.id.clone(),
+      };
 
-    if let rpc::Id::Num(num) = id {
-      if let Some(request) = self.pending.lock().remove(&(num as usize)) {
-        trace!("Responding to (id: {:?}) with {:?}", num, output);
-        request.complete(helpers::to_result_from_output(output));
+      if let rpc::Id::Num(num) = id {
+        if let Some(request) = self.pending.lock().remove(&(num as usize)) {
+          trace!("Responding to (id: {:?}) with {:?}", num, output);
+          request.complete(helpers::to_result_from_output(output));
+        } else {
+          warn!("Got response for unknown request (id: {:?})", num);
+        }
       } else {
-        warn!("Got response for unknown request (id: {:?})", num);
+        warn!("Got unsupported response (id: {:?})", id);
       }
-    } else {
-      warn!("Got unsupported response (id: {:?})", id);
     }
   }
 
-  fn extract_response(buf: &[u8], min: usize) -> Option<(rpc::Output, usize)> {
+  fn extract_response(buf: &[u8], min: usize) -> Option<(Vec<rpc::Output>, usize)> {
     for pos in (min..buf.len()).rev() {
       // Look for end character
       if buf[pos] == b']' || buf[pos] == b'}' {
         // Try to deserialize
         let pos = pos + 1;
         match helpers::to_response_from_slice(&buf[0..pos]) {
-          Ok(rpc::Response::Single(output)) => return Some((output, pos)),
-          Ok(rpc::Response::Batch(_)) => panic!("Unsupported batch response"),
+          Ok(rpc::Response::Single(output)) => return Some((vec![output], pos)),
+          Ok(rpc::Response::Batch(outputs)) => return Some((outputs, pos)),
           // just continue
           _ => {},
         }

@@ -7,6 +7,7 @@ extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
+extern crate parking_lot;
 
 #[macro_use]
 extern crate log;
@@ -45,6 +46,8 @@ pub enum Error {
   Decoder(String),
   /// Error returned by RPC
   Rpc(rpc::Error),
+  /// Internal Error
+  Internal,
 }
 
 impl From<serde_json::Error> for Error {
@@ -59,31 +62,55 @@ impl From<rpc::Error> for Error {
   }
 }
 
+pub type RequestId = usize;
+
 /// Transport implementation
 pub trait Transport {
   /// The type of future this transport returns when a call is made.
   type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out;
+
   /// Execute remote method with given parameters.
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out;
+  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
+    let (id, request) = self.prepare(method, params);
+    self.send(id, request)
+  }
 
   /// Erase the type of the transport by boxing it and boxing all produced
   /// futures.
-  fn erase(self) -> Erased where Self: Sized + 'static, Self::Out: Send + 'static {
+  fn erase(self) -> Erased where
+    Self: Sized + 'static,
+    Self::Out: Send + 'static,
+  {
     Erased(Box::new(Eraser(self)))
   }
+}
+
+pub trait BatchTransport: Transport {
+  // TODO [ToDr] Send + 'static shouldn't be required.
+  /// The type of future this transport returns when a call is made.
+  type Batch: futures::Future<Item=Vec<rpc::Value>, Error=Error> + Send + 'static;
+
+  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch;
 }
 
 // Transport eraser.
 struct Eraser<T: Transport>(T);
 
-impl<T: Transport> Transport for Eraser<T>
-  where T::Out: Send + 'static,
+impl<T: Transport> Transport for Eraser<T> where
+  T::Out: Send + 'static,
 {
   type Out = Result<rpc::Value>;
 
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
-    self.0.execute(method, params).boxed()
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+    self.0.prepare(method, params)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    self.0.send(id, request).boxed()
   }
 }
 
@@ -93,8 +120,12 @@ pub struct Erased(Box<Transport<Out=Result<rpc::Value>>>);
 impl Transport for Erased {
   type Out = Result<rpc::Value>;
 
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
-    self.0.execute(method, params)
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+    self.0.prepare(method, params)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    self.0.send(id, request)
   }
 }
 
@@ -104,8 +135,12 @@ impl<X, T> Transport for X where
 {
   type Out = T::Out;
 
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
-    (**self).execute(method, params)
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+    (**self).prepare(method, params)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    (**self).send(id, request)
   }
 }
 
@@ -114,13 +149,17 @@ mod tests {
   use std::sync::Arc;
   use api::Web3Main;
   use futures::BoxFuture;
-  use super::{rpc, Error, Transport};
+  use super::{rpc, Error, Transport, RequestId};
 
   struct FakeTransport;
   impl Transport for FakeTransport {
     type Out = BoxFuture<rpc::Value, Error>;
 
-    fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
+    fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+      unimplemented!()
+    }
+
+    fn send(&self, _id: RequestId, _request: rpc::Call) -> Self::Out {
       unimplemented!()
     }
   }

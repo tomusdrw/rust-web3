@@ -17,8 +17,12 @@ pub struct EthFilter<T> {
 impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
   fn new(transport: T) -> Self where Self: Sized {
     EthFilter {
-      transport: transport,
+      transport,
     }
+  }
+
+  fn transport(&self) -> &T {
+    &self.transport
   }
 }
 

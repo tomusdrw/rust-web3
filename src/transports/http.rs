@@ -2,6 +2,7 @@
 
 extern crate hyper;
 
+use std::fmt;
 use std::io::{self, Read};
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
@@ -9,7 +10,7 @@ use std::sync::atomic::{self, AtomicUsize};
 use futures::{self, Future};
 use helpers;
 use rpc;
-use {Transport, Error as RpcError};
+use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 impl From<hyper::Error> for RpcError {
   fn from(err: hyper::Error) -> Self {
@@ -47,33 +48,63 @@ impl Http {
 }
 
 impl Transport for Http {
-  type Out = FetchTask;
+  type Out = FetchTask<fn (&str) -> Result<rpc::Value, RpcError>>;
 
-  fn execute(&self, method: &str, params: Vec<rpc::Value>) -> FetchTask {
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::Relaxed);
     let request = helpers::build_request(id, method, params);
+    (id, request)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    let request = helpers::to_string(&rpc::Request::Single(request));
     debug!("Calling: {}", request);
 
     FetchTask {
-      id: id,
+      id: format!("{}", id),
       url: self.url.clone(),
       client: self.client.clone(),
-      request: request,
+      request,
+      extract: helpers::to_result as fn(&str) -> Result<rpc::Value, RpcError>,
     }
   }
 }
 
+impl BatchTransport for Http {
+  type Batch = FetchTask<fn(&str) -> Result<Vec<rpc::Value>, RpcError>>;
+
+  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
+    let id = requests.get(0).map(|x| x.0).unwrap_or(0);
+    let requests = requests.into_iter().map(|x| x.1).collect();
+    let request = helpers::to_string(&rpc::Request::Batch(requests));
+    debug!("Calling: {}", request);
+
+    FetchTask {
+      id: format!("batch-{}", id),
+      url: self.url.clone(),
+      client: self.client.clone(),
+      request,
+      extract: helpers::to_batch_result as fn(&str) -> Result<Vec<rpc::Value>, RpcError>,
+    }
+  }
+
+}
+
 /// Future which will represents a task to fetch data.
 /// Will execute synchronously when first polled.
-pub struct FetchTask {
-  id: usize,
+pub struct FetchTask<T> {
+  id: String,
   url: String,
   client: Arc<hyper::Client>,
   request: String,
+  extract: T,
 }
 
-impl Future for FetchTask {
-  type Item = rpc::Value;
+impl<T, Out> Future for FetchTask<T> where
+  T: Fn(&str) -> Result<Out, RpcError>,
+  Out: fmt::Debug,
+{
+  type Item = Out;
   type Error = RpcError;
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
@@ -90,9 +121,9 @@ impl Future for FetchTask {
     result.read_to_string(&mut response)?;
     trace!("[{}] Response read: {}", self.id, response);
 
-    let response = helpers::to_result(&response)?;
+    let response = (self.extract)(&response)?;
 
-    debug!("[{}] Success: {}", self.id, response);
+    debug!("[{}] Success: {:?}", self.id, response);
 
     Ok(futures::Async::Ready(response))
   }

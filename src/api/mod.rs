@@ -18,6 +18,9 @@ use {Transport};
 pub trait Namespace<T: Transport> {
   /// Creates new API namespace
   fn new(transport: T) -> Self where Self: Sized;
+
+  /// Borrows a transport.
+  fn transport(&self) -> &T;
 }
 
 /// `Web3` wrapper for all namespaces
@@ -34,8 +37,13 @@ impl<T: Transport> Web3Main<T> {
   /// Create new `Web3` with given transport
   pub fn new(transport: T) -> Self {
     Web3Main {
-      transport: transport,
+      transport,
     }
+  }
+
+  /// Borrows a transport.
+  pub fn transport(&self) -> &T {
+    &self.transport
   }
 
   /// Access methods from custom namespace
