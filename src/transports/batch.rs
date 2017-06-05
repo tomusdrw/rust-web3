@@ -22,6 +22,15 @@ pub struct Batch<T> {
 impl<T> Batch<T> where
   T: BatchTransport,
 {
+  /// Creates new Batch transport given existing transport supporing batch requests.
+  pub fn new(transport: T) -> Self {
+    Batch {
+      transport,
+      pending: Default::default(),
+      batch: Default::default(),
+    }
+  }
+
   /// Sends all requests as a batch.
   pub fn submit_batch(&self) -> BoxFuture<Vec<Result<rpc::Value>>, RpcError> {
     let batch = mem::replace(&mut *self.batch.lock(), vec![]);
