@@ -5,16 +5,19 @@ use std::marker::PhantomData;
 use std::time::Duration;
 use serde::de::DeserializeOwned;
 use tokio_timer::Timer;
-use futures::{Async, Poll, Future, Stream, stream};
+use futures::{Poll, Future, Stream, stream};
 
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
 
+/// Specifies filter items and constructor method.
 pub trait FilterInterface {
+  /// Filter item type
   type Item;
 
+  /// Name of method used to construct the filter
   fn constructor() -> &'static str;
 }
 
@@ -68,6 +71,7 @@ impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
     CallResult::new(self.transport.execute("eth_getFilterChanges", vec![id]))
   }
 
+  /// Returns the stream of items which automatically polls the server
   pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = F::Item, Error = Error> + 'a> where
     T: 'a,
     F: 'static,
@@ -94,6 +98,7 @@ impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
 }
 
 impl<T: Transport> BaseFilter<T, LogsFilter> {
+  /// Returns future with all logs matching given filter
   pub fn logs(&self) -> CallResult<Vec<Log>, T::Out> {
     let id = helpers::serialize(&self.id);
     CallResult::new(self.transport.execute("eth_getFilterLogs", vec![id]))
@@ -106,37 +111,38 @@ impl<T: Transport, F: FilterInterface> Drop for BaseFilter<T, F> {
   }
 }
 
-fn create_filter<T: Transport + Clone, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F> {
+/// Should be used to create new filter future
+pub fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F> {
+  let future = CallResult::new(t.execute(F::constructor(), arg));
   CreateFilter {
-    transport: t.clone(),
+    transport: Some(t),
     interface: PhantomData,
-    future: CallResult::new(t.execute(F::constructor(), arg))
+    future: future,
   }
 }
 
+/// Future which resolves with new filter
 pub struct CreateFilter<T: Transport, F: FilterInterface> {
-  transport: T,
+  transport: Option<T>,
   interface: PhantomData<F>,
   future: CallResult<U256, T::Out>,
 }
 
 impl<T, F> Future for CreateFilter<T, F> where
-  T: Transport + Clone,
+  T: Transport,
   F: FilterInterface
 {
   type Item = BaseFilter<T, F>;
   type Error = Error;
 
   fn poll(&mut self) -> Poll<Self::Item, Error> {
-    match self.future.poll() {
-      Ok(Async::Ready(x)) => Ok(Async::Ready(BaseFilter {
-        id: x,
-        transport: self.transport.clone(),
-        interface: PhantomData,
-      })),
-      Ok(Async::NotReady) => Ok(Async::NotReady),
-      Err(e) => Err(e),
-    }
+    let id = try_ready!(self.future.poll());
+    let result = BaseFilter {
+      id: id,
+      transport: self.transport.take().expect("future polled after ready; qed"),
+      interface: PhantomData,
+    };
+    Ok(result.into())
   }
 }
 
@@ -155,18 +161,18 @@ impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
 
 impl<T: Transport + Clone> EthFilter<T> {
   /// Installs a new logs filter.
-  pub fn new_logs_filter(&self, filter: Filter) -> CreateFilter<T, LogsFilter> {
+  pub fn create_logs_filter(&self, filter: Filter) -> CreateFilter<T, LogsFilter> {
     let f = helpers::serialize(&filter);
     create_filter(self.transport.clone(), vec![f])
   }
 
   /// Installs a new block filter.
-  pub fn new_blocks_filter(&self) -> CreateFilter<T, BlocksFilter> {
+  pub fn create_blocks_filter(&self) -> CreateFilter<T, BlocksFilter> {
     create_filter(self.transport.clone(), vec![])
   }
 
   /// Installs a new pending transactions filter.
-  pub fn new_pending_transactions_filter(&self) -> CreateFilter<T, PendingTransactionsFilter> {
+  pub fn create_pending_transactions_filter(&self) -> CreateFilter<T, PendingTransactionsFilter> {
     create_filter(self.transport.clone(), vec![])
   }
 }
@@ -194,7 +200,7 @@ mod tests {
 
       // when
       let filter = FilterBuilder::default().limit(10).build();
-      let filter = eth.new_logs_filter(filter).wait().unwrap();
+      let filter = eth.create_logs_filter(filter).wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
     };
 
@@ -232,7 +238,7 @@ mod tests {
 
       // when
       let filter = FilterBuilder::default().topics(None, Some(vec![2.into()]), None, None).build();
-      let filter = eth.new_logs_filter(filter).wait().unwrap();
+      let filter = eth.create_logs_filter(filter).wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
       filter.logs().wait()
     };
@@ -273,7 +279,7 @@ mod tests {
 
       // when
       let filter = FilterBuilder::default().address(vec![2.into()]).build();
-      let filter = eth.new_logs_filter(filter).wait().unwrap();
+      let filter = eth.create_logs_filter(filter).wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
       filter.poll().wait()
     };
@@ -297,7 +303,7 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_blocks_filter().wait().unwrap();
+      let filter = eth.create_blocks_filter().wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
     };
 
@@ -319,7 +325,7 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_blocks_filter().wait().unwrap();
+      let filter = eth.create_blocks_filter().wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
       filter.poll().wait()
     };
@@ -351,7 +357,7 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_blocks_filter().wait().unwrap();
+      let filter = eth.create_blocks_filter().wait().unwrap();
       filter.stream(Duration::from_secs(0)).take(4).collect().wait()
     };
 
@@ -373,7 +379,7 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_pending_transactions_filter().wait().unwrap();
+      let filter = eth.create_pending_transactions_filter().wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
     };
 
@@ -384,7 +390,7 @@ mod tests {
   }
 
   #[test]
-  fn new_pending_transactions_filter_poll() {
+  fn create_pending_transactions_filter_poll() {
     // given
     let mut transport = TestTransport::default();
     transport.set_response(Value::String("0x123".into()));
@@ -395,7 +401,7 @@ mod tests {
       let eth = EthFilter::new(&transport);
 
       // when
-      let filter = eth.new_pending_transactions_filter().wait().unwrap();
+      let filter = eth.create_pending_transactions_filter().wait().unwrap();
       assert_eq!(filter.id, 0x123.into());
       filter.poll().wait()
     };
