@@ -12,6 +12,50 @@ use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
 
+fn wait_for_confirmations_internal<'a, T, F, V>(transport: T, confirmations: usize, validate: &'a V)
+  -> Box<Future<Item = (), Error = Error> + 'a> where
+  T: 'a + Transport + Clone,
+  F: 'a + Future<Item = bool, Error = Error>,
+  V: 'a + Fn(&H256) -> F,
+{
+  let eth = EthFilter::new(transport);
+  let result = eth.new_blocks_filter()
+    .and_then(move |filter| {
+      filter.stream(Duration::from_secs(1))
+        .skip_while(move |hash| validate(hash).map(|ok| !ok))
+        .skip(1)
+        .take_while(validate)
+        .take(confirmations as u64)
+        .collect()
+        .and_then(move |hashes| if hashes.len() == confirmations {
+          Ok(())
+        } else {
+          Err(Error::Unreachable)
+        })
+    });
+  Box::new(result)
+}
+
+pub fn wait_for_confirmations<'a, T, F, V>(transport: T, confirmations: usize, validate: &'a V)
+  -> Box<Future<Item = (), Error = Error> + 'a> where
+  T: 'a + Transport + Clone,
+  F: 'a + Future<Item = bool, Error = Error>,
+  V: 'a + Fn(&H256) -> F,
+{
+  let retries = 3;
+  let result = stream::repeat::<_, Error>(())
+    .take(3)
+    .then(move |_| wait_for_confirmations_internal(transport.clone(), confirmations, validate))
+    .take(1)
+    .collect()
+    .and_then(|results| if !results.is_empty() {
+      Ok(())
+    } else {
+      Err(Error::Unreachable)
+    });
+  Box::new(result)
+}
+
 pub trait FilterInterface {
   type Item;
 
