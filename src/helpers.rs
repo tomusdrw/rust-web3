@@ -64,6 +64,12 @@ pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
 }
 
+
+/// Parse a Vec of  `rpc::Output` into `Result`.
+pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<rpc::Value, Error>>, Error> {
+  Ok(outputs.into_iter().map(to_result_from_output).collect())
+}
+
 /// Parse `rpc::Output` into `Result`.
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
   match output {
@@ -84,12 +90,12 @@ pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
 }
 
 /// Parse string-encoded RPC batch response into `Result`.
-pub fn to_batch_result(response: &str) -> Result<Vec<rpc::Value>, Error> {
+pub fn to_batch_result(response: &str) -> Result<Vec<Result<rpc::Value, Error>>, Error> {
   let response = serde_json::from_str(response)
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
 
   match response {
-    rpc::Response::Batch(outputs) => outputs.into_iter().map(to_result_from_output).collect(),
+    rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(to_result_from_output).collect()),
     _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),
   }
 }

@@ -7,9 +7,10 @@ use futures::{self, future, Future, BoxFuture};
 use futures::sync::oneshot;
 use parking_lot::Mutex;
 use rpc;
+use transports::Result;
 use {BatchTransport, Transport, Error as RpcError, RequestId};
 
-type Pending = oneshot::Sender<Result<rpc::Value, RpcError>>;
+type Pending = oneshot::Sender<Result<rpc::Value>>;
 
 pub struct Batch<T> {
   transport: T,
@@ -21,7 +22,7 @@ impl<T> Batch<T> where
   T: BatchTransport,
 {
   /// Sends all requests as a batch.
-  pub fn submit_batch(&self) -> BoxFuture<Vec<rpc::Value>, RpcError> {
+  pub fn submit_batch(&self) -> BoxFuture<Vec<Result<rpc::Value>>, RpcError> {
     let batch = mem::replace(&mut *self.batch.lock(), vec![]);
     let ids = batch.iter().map(|&(id, _)| id).collect::<Vec<_>>();
     let pending = self.pending.clone();
@@ -34,7 +35,7 @@ impl<T> Batch<T> where
               pending.remove(&request_id).map(|rx| {
                 match res {
                   Ok(ref results) if results.len() > idx => {
-                    rx.send(Ok(results[idx].clone()))
+                    rx.send(results[idx].clone())
                   },
                   Err(ref err) => rx.send(Err(err.clone())),
                   _ => rx.send(Err(RpcError::Internal)),
@@ -71,7 +72,7 @@ impl<T> Transport for Batch<T> where
 }
 
 
-pub struct SingleResult(oneshot::Receiver<Result<rpc::Value, RpcError>>);
+pub struct SingleResult(oneshot::Receiver<Result<rpc::Value>>);
 
 impl Future for SingleResult {
   type Item = rpc::Value;

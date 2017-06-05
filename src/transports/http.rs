@@ -10,6 +10,7 @@ use std::sync::atomic::{self, AtomicUsize};
 use futures::{self, Future};
 use helpers;
 use rpc;
+use transports::Result;
 use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 impl From<hyper::Error> for RpcError {
@@ -23,7 +24,7 @@ impl From<io::Error> for RpcError {
     RpcError::Transport(format!("{:?}", err))
   }
 }
-
+//
 /// HTTP Transport (synchronous)
 pub struct Http {
   id: AtomicUsize,
@@ -33,7 +34,7 @@ pub struct Http {
 
 impl Http {
   /// Create new HTTP transport with given URL
-  pub fn new(url: &str) -> Result<Self, hyper::Error> {
+  pub fn new(url: &str) -> ::std::result::Result<Self, hyper::Error> {
     let mut client = hyper::Client::with_pool_config(hyper::client::pool::Config {
       max_idle: 1024,
     });
@@ -48,7 +49,7 @@ impl Http {
 }
 
 impl Transport for Http {
-  type Out = FetchTask<fn (&str) -> Result<rpc::Value, RpcError>>;
+  type Out = FetchTask<fn (&str) -> Result<rpc::Value>>;
 
   fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::Relaxed);
@@ -65,13 +66,13 @@ impl Transport for Http {
       url: self.url.clone(),
       client: self.client.clone(),
       request,
-      extract: helpers::to_result as fn(&str) -> Result<rpc::Value, RpcError>,
+      extract: helpers::to_result as fn(&str) -> Result<rpc::Value>,
     }
   }
 }
 
 impl BatchTransport for Http {
-  type Batch = FetchTask<fn(&str) -> Result<Vec<rpc::Value>, RpcError>>;
+  type Batch = FetchTask<fn(&str) -> Result<Vec<Result<rpc::Value>>>>;
 
   fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
     let id = requests.get(0).map(|x| x.0).unwrap_or(0);
@@ -84,10 +85,9 @@ impl BatchTransport for Http {
       url: self.url.clone(),
       client: self.client.clone(),
       request,
-      extract: helpers::to_batch_result as fn(&str) -> Result<Vec<rpc::Value>, RpcError>,
+      extract: helpers::to_batch_result as fn(&str) -> Result<Vec<Result<rpc::Value>>>,
     }
   }
-
 }
 
 /// Future which will represents a task to fetch data.
@@ -101,7 +101,7 @@ pub struct FetchTask<T> {
 }
 
 impl<T, Out> Future for FetchTask<T> where
-  T: Fn(&str) -> Result<Out, RpcError>,
+  T: Fn(&str) -> Result<Out>,
   Out: fmt::Debug,
 {
   type Item = Out;

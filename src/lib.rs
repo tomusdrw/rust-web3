@@ -92,7 +92,7 @@ pub trait Transport {
 pub trait BatchTransport: Transport {
   // TODO [ToDr] Send + 'static shouldn't be required.
   /// The type of future this transport returns when a call is made.
-  type Batch: futures::Future<Item=Vec<rpc::Value>, Error=Error> + Send + 'static;
+  type Batch: futures::Future<Item=Vec<::std::result::Result<rpc::Value, Error>>, Error=Error> + Send + 'static;
 
   fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch;
 }

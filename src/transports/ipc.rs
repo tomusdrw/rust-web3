@@ -18,7 +18,8 @@ use futures::sync::{oneshot, mpsc};
 use helpers;
 use parking_lot::Mutex;
 use rpc::{self, Value as RpcValue};
-use {Transport, Error as RpcError, RequestId};
+use transports::Result;
+use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -61,9 +62,10 @@ impl Drop for EventLoopHandle {
 
 /// Error returned while initializing IPC transport
 pub type IpcError = io::Error;
+pub type IpcResult<T> = ::std::result::Result<T, IpcError>;
 
-type Pending = oneshot::Sender<Result<RpcValue, RpcError>>;
-type PendingResult = oneshot::Receiver<Result<RpcValue, RpcError>>;
+type Pending = oneshot::Sender<Result<Vec<Result<RpcValue>>>>;
+type PendingResult = oneshot::Receiver<Result<Vec<Result<RpcValue>>>>;
 
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
@@ -74,7 +76,7 @@ pub struct Ipc {
 
 impl Ipc {
   /// Create new IPC transport within existing Event Loop.
-  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self, IpcError> where
+  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> IpcResult<Self> where
     P: AsRef<Path>,
   {
     trace!("Connecting to: {:?}", path.as_ref());
@@ -83,7 +85,7 @@ impl Ipc {
   }
 
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
-  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self, IpcError> {
+  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> IpcResult<Self> {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::channel(8);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
@@ -113,7 +115,7 @@ impl Ipc {
 
   /// Create new IPC transport with separate event loop.
   /// NOTE: Dropping event loop handle will stop the transport layer!
-  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self), IpcError> where
+  pub fn new<P>(path: P) -> IpcResult<(EventLoopHandle, Self)> where
     P: AsRef<Path>,
   {
     let done = Arc::new(atomic::AtomicBool::new(false));
@@ -132,7 +134,7 @@ impl Ipc {
         tx.send(result).expect("Receiving end is always waiting.");
       };
 
-      let res: Result<_, IpcError> = run();
+      let res: IpcResult<_> = run();
       match res {
         Err(e) => send(Err(e)),
         Ok((ipc, mut event_loop)) => {
@@ -157,7 +159,7 @@ impl Ipc {
 pub type WriteTask= futures::sink::Send<mpsc::Sender<Vec<u8>>>;
 
 impl Transport for Ipc {
-  type Out = IpcTask;
+  type Out = IpcTask<fn (Vec<Result<rpc::Value>>) -> Result<rpc::Value>>;
 
   fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -177,6 +179,39 @@ impl Transport for Ipc {
 
     IpcTask {
       state: IpcTaskState::Sending(sending, rx),
+      extract: single_response as fn(Vec<Result<rpc::Value>>) -> Result<rpc::Value>,
+    }
+  }
+}
+
+fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
+  match response.into_iter().next() {
+    Some(res) => res,
+    None => Err(RpcError::Transport(format!("Expected single response got empty batch."))),
+  }
+}
+
+fn batch_response(response: Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>> {
+  Ok(response)
+}
+
+impl BatchTransport for Ipc {
+  type Batch = IpcTask<fn(Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>>>;
+
+  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
+    let id = requests.get(0).map(|x| x.0).unwrap_or(0);
+    let requests = requests.into_iter().map(|x| x.1).collect();
+    let request = helpers::to_string(&rpc::Request::Batch(requests));
+    debug!("Calling: {}", request);
+
+    let (tx, rx) = futures::oneshot();
+    self.pending.lock().insert(id, tx);
+
+    let sending = self.write_sender.clone().send(request.into_bytes());
+
+    IpcTask {
+      state: IpcTaskState::Sending(sending, rx),
+      extract: batch_response as fn(Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>>,
     }
   }
 }
@@ -190,24 +225,28 @@ enum IpcTaskState {
 /// A future represeting IPC transport method execution.
 /// First it sends a message to writing half and waits for completion
 /// and then starts to listen for expected response.
-pub struct IpcTask {
+pub struct IpcTask<T> {
   state: IpcTaskState,
+  extract: T,
 }
 
-impl Future for IpcTask {
-  type Item = RpcValue;
+impl<T, Out> Future for IpcTask<T> where
+  T: Fn(Vec<Result<rpc::Value>>) -> Result<Out>,
+{
+  type Item = Out;
   type Error = RpcError;
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
 
     loop {
+      let extract = &self.extract;
       match self.state {
         IpcTaskState::Sending(ref mut send, _) => {
           try_ready!(send.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
         },
         IpcTaskState::WaitingForResult(ref mut rx) => {
           let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
-          return result.map(futures::Async::Ready);
+          return result.and_then(|x| extract(x)).map(futures::Async::Ready);
         },
         IpcTaskState::Done => {
           return Err(RpcError::Unreachable);
@@ -336,22 +375,21 @@ impl Future for ReadStream {
 
 impl ReadStream {
   fn respond(&self, outputs: Vec<rpc::Output>) {
-    for output in outputs {
-      let id = match output {
-        rpc::Output::Success(ref success) => success.id.clone(),
-        rpc::Output::Failure(ref failure) => failure.id.clone(),
-      };
+    let id = match outputs.get(0) {
+      Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+      Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+      None => rpc::Id::Num(0),
+    };
 
-      if let rpc::Id::Num(num) = id {
-        if let Some(request) = self.pending.lock().remove(&(num as usize)) {
-          trace!("Responding to (id: {:?}) with {:?}", num, output);
-          request.complete(helpers::to_result_from_output(output));
-        } else {
-          warn!("Got response for unknown request (id: {:?})", num);
-        }
+    if let rpc::Id::Num(num) = id {
+      if let Some(request) = self.pending.lock().remove(&(num as usize)) {
+        trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+        request.complete(helpers::to_results_from_outputs(outputs));
       } else {
-        warn!("Got unsupported response (id: {:?})", id);
+        warn!("Got response for unknown request (id: {:?})", num);
       }
+    } else {
+      warn!("Got unsupported response (id: {:?})", id);
     }
   }
 
