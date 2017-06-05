@@ -60,8 +60,9 @@ impl Drop for EventLoopHandle {
 }
 
 
-/// Error returned while initializing IPC transport
+/// Error returned while initializing IPC transport.
 pub type IpcError = io::Error;
+/// Result of initializing IPC transport.
 pub type IpcResult<T> = ::std::result::Result<T, IpcError>;
 
 type Pending = oneshot::Sender<Result<Vec<Result<RpcValue>>>>;
@@ -156,8 +157,6 @@ impl Ipc {
   }
 }
 
-pub type WriteTask= futures::sink::Send<mpsc::Sender<Vec<u8>>>;
-
 impl Transport for Ipc {
   type Out = IpcTask<fn (Vec<Result<rpc::Value>>) -> Result<rpc::Value>>;
 
@@ -215,6 +214,8 @@ impl BatchTransport for Ipc {
     }
   }
 }
+
+type WriteTask = futures::sink::Send<mpsc::Sender<Vec<u8>>>;
 
 enum IpcTaskState {
   Sending(WriteTask, PendingResult),

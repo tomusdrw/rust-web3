@@ -12,6 +12,7 @@ use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 type Pending = oneshot::Sender<Result<rpc::Value>>;
 
+/// Transport allowing to batch queries together.
 pub struct Batch<T> {
   transport: T,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
@@ -72,6 +73,8 @@ impl<T> Transport for Batch<T> where
 }
 
 
+/// Result of calling a single method that will be part of the batch.
+/// Converts `oneshot::Receiver` error into `RpcError::Internal`
 pub struct SingleResult(oneshot::Receiver<Result<rpc::Value>>);
 
 impl Future for SingleResult {

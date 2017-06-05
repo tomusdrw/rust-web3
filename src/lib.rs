@@ -62,6 +62,7 @@ impl From<rpc::Error> for Error {
   }
 }
 
+/// Assigned RequestId
 pub type RequestId = usize;
 
 /// Transport implementation
@@ -69,8 +70,10 @@ pub trait Transport {
   /// The type of future this transport returns when a call is made.
   type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
+  /// Prepare serializable RPC call for given method with parameters.
   fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);
 
+  /// Execute prepared RPC call.
   fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out;
 
   /// Execute remote method with given parameters.
@@ -89,16 +92,18 @@ pub trait Transport {
   }
 }
 
+/// A transport implementation supporting batch requests.
 pub trait BatchTransport: Transport {
   // TODO [ToDr] Send + 'static shouldn't be required.
   /// The type of future this transport returns when a call is made.
   type Batch: futures::Future<Item=Vec<::std::result::Result<rpc::Value, Error>>, Error=Error> + Send + 'static;
 
+  /// Sends a batch of prepared RPC calls.
   fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch;
 }
 
-// Transport eraser.
-struct Eraser<T: Transport>(T);
+/// Transport eraser.
+struct Eraser<T>(T);
 
 impl<T: Transport> Transport for Eraser<T> where
   T::Out: Send + 'static,
@@ -141,6 +146,17 @@ impl<X, T> Transport for X where
 
   fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
     (**self).send(id, request)
+  }
+}
+
+impl<X, T> BatchTransport for X where
+  T: BatchTransport + ?Sized,
+  X: ::std::ops::Deref<Target=T>,
+{
+  type Batch = T::Batch;
+
+  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
+    (**self).send_batch(requests)
   }
 }
 
