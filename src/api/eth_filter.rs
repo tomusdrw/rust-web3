@@ -74,8 +74,8 @@ impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
   /// Returns the stream of items which automatically polls the server
   pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = F::Item, Error = Error> + 'a> where
     T: 'a,
-    F: 'static,
-    F::Item: DeserializeOwned + 'static,
+    F: 'a,
+    F::Item: DeserializeOwned + 'a,
   {
     let result = Timer::default().interval(poll_interval)
       .map_err(|_| Error::Unreachable)
