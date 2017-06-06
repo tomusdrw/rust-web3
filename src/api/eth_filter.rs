@@ -13,7 +13,7 @@ use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
 
 /// Specifies filter items and constructor method.
-pub trait FilterInterface {
+trait FilterInterface {
   /// Filter item type
   type Item;
 
@@ -22,7 +22,7 @@ pub trait FilterInterface {
 }
 
 /// Logs Filter
-pub struct LogsFilter;
+struct LogsFilter;
 
 impl FilterInterface for LogsFilter {
   type Item = Log;
@@ -33,7 +33,7 @@ impl FilterInterface for LogsFilter {
 }
 
 /// New blocks hashes filter.
-pub struct BlocksFilter;
+struct BlocksFilter;
 
 impl FilterInterface for BlocksFilter {
   type Item = H256;
@@ -44,7 +44,7 @@ impl FilterInterface for BlocksFilter {
 }
 
 /// New Pending Transactions Filter
-pub struct PendingTransactionsFilter;
+struct PendingTransactionsFilter;
 
 impl FilterInterface for PendingTransactionsFilter {
   type Item = H256;
@@ -111,7 +111,7 @@ impl<T: Transport, I> Drop for BaseFilter<T, I> {
 }
 
 /// Should be used to create new filter future
-pub fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
+fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
   let future = CallResult::new(t.execute(F::constructor(), arg));
   CreateFilter {
     transport: Some(t),
@@ -152,7 +152,7 @@ pub struct EthFilter<T> {
 impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
   fn new(transport: T) -> Self where Self: Sized {
     EthFilter {
-      transport: transport
+      transport,
     }
   }
 }
