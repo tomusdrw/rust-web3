@@ -136,7 +136,7 @@ impl<T, I> Future for CreateFilter<T, I> where
   fn poll(&mut self) -> Poll<Self::Item, Error> {
     let id = try_ready!(self.future.poll());
     let result = BaseFilter {
-      id: id,
+      id,
       transport: self.transport.take().expect("future polled after ready; qed"),
       item: PhantomData,
     };
