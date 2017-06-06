@@ -79,7 +79,7 @@ impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
   {
     let result = Timer::default().interval(poll_interval)
       .map_err(|_| Error::Unreachable)
-      .then(move |_| self.poll().map(|optional| optional.unwrap_or_else(Default::default)))
+      .then(move |_| self.poll().map(Option::unwrap_or_default))
       .map(|res| res.into_iter().map(Ok).collect::<Vec<Result<_, Error>>>())
       .map(stream::iter)
       .flatten();
