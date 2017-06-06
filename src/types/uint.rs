@@ -115,10 +115,20 @@ macro_rules! impl_uint {
       fn from(mut num: u64) -> Self {
         let mut arr = [0; $len];
         for i in 0..8 {
-          arr[$len - 1 - i] =  num as u8;
+          arr[$len - 1 - i] = num as u8;
           num = num >> 8;
         }
         $name(arr)
+      }
+    }
+
+    impl From<$name> for u64 {
+      fn from(num: $name) -> Self {
+        let mut result = 0u64;
+        for i in 0..8 {
+          result += (num.0[$len - 1 - i] as u64) << (i * 8);
+        }
+        result
       }
     }
 
@@ -380,5 +390,12 @@ mod tests {
     assert_eq!(deserialized3, 1.into());
     assert_eq!(deserialized4, 1.into());
     assert_eq!(deserialized5, 256.into());
+  }
+
+  #[test]
+  fn test_to_from_u64() {
+    assert_eq!(1u64, u64::from(U256::from(1u64)));
+    assert_eq!(11u64, u64::from(U256::from(11u64)));
+    assert_eq!(111u64, u64::from(U256::from(111u64)));
   }
 }

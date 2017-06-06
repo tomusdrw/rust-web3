@@ -7,57 +7,10 @@ use serde::de::DeserializeOwned;
 use tokio_timer::Timer;
 use futures::{Poll, Future, Stream, stream};
 
-use api::Namespace;
+use api::{Namespace};
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
-
-/// Waits for X consecutive confirmations that when `validate` has happened
-fn wait_for_confirmations_internal<'a, T, F, V>(transport: T, confirmations: usize, validate: &'a V)
-  -> Box<Future<Item = (), Error = Error> + 'a> where
-  T: 'a + Transport + Clone,
-  F: 'a + Future<Item = bool, Error = Error>,
-  V: 'a + Fn(&H256) -> F,
-{
-  let eth = EthFilter::new(transport);
-  let result = eth.create_blocks_filter()
-    .and_then(move |filter| {
-      filter.stream(Duration::from_secs(1))
-        .skip_while(move |hash| validate(hash).map(|ok| !ok))
-        .skip(1)
-        .take_while(validate)
-        .take(confirmations as u64)
-        .collect()
-        .and_then(move |hashes| if hashes.len() == confirmations {
-          Ok(())
-        } else {
-          Err(Error::Unreachable)
-        })
-    });
-  Box::new(result)
-}
-
-/// Waits for X consecutive confirmations that when `validate` has happened.
-/// Retired up to 3 times.
-pub fn wait_for_confirmations<'a, T, F, V>(transport: T, confirmations: usize, validate: &'a V)
-  -> Box<Future<Item = (), Error = Error> + 'a> where
-  T: 'a + Transport + Clone,
-  F: 'a + Future<Item = bool, Error = Error>,
-  V: 'a + Fn(&H256) -> F,
-{
-  let retries = 3;
-  let result = stream::repeat::<_, Error>(())
-    .take(retries)
-    .then(move |_| wait_for_confirmations_internal(transport.clone(), confirmations, validate))
-    .take(1)
-    .collect()
-    .and_then(|results| if !results.is_empty() {
-      Ok(())
-    } else {
-      Err(Error::Unreachable)
-    });
-  Box::new(result)
-}
 
 /// Specifies filter items and constructor method.
 trait FilterInterface {
@@ -125,7 +78,7 @@ impl<T: Transport, I> BaseFilter<T, I> {
   {
     let result = Timer::default().interval(poll_interval)
       .map_err(|_| Error::Unreachable)
-      .then(move |_| self.poll().map(Option::unwrap_or_default))
+      .and_then(move |_| self.poll().map(Option::unwrap_or_default))
       .map(|res| res.into_iter().map(Ok).collect::<Vec<Result<_, Error>>>())
       .map(stream::iter)
       .flatten();

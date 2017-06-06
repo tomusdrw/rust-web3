@@ -20,6 +20,7 @@ pub extern crate futures;
 
 #[macro_use]
 pub mod helpers;
+pub mod confirm;
 
 use futures::Future;
 
