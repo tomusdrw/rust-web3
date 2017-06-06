@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use tokio_timer::Timer;
 use futures::{Poll, Future, Stream, stream};
 
-use api::{Namespace};
+use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};

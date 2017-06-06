@@ -4,9 +4,6 @@ use api::{Eth, EthFilter, Namespace};
 use types::{H256, U256, TransactionRequest};
 use {Transport, Error};
 
-const POLL_INTERVAL: u64 = 1;
-const REQUIRED_CONFIRMATIONS: usize = 12;
-
 pub fn wait_for_confirmations<'a, T, F, V>(transport: T, poll_interval: Duration, confirmations: usize, check: V)
   -> Box<Future<Item = (), Error = Error> + 'a> where
   T: 'a + Transport + Clone,
@@ -58,7 +55,6 @@ mod tests {
   #[test]
   fn test_send_transaction_with_confirmation() {
     let mut transport = TestTransport::default();
-    let duration = Duration::from_secs(0);
     let confirmations = 3;
     let transaction_request = TransactionRequest {
       from: 0x123.into(),
