@@ -57,25 +57,24 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Base filter handle.
 /// Uninstall filter on drop.
 /// Allows to poll the filter.
-pub struct BaseFilter<T: Transport, F: FilterInterface> {
+pub struct BaseFilter<T: Transport, I> {
   id: U256,
   transport: T,
-  interface: PhantomData<F>,
+  item: PhantomData<I>,
 }
 
-impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
+impl<T: Transport, I> BaseFilter<T, I> {
   /// Polls this filter for changes.
   /// Will return logs that happened after previous poll.
-  pub fn poll(&self) -> CallResult<Option<Vec<F::Item>>, T::Out> {
+  pub fn poll(&self) -> CallResult<Option<Vec<I>>, T::Out> {
     let id = helpers::serialize(&self.id);
     CallResult::new(self.transport.execute("eth_getFilterChanges", vec![id]))
   }
 
   /// Returns the stream of items which automatically polls the server
-  pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = F::Item, Error = Error> + 'a> where
+  pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = I, Error = Error> + 'a> where
     T: 'a,
-    F: 'a,
-    F::Item: DeserializeOwned + 'a,
+    I: DeserializeOwned + 'a,
   {
     let result = Timer::default().interval(poll_interval)
       .map_err(|_| Error::Unreachable)
@@ -97,7 +96,7 @@ impl<T: Transport, F: FilterInterface> BaseFilter<T, F> {
   }
 }
 
-impl<T: Transport> BaseFilter<T, LogsFilter> {
+impl<T: Transport> BaseFilter<T, Log> {
   /// Returns future with all logs matching given filter
   pub fn logs(&self) -> CallResult<Vec<Log>, T::Out> {
     let id = helpers::serialize(&self.id);
@@ -105,34 +104,33 @@ impl<T: Transport> BaseFilter<T, LogsFilter> {
   }
 }
 
-impl<T: Transport, F: FilterInterface> Drop for BaseFilter<T, F> {
+impl<T: Transport, I> Drop for BaseFilter<T, I> {
   fn drop(&mut self) {
     let _ = self.uninstall_internal().wait();
   }
 }
 
 /// Should be used to create new filter future
-pub fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F> {
+pub fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
   let future = CallResult::new(t.execute(F::constructor(), arg));
   CreateFilter {
     transport: Some(t),
-    interface: PhantomData,
-    future: future,
+    item: PhantomData,
+    future,
   }
 }
 
 /// Future which resolves with new filter
-pub struct CreateFilter<T: Transport, F: FilterInterface> {
+pub struct CreateFilter<T: Transport, I> {
   transport: Option<T>,
-  interface: PhantomData<F>,
+  item: PhantomData<I>,
   future: CallResult<U256, T::Out>,
 }
 
-impl<T, F> Future for CreateFilter<T, F> where
+impl<T, I> Future for CreateFilter<T, I> where
   T: Transport,
-  F: FilterInterface
 {
-  type Item = BaseFilter<T, F>;
+  type Item = BaseFilter<T, I>;
   type Error = Error;
 
   fn poll(&mut self) -> Poll<Self::Item, Error> {
@@ -140,7 +138,7 @@ impl<T, F> Future for CreateFilter<T, F> where
     let result = BaseFilter {
       id: id,
       transport: self.transport.take().expect("future polled after ready; qed"),
-      interface: PhantomData,
+      item: PhantomData,
     };
     Ok(result.into())
   }
@@ -161,19 +159,19 @@ impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
 
 impl<T: Transport + Clone> EthFilter<T> {
   /// Installs a new logs filter.
-  pub fn create_logs_filter(&self, filter: Filter) -> CreateFilter<T, LogsFilter> {
+  pub fn create_logs_filter(&self, filter: Filter) -> CreateFilter<T, Log> {
     let f = helpers::serialize(&filter);
-    create_filter(self.transport.clone(), vec![f])
+    create_filter::<_, LogsFilter>(self.transport.clone(), vec![f])
   }
 
   /// Installs a new block filter.
-  pub fn create_blocks_filter(&self) -> CreateFilter<T, BlocksFilter> {
-    create_filter(self.transport.clone(), vec![])
+  pub fn create_blocks_filter(&self) -> CreateFilter<T, H256> {
+    create_filter::<_, BlocksFilter>(self.transport.clone(), vec![])
   }
 
   /// Installs a new pending transactions filter.
-  pub fn create_pending_transactions_filter(&self) -> CreateFilter<T, PendingTransactionsFilter> {
-    create_filter(self.transport.clone(), vec![])
+  pub fn create_pending_transactions_filter(&self) -> CreateFilter<T, H256> {
+    create_filter::<_, PendingTransactionsFilter>(self.transport.clone(), vec![])
   }
 }
 
