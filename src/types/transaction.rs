@@ -32,7 +32,7 @@ pub struct Transaction {
 }
 
 /// "Receipt" of an executed transaction: details of its execution.
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Receipt {
   /// Hash
   pub hash: H256,

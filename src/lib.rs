@@ -6,6 +6,7 @@ extern crate ethabi;
 extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
+#[macro_use]
 extern crate serde_json;
 extern crate tokio_timer;
 
