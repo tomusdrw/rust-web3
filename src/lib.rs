@@ -7,6 +7,7 @@ extern crate jsonrpc_core as rpc;
 extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
+extern crate tokio_timer;
 
 #[macro_use]
 extern crate log;

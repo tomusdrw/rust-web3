@@ -7,7 +7,7 @@ mod personal;
 mod web3;
 
 pub use self::eth::Eth;
-pub use self::eth_filter::{EthFilter, LogsFilter, BlocksFilter, PendingTransactionsFilter};
+pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter};
 pub use self::net::Net;
 pub use self::personal::Personal;
 pub use self::web3::Web3;
