@@ -1,5 +1,5 @@
 use std::time::Duration;
-use futures::{Future, Stream};
+use futures::{IntoFuture, Future, Stream};
 use api::{Eth, EthFilter, Namespace};
 use types::{H256, U256, TransactionRequest};
 use {Transport, Error};
@@ -7,7 +7,7 @@ use {Transport, Error};
 pub fn wait_for_confirmations<'a, T, F, V>(transport: T, poll_interval: Duration, confirmations: usize, check: V)
   -> Box<Future<Item = (), Error = Error> + 'a> where
   T: 'a + Transport + Clone,
-  F: 'a + Future<Item = Option<U256>, Error = Error>,
+  F: 'a + IntoFuture<Item = Option<U256>, Error = Error>,
   V: 'a + Fn() -> F,
 {
   let eth = EthFilter::new(transport.clone());
@@ -19,7 +19,7 @@ pub fn wait_for_confirmations<'a, T, F, V>(transport: T, poll_interval: Duration
         .filter_map(|o| o)
         .and_then(move |confirmed_block_number| {
           Eth::new(transport.clone()).block_number()
-            .map(move |last_block_number| u64::from(confirmed_block_number) + confirmations as u64 >= u64::from(last_block_number))
+            .map(move |last_block_number| confirmed_block_number.low_u64() + confirmations as u64 >= last_block_number.low_u64())
         })
         .filter(|confirmed| *confirmed)
         .take(1)

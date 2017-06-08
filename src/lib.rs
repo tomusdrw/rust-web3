@@ -21,7 +21,6 @@ pub extern crate futures;
 
 #[macro_use]
 pub mod helpers;
-pub mod confirm;
 
 use futures::Future;
 
@@ -29,6 +28,7 @@ pub mod api;
 pub mod contract;
 pub mod transports;
 pub mod types;
+mod confirm;
 
 pub use api::{Web3Main as Web3, ErasedWeb3};
 

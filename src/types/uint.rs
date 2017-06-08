@@ -122,11 +122,12 @@ macro_rules! impl_uint {
       }
     }
 
-    impl From<$name> for u64 {
-      fn from(num: $name) -> Self {
+    impl $name {
+      /// Returns value created from lowest 8 bytes
+      pub fn low_u64(&self) -> u64 {
         let mut result = 0u64;
         for i in 0..8 {
-          result += (num.0[$len - 1 - i] as u64) << (i * 8);
+          result += (self.0[$len - 1 - i] as u64) << (i * 8);
         }
         result
       }
@@ -394,8 +395,8 @@ mod tests {
 
   #[test]
   fn test_to_from_u64() {
-    assert_eq!(1u64, u64::from(U256::from(1u64)));
-    assert_eq!(11u64, u64::from(U256::from(11u64)));
-    assert_eq!(111u64, u64::from(U256::from(111u64)));
+    assert_eq!(1u64, U256::from(1u64).low_u64());
+    assert_eq!(11u64, U256::from(11u64).low_u64());
+    assert_eq!(111u64, U256::from(111u64).low_u64());
   }
 }
