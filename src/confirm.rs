@@ -1,7 +1,7 @@
 use std::time::Duration;
 use futures::{IntoFuture, Future, Stream};
 use api::{Eth, EthFilter, Namespace};
-use types::{H256, U256, TransactionRequest};
+use types::{U256, TransactionRequest, TransactionReceipt};
 use {Transport, Error};
 
 pub fn wait_for_confirmations<'a, T, F, V>(transport: T, poll_interval: Duration, confirmations: usize, check: V)
@@ -29,16 +29,21 @@ pub fn wait_for_confirmations<'a, T, F, V>(transport: T, poll_interval: Duration
   Box::new(result)
 }
 
-pub fn send_transaction_with_confirmation<'a, T>(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: usize) -> Box<Future<Item = H256, Error = Error> + 'a> where
+pub fn send_transaction_with_confirmation<'a, T>(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: usize) -> Box<Future<Item = TransactionReceipt, Error = Error> + 'a> where
   T: 'a + Transport + Clone {
   let eth = Eth::new(transport.clone());
   let result = eth.send_transaction(tx)
     .and_then(move |hash| {
       wait_for_confirmations(transport.clone(), poll_interval, confirmations, move || {
-        let eth = Eth::new(transport.clone());
         eth.transaction_receipt(hash.clone()).map(|option| option.map(|receipt| receipt.block_number))
       })
-      .map(move |_| hash)
+      .and_then(move |_| {
+        let eth = Eth::new(transport.clone());
+        eth.transaction_receipt(hash).and_then(|option| match option {
+          Some(option) => Ok(option),
+          None => Err(Error::Unreachable),
+        })
+      })
     });
   Box::new(result)
 }
@@ -66,6 +71,17 @@ mod tests {
       nonce: None,
       min_block: None,
     };
+    let transaction_receipt = TransactionReceipt {
+      hash: 0.into(),
+      index: 0.into(),
+      block_hash: 0.into(),
+      block_number: 2.into(),
+      cumulative_gas_used: 0.into(),
+      gas_used: 0.into(),
+      contract_address: None,
+      logs: vec![],
+    };
+
     let poll_interval = Duration::from_secs(0);
     transport.add_response(Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000111"#.into()));
     transport.add_response(Value::String("0x123".into()));
@@ -85,17 +101,10 @@ mod tests {
       Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000461"#.into()),
     ]));
     transport.add_response(Value::Null);
-    transport.add_response(json!(TransactionReceipt {
-      hash: 0.into(),
-      index: 0.into(),
-      block_hash: 0.into(),
-      block_number: 2.into(),
-      cumulative_gas_used: 0.into(),
-      gas_used: 0.into(),
-      contract_address: None,
-      logs: vec![],
-    }));
+    transport.add_response(json!(transaction_receipt));
     transport.add_response(Value::String("0x5".into()));
+    transport.add_response(Value::Bool(true));
+    transport.add_response(json!(transaction_receipt));
 
     let confirmation = {
       let future = send_transaction_with_confirmation(&transport, transaction_request, poll_interval, confirmations);
@@ -111,6 +120,10 @@ mod tests {
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_getTransactionReceipt", &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()]);
     transport.assert_request("eth_getTransactionReceipt", &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()]);
-    assert_eq!(confirmation, Ok(0x111.into()));
+    transport.assert_request("eth_blockNumber", &[]);
+    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
+    transport.assert_request("eth_getTransactionReceipt", &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()]);
+    transport.assert_no_more_requests();
+    assert_eq!(confirmation, Ok(transaction_receipt));
   }
 }

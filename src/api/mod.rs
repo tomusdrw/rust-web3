@@ -15,7 +15,7 @@ pub use self::web3::Web3;
 use std::time::Duration;
 use futures::{Future, IntoFuture};
 use {confirm, Transport, Error};
-use types::{H256, U256, TransactionRequest};
+use types::{H256, U256, TransactionRequest, TransactionReceipt};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport> {
@@ -83,7 +83,7 @@ impl<T: Transport> Web3Main<T> {
 
   /// Sends transaction and returns future resolved after transaction is confirmed
   pub fn send_transaction_with_confirmation<'a>(&'a self, tx: TransactionRequest, poll_interval: Duration, confirmations: usize)
-  -> Box<Future<Item = H256, Error = Error> + 'a> where
+  -> Box<Future<Item = TransactionReceipt, Error = Error> + 'a> where
   {
     confirm::send_transaction_with_confirmation(&self.transport, tx, poll_interval, confirmations)
   }
