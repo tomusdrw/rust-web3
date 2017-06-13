@@ -15,7 +15,7 @@ use self::tokio_core::reactor;
 use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
 use self::tokio_uds::UnixStream;
 
-use futures::{self, Sink, Stream, Future};
+use futures::{self, sink, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
 use rpc::{self, Value as RpcValue};
@@ -70,7 +70,7 @@ type PendingResult = oneshot::Receiver<Result<RpcValue, RpcError>>;
 pub struct Ipc {
   id: atomic::AtomicUsize,
   pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
-  write_sender: mpsc::Sender<Vec<u8>>,
+  write_sender: Mutex<sink::Wait<mpsc::Sender<Vec<u8>>>>,
 }
 
 impl Ipc {
@@ -86,7 +86,7 @@ impl Ipc {
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self, IpcError> {
     let (read, write) = stream.split();
-    let (write_sender, write_receiver) = mpsc::channel(2);
+    let (write_sender, write_receiver) = mpsc::channel(1024);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
@@ -107,7 +107,7 @@ impl Ipc {
 
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
-      write_sender: write_sender,
+      write_sender: Mutex::new(write_sender.wait()),
       pending: pending,
     })
   }
@@ -166,17 +166,16 @@ impl Transport for Ipc {
     // When the response is ready
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
-
-    let sending = self.write_sender.clone().send(request.into_bytes());
+    let result = self.write_sender.lock().send(request.into_bytes());
 
     IpcTask {
-      state: IpcTaskState::Sending(sending, rx),
+      state: IpcTaskState::Sending(Some(result), rx),
     }
   }
 }
 
 enum IpcTaskState {
-  Sending(futures::sink::Send<mpsc::Sender<Vec<u8>>>, PendingResult),
+  Sending(Option<Result<(), mpsc::SendError<Vec<u8>>>>, PendingResult),
   WaitingForResult(PendingResult),
   Done,
 }
@@ -196,8 +195,10 @@ impl Future for IpcTask {
 
     loop {
       match self.state {
-        IpcTaskState::Sending(ref mut send, _) => {
-          try_ready!(send.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
+        IpcTaskState::Sending(ref mut result, _) => {
+          if let Some(Err(e)) = result.take() {
+            return Err(RpcError::Transport(format!("{:?}", e)));
+          }
         },
         IpcTaskState::WaitingForResult(ref mut rx) => {
           let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
