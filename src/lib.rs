@@ -7,8 +7,10 @@ extern crate jsonrpc_core as rpc;
 extern crate parking_lot;
 extern crate rustc_serialize;
 extern crate serde;
-extern crate serde_json;
 extern crate tokio_timer;
+
+#[cfg_attr(test, macro_use)]
+extern crate serde_json;
 
 #[macro_use]
 extern crate log;
@@ -19,13 +21,15 @@ extern crate serde_derive;
 #[macro_use]
 pub extern crate futures;
 
+// it needs to be before other modules
+// otherwise the macro for tests is not available.
+#[macro_use]
+pub mod helpers;
+
 pub mod api;
 pub mod contract;
 pub mod transports;
 pub mod types;
-
-#[macro_use]
-pub mod helpers;
 
 mod confirm;
 
