@@ -123,7 +123,7 @@ mod tests {
   impl Transport for FakeTransport {
     type Out = BoxFuture<rpc::Value, Error>;
 
-    fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Self::Out {
+    fn execute(&self, _method: &str, _params: Vec<rpc::Value>) -> Self::Out {
       unimplemented!()
     }
   }
