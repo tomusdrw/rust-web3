@@ -3,7 +3,7 @@
 extern crate tokio_core;
 extern crate tokio_uds;
 
-use std::{mem, thread};
+use std::{mem, thread, result};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -13,7 +13,7 @@ use self::tokio_core::reactor;
 use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
 use self::tokio_uds::UnixStream;
 
-use futures::{self, Sink, Stream, Future};
+use futures::{self, sink, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
 use parking_lot::Mutex;
@@ -62,7 +62,7 @@ impl Drop for EventLoopHandle {
 /// Error returned while initializing IPC transport.
 pub type Error = io::Error;
 /// Result of initializing IPC transport.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;
 
 type Pending = oneshot::Sender<RpcResult<Vec<RpcResult<rpc::Value>>>>;
 type PendingResult = oneshot::Receiver<RpcResult<Vec<RpcResult<rpc::Value>>>>;
@@ -71,7 +71,7 @@ type PendingResult = oneshot::Receiver<RpcResult<Vec<RpcResult<rpc::Value>>>>;
 pub struct Ipc {
   id: atomic::AtomicUsize,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-  write_sender: mpsc::Sender<Vec<u8>>,
+  write_sender: Mutex<sink::Wait<mpsc::Sender<Vec<u8>>>>,
 }
 
 impl Ipc {
@@ -87,7 +87,7 @@ impl Ipc {
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
     let (read, write) = stream.split();
-    let (write_sender, write_receiver) = mpsc::channel(8);
+    let (write_sender, write_receiver) = mpsc::channel(1024);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
@@ -108,7 +108,7 @@ impl Ipc {
 
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
-      write_sender,
+      write_sender: Mutex::new(write_sender.wait()),
       pending,
     })
   }
@@ -172,11 +172,13 @@ impl Transport for Ipc {
 
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
-
-    let sending = self.write_sender.clone().send(request.into_bytes());
+    let result = {
+      let mut sender = self.write_sender.lock();
+      (*sender).send(request.into_bytes())
+    };
 
     IpcTask {
-      state: IpcTaskState::Sending(sending, rx),
+      state: IpcTaskState::Sending(Some(result), rx),
       extract: single_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>,
     }
   }
@@ -204,20 +206,20 @@ impl BatchTransport for Ipc {
 
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
-
-    let sending = self.write_sender.clone().send(request.into_bytes());
+    let result = {
+      let mut sender = self.write_sender.lock();
+      (*sender).send(request.into_bytes())
+    };
 
     IpcTask {
-      state: IpcTaskState::Sending(sending, rx),
+      state: IpcTaskState::Sending(Some(result), rx),
       extract: batch_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
     }
   }
 }
 
-type WriteTask = futures::sink::Send<mpsc::Sender<Vec<u8>>>;
-
 enum IpcTaskState {
-  Sending(WriteTask, PendingResult),
+  Sending(Option<result::Result<(), mpsc::SendError<Vec<u8>>>>, PendingResult),
   WaitingForResult(PendingResult),
   Done,
 }
@@ -241,8 +243,10 @@ impl<T, Out> Future for IpcTask<T> where
     loop {
       let extract = &self.extract;
       match self.state {
-        IpcTaskState::Sending(ref mut send, _) => {
-          try_ready!(send.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
+        IpcTaskState::Sending(ref mut result, _) => {
+          if let Some(Err(e)) = result.take() {
+            return Err(RpcError::Transport(format!("{:?}", e)));
+          }
         },
         IpcTaskState::WaitingForResult(ref mut rx) => {
           let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
@@ -300,7 +304,7 @@ impl Future for WriteStream {
           }
         },
         WriteState::Writing { ref buffer, ref mut current_pos } => {
-          try_ready!(Ok(self.write.poll_write()));
+          try_ready!(Ok(self.write.poll_write()) as result::Result<_, ()>);
 
           // Write everything in the buffer
           while *current_pos < buffer.len() {
@@ -336,7 +340,7 @@ impl Future for ReadStream {
     let mut new_write_size = 128;
     loop {
       // Read pending responses
-      try_ready!(Ok(self.read.poll_read()));
+      try_ready!(Ok(self.read.poll_read()) as result::Result<_, ()>);
 
       if self.current_pos == self.buffer.len() {
         if new_write_size < DEFAULT_BUF_SIZE {

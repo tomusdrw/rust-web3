@@ -4,11 +4,13 @@
 
 extern crate ethabi;
 extern crate jsonrpc_core as rpc;
+extern crate parking_lot;
 extern crate rustc_serialize;
 extern crate serde;
-extern crate serde_json;
-extern crate parking_lot;
+extern crate tokio_timer;
 
+#[macro_use]
+extern crate serde_json;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -18,15 +20,17 @@ extern crate serde_derive;
 #[macro_use]
 pub extern crate futures;
 
-#[macro_use]
-pub mod helpers;
-
-use futures::Future;
-
 pub mod api;
 pub mod contract;
 pub mod transports;
 pub mod types;
+
+#[macro_use]
+pub mod helpers;
+
+mod confirm;
+
+use futures::Future;
 
 pub use api::{Web3Main as Web3, ErasedWeb3};
 

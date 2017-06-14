@@ -14,11 +14,12 @@ ethabi = "1.1"
 futures = "0.1"
 jsonrpc-core = "7.0"
 log = "0.3"
+parking_lot = "0.4"
 rustc-serialize = "0.3"
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
-parking_lot = "0.4"
+tokio-timer = "0.1"
 # Optional deps
 hyper = { version = "0.10", optional = true }
 tokio-core = { version = "0.1", optional = true }
@@ -34,3 +35,5 @@ default = ["http", "ipc"]
 # TODO [ToDr] move transports to separate crates
 http = ["hyper"]
 ipc = ["tokio-uds", "tokio-core"]
+
+[workspace]
