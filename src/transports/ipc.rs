@@ -17,8 +17,8 @@ use futures::{self, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
 use parking_lot::Mutex;
-use rpc::{self, Value as RpcValue};
-use transports::Result;
+use rpc;
+use transports::Result as RpcResult;
 use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 macro_rules! try_nb {
@@ -59,14 +59,13 @@ impl Drop for EventLoopHandle {
   }
 }
 
-
 /// Error returned while initializing IPC transport.
-pub type IpcError = io::Error;
+pub type Error = io::Error;
 /// Result of initializing IPC transport.
-pub type IpcResult<T> = ::std::result::Result<T, IpcError>;
+pub type Result<T> = ::std::result::Result<T, Error>;
 
-type Pending = oneshot::Sender<Result<Vec<Result<RpcValue>>>>;
-type PendingResult = oneshot::Receiver<Result<Vec<Result<RpcValue>>>>;
+type Pending = oneshot::Sender<RpcResult<Vec<RpcResult<rpc::Value>>>>;
+type PendingResult = oneshot::Receiver<RpcResult<Vec<RpcResult<rpc::Value>>>>;
 
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
@@ -77,7 +76,7 @@ pub struct Ipc {
 
 impl Ipc {
   /// Create new IPC transport within existing Event Loop.
-  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> IpcResult<Self> where
+  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self> where
     P: AsRef<Path>,
   {
     trace!("Connecting to: {:?}", path.as_ref());
@@ -86,7 +85,7 @@ impl Ipc {
   }
 
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
-  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> IpcResult<Self> {
+  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::channel(8);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
@@ -116,7 +115,7 @@ impl Ipc {
 
   /// Create new IPC transport with separate event loop.
   /// NOTE: Dropping event loop handle will stop the transport layer!
-  pub fn new<P>(path: P) -> IpcResult<(EventLoopHandle, Self)> where
+  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self)> where
     P: AsRef<Path>,
   {
     let done = Arc::new(atomic::AtomicBool::new(false));
@@ -135,7 +134,7 @@ impl Ipc {
         tx.send(result).expect("Receiving end is always waiting.");
       };
 
-      let res: IpcResult<_> = run();
+      let res: Result<_> = run();
       match res {
         Err(e) => send(Err(e)),
         Ok((ipc, mut event_loop)) => {
@@ -158,7 +157,7 @@ impl Ipc {
 }
 
 impl Transport for Ipc {
-  type Out = IpcTask<fn (Vec<Result<rpc::Value>>) -> Result<rpc::Value>>;
+  type Out = IpcTask<fn (Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>>;
 
   fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -178,24 +177,24 @@ impl Transport for Ipc {
 
     IpcTask {
       state: IpcTaskState::Sending(sending, rx),
-      extract: single_response as fn(Vec<Result<rpc::Value>>) -> Result<rpc::Value>,
+      extract: single_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>,
     }
   }
 }
 
-fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
+fn single_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value> {
   match response.into_iter().next() {
     Some(res) => res,
     None => Err(RpcError::Transport(format!("Expected single response got empty batch."))),
   }
 }
 
-fn batch_response(response: Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>> {
+fn batch_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>> {
   Ok(response)
 }
 
 impl BatchTransport for Ipc {
-  type Batch = IpcTask<fn(Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>>>;
+  type Batch = IpcTask<fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>>;
 
   fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
     let id = requests.get(0).map(|x| x.0).unwrap_or(0);
@@ -210,7 +209,7 @@ impl BatchTransport for Ipc {
 
     IpcTask {
       state: IpcTaskState::Sending(sending, rx),
-      extract: batch_response as fn(Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>>,
+      extract: batch_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
     }
   }
 }
@@ -232,7 +231,7 @@ pub struct IpcTask<T> {
 }
 
 impl<T, Out> Future for IpcTask<T> where
-  T: Fn(Vec<Result<rpc::Value>>) -> Result<Out>,
+  T: Fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Out>,
 {
   type Item = Out;
   type Error = RpcError;
