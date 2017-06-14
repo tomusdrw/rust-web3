@@ -12,7 +12,10 @@ pub use self::net::Net;
 pub use self::personal::Personal;
 pub use self::web3::Web3;
 
-use {Transport};
+use std::time::Duration;
+use futures::{Future, IntoFuture};
+use {confirm, Transport, Error};
+use types::{H256, U256, TransactionRequest, TransactionReceipt};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport> {
@@ -66,5 +69,22 @@ impl<T: Transport> Web3Main<T> {
   /// Access methods from `personal` namespace
   pub fn personal(&self) -> personal::Personal<&T> {
     self.api()
+  }
+
+  /// Should be used to wait for confirmations
+  pub fn wait_for_confirmations<'a, F, V>(&'a self, poll_interval: Duration, confirmations: usize, check: V)
+  -> Box<Future<Item = (), Error = Error> + 'a> where
+  F: 'a + IntoFuture<Item = Option<U256>, Error = Error>,
+  V: 'a + Fn() -> F,
+  {
+    confirm::wait_for_confirmations(&self.transport, poll_interval, confirmations, check)
+  }
+
+
+  /// Sends transaction and returns future resolved after transaction is confirmed
+  pub fn send_transaction_with_confirmation<'a>(&'a self, tx: TransactionRequest, poll_interval: Duration, confirmations: usize)
+  -> Box<Future<Item = TransactionReceipt, Error = Error> + 'a> where
+  {
+    confirm::send_transaction_with_confirmation(&self.transport, tx, poll_interval, confirmations)
   }
 }
