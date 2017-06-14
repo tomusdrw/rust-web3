@@ -39,10 +39,7 @@ pub fn send_transaction_with_confirmation<'a, T>(transport: T, tx: TransactionRe
       })
       .and_then(move |_| {
         let eth = Eth::new(transport.clone());
-        eth.transaction_receipt(hash).and_then(|option| match option {
-          Some(option) => Ok(option),
-          None => Err(Error::Unreachable),
-        })
+        eth.transaction_receipt(hash).and_then(|option| option.ok_or(Error::Unreachable))
       })
     });
   Box::new(result)
