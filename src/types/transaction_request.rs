@@ -49,8 +49,19 @@ pub struct TransactionRequest {
   pub nonce: Option<U256>,
   /// Min block inclusion (None for include immediately)
   #[serde(skip_serializing_if="Option::is_none")]
-  #[serde(rename = "minBlock")]
-  pub min_block: Option<U256>,
+  pub condition: Option<Condition>,
+}
+
+/// Represents condition on minimum block number or block timestamp.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum Condition {
+	/// Valid at this minimum block number.
+	#[serde(rename="block")]
+	Block(u64),
+	/// Valid at given unix time.
+	#[serde(rename="time")]
+	Timestamp(u64),
 }
 
 // TODO serialization test

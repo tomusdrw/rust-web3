@@ -77,8 +77,8 @@ pub trait Transport {
   }
 }
 
-// Transport eraser.
-struct Eraser<T: Transport>(T);
+/// Transport eraser.
+struct Eraser<T>(T);
 
 impl<T: Transport> Transport for Eraser<T>
   where T::Out: Send + 'static,

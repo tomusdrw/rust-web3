@@ -46,7 +46,7 @@ pub struct Options {
   /// Fixed transaction nonce
   pub nonce: Option<U256>,
   /// Min block to include transaction in.
-  pub min_block: Option<U256>,
+  pub condition: Option<U256>,
 }
 
 impl Options {
@@ -98,7 +98,7 @@ impl<T: Transport> Contract<T> {
           value: options.value,
           nonce: options.nonce,
           data: Some(Bytes(data)),
-          min_block: options.min_block,
+          condition: None,
         });
         QueryResult::simple(result)
       })
