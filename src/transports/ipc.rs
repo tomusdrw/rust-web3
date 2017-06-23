@@ -191,10 +191,6 @@ fn single_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value
   }
 }
 
-fn batch_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>> {
-  Ok(response)
-}
-
 impl BatchTransport for Ipc {
   type Batch = IpcTask<fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>>;
 
@@ -213,7 +209,7 @@ impl BatchTransport for Ipc {
 
     IpcTask {
       state: IpcTaskState::Sending(Some(result), rx),
-      extract: batch_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
+      extract: Ok as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
     }
   }
 }

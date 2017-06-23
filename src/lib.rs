@@ -107,6 +107,8 @@ pub trait BatchTransport: Transport {
 
   /// Sends a batch of prepared RPC calls.
   fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch;
+  // fn send_batch<T>(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch where
+    // T: IntoIterator<Item=(RequestId, rpc::Call)>;
 }
 
 /// Transport eraser.
