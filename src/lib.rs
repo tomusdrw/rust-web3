@@ -106,9 +106,8 @@ pub trait BatchTransport: Transport {
   type Batch: futures::Future<Item=Vec<::std::result::Result<rpc::Value, Error>>, Error=Error> + Send + 'static;
 
   /// Sends a batch of prepared RPC calls.
-  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch;
-  // fn send_batch<T>(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch where
-    // T: IntoIterator<Item=(RequestId, rpc::Call)>;
+  fn send_batch<T>(&self, requests: T) -> Self::Batch where
+    T: IntoIterator<Item=(RequestId, rpc::Call)>;
 }
 
 /// Transport eraser.
@@ -164,7 +163,9 @@ impl<X, T> BatchTransport for X where
 {
   type Batch = T::Batch;
 
-  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
+  fn send_batch<I>(&self, requests: I) -> Self::Batch where
+    I: IntoIterator<Item=(RequestId, rpc::Call)>
+  {
     (**self).send_batch(requests)
   }
 }

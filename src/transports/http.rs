@@ -74,9 +74,12 @@ impl Transport for Http {
 impl BatchTransport for Http {
   type Batch = FetchTask<fn(&str) -> Result<Vec<Result<rpc::Value>>>>;
 
-  fn send_batch(&self, requests: Vec<(RequestId, rpc::Call)>) -> Self::Batch {
-    let id = requests.get(0).map(|x| x.0).unwrap_or(0);
-    let requests = requests.into_iter().map(|x| x.1).collect();
+  fn send_batch<T>(&self, requests: T) -> Self::Batch where
+    T: IntoIterator<Item=(RequestId, rpc::Call)>
+  {
+    let mut it = requests.into_iter();
+    let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
+    let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
     let request = helpers::to_string(&rpc::Request::Batch(requests));
     debug!("Calling: {}", request);
 
