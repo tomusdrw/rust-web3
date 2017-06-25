@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.0.3"
+version = "0.0.4"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -10,7 +10,7 @@ keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
 authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 
 [dependencies]
-ethabi = "1.1"
+ethabi = "2.0"
 futures = "0.1"
 jsonrpc-core = "7.0"
 log = "0.3"
