@@ -13,8 +13,12 @@ pub struct Net<T> {
 impl<T: Transport> Namespace<T> for Net<T> {
   fn new(transport: T) -> Self where Self: Sized {
     Net {
-      transport: transport,
+      transport,
     }
+  }
+
+  fn transport(&self) -> &T {
+    &self.transport
   }
 }
 

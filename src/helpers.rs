@@ -43,21 +43,31 @@ pub fn serialize<T: serde::Serialize>(t: &T) -> rpc::Value {
   serde_json::to_value(t).expect("Types never fail to serialize.")
 }
 
+/// Serializes a request to string. Panics if the type returns error during serialization.
+pub fn to_string<T: serde::Serialize>(request: &T) -> String {
+  serde_json::to_string(&request).expect("String serialization never fails.")
+}
+
 /// Build a JSON-RPC request.
-pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> String {
-  let request = rpc::Request::Single(rpc::Call::MethodCall(rpc::MethodCall {
+pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::Call {
+  rpc::Call::MethodCall(rpc::MethodCall {
     jsonrpc: Some(rpc::Version::V2),
     method: method.into(),
     params: Some(rpc::Params::Array(params)),
     id: rpc::Id::Num(id as u64),
-  }));
-  serde_json::to_string(&request).expect("String serialization never fails.")
+  })
 }
 
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
   serde_json::from_slice(response)
     .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+}
+
+
+/// Parse a Vec of  `rpc::Output` into `Result`.
+pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<rpc::Value, Error>>, Error> {
+  Ok(outputs.into_iter().map(to_result_from_output).collect())
 }
 
 /// Parse `rpc::Output` into `Result`.
@@ -79,6 +89,17 @@ pub fn to_result(response: &str) -> Result<rpc::Value, Error> {
   }
 }
 
+/// Parse string-encoded RPC batch response into `Result`.
+pub fn to_batch_result(response: &str) -> Result<Vec<Result<rpc::Value, Error>>, Error> {
+  let response = serde_json::from_str(response)
+    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+
+  match response {
+    rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(to_result_from_output).collect()),
+    _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),
+  }
+}
+
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
@@ -87,7 +108,7 @@ pub mod tests {
   use std::collections::VecDeque;
   use futures::{self, Future};
   use rpc;
-  use {Result, Error, Transport};
+  use {Result, Error, Transport, RequestId};
 
   #[derive(Default)]
   pub struct TestTransport {
@@ -99,8 +120,13 @@ pub mod tests {
   impl Transport for TestTransport {
     type Out = Result<rpc::Value>;
 
-    fn execute(&self, method: &str, params: Vec<rpc::Value>) -> Result<rpc::Value> {
+    fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+      let request = super::build_request(1, method, params.clone());
       self.requests.borrow_mut().push((method.into(), params));
+      (self.requests.borrow().len(), request)
+    }
+
+    fn send(&self, _id: RequestId, _request: rpc::Call)-> Result<rpc::Value> {
       match self.response.borrow_mut().pop_front() {
         Some(response) => futures::finished(response).boxed(),
         None => futures::failed(Error::Unreachable).boxed(),
