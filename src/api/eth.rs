@@ -18,8 +18,12 @@ pub struct Eth<T> {
 impl<T: Transport> Namespace<T> for Eth<T> {
   fn new(transport: T) -> Self where Self: Sized {
     Eth {
-      transport: transport,
+      transport,
     }
+  }
+
+  fn transport(&self) -> &T {
+    &self.transport
   }
 }
 

@@ -14,8 +14,12 @@ pub struct Web3<T> {
 impl<T: Transport> Namespace<T> for Web3<T> {
   fn new(transport: T) -> Self where Self: Sized {
     Web3 {
-      transport: transport,
+      transport,
     }
+  }
+
+  fn transport(&self) -> &T {
+    &self.transport
   }
 }
 

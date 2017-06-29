@@ -14,8 +14,12 @@ pub struct Personal<T> {
 impl<T: Transport> Namespace<T> for Personal<T> {
   fn new(transport: T) -> Self where Self: Sized {
     Personal {
-      transport: transport,
+      transport,
     }
+  }
+
+  fn transport(&self) -> &T {
+    &self.transport
   }
 }
 

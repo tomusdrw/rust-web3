@@ -2,15 +2,13 @@
 
 extern crate tokio_core;
 extern crate tokio_uds;
-extern crate parking_lot;
 
-use std::{mem, thread};
+use std::{mem, thread, result};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::sync::{self, atomic, Arc};
 
-use self::parking_lot::Mutex;
 use self::tokio_core::reactor;
 use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
 use self::tokio_uds::UnixStream;
@@ -18,8 +16,10 @@ use self::tokio_uds::UnixStream;
 use futures::{self, sink, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
 use helpers;
-use rpc::{self, Value as RpcValue};
-use {Transport, Error as RpcError};
+use parking_lot::Mutex;
+use rpc;
+use transports::Result as RpcResult;
+use {BatchTransport, Transport, Error as RpcError, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -59,23 +59,24 @@ impl Drop for EventLoopHandle {
   }
 }
 
+/// Error returned while initializing IPC transport.
+pub type Error = io::Error;
+/// Result of initializing IPC transport.
+pub type Result<T> = result::Result<T, Error>;
 
-/// Error returned while initializing IPC transport
-pub type IpcError = io::Error;
-
-type Pending = oneshot::Sender<Result<RpcValue, RpcError>>;
-type PendingResult = oneshot::Receiver<Result<RpcValue, RpcError>>;
+type Pending = oneshot::Sender<RpcResult<Vec<RpcResult<rpc::Value>>>>;
+type PendingResult = oneshot::Receiver<RpcResult<Vec<RpcResult<rpc::Value>>>>;
 
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
   id: atomic::AtomicUsize,
-  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
+  pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
   write_sender: Mutex<sink::Wait<mpsc::Sender<Vec<u8>>>>,
 }
 
 impl Ipc {
   /// Create new IPC transport within existing Event Loop.
-  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self, IpcError> where
+  pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self> where
     P: AsRef<Path>,
   {
     trace!("Connecting to: {:?}", path.as_ref());
@@ -84,20 +85,20 @@ impl Ipc {
   }
 
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
-  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self, IpcError> {
+  fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::channel(1024);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
-      read: read,
+      read,
       pending: pending.clone(),
       buffer: vec![],
       current_pos: 0,
     };
 
     let w = WriteStream {
-      write: write,
+      write,
       incoming: write_receiver,
       state: WriteState::WaitingForRequest,
     };
@@ -108,13 +109,13 @@ impl Ipc {
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
       write_sender: Mutex::new(write_sender.wait()),
-      pending: pending,
+      pending,
     })
   }
 
   /// Create new IPC transport with separate event loop.
   /// NOTE: Dropping event loop handle will stop the transport layer!
-  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self), IpcError> where
+  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self)> where
     P: AsRef<Path>,
   {
     let done = Arc::new(atomic::AtomicBool::new(false));
@@ -133,7 +134,7 @@ impl Ipc {
         tx.send(result).expect("Receiving end is always waiting.");
       };
 
-      let res: Result<_, IpcError> = run();
+      let res: Result<_> = run();
       match res {
         Err(e) => send(Err(e)),
         Ok((ipc, mut event_loop)) => {
@@ -156,26 +157,68 @@ impl Ipc {
 }
 
 impl Transport for Ipc {
-  type Out = IpcTask;
+  type Out = IpcTask<fn (Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>>;
 
-  fn execute(&self, method: &str, params: Vec<RpcValue>) -> Self::Out {
+  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
     let request = helpers::build_request(id, method, params);
+
+    (id, request)
+  }
+
+  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+    let request = helpers::to_string(&rpc::Request::Single(request));
     debug!("Calling: {}", request);
 
-    // When the response is ready
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
-    let result = self.write_sender.lock().send(request.into_bytes());
+    let result = {
+      let mut sender = self.write_sender.lock();
+      (*sender).send(request.into_bytes())
+    };
 
     IpcTask {
       state: IpcTaskState::Sending(Some(result), rx),
+      extract: single_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>,
+    }
+  }
+}
+
+fn single_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value> {
+  match response.into_iter().next() {
+    Some(res) => res,
+    None => Err(RpcError::Transport(format!("Expected single response got empty batch."))),
+  }
+}
+
+impl BatchTransport for Ipc {
+  type Batch = IpcTask<fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>>;
+
+  fn send_batch<T>(&self, requests: T) -> Self::Batch where
+    T: IntoIterator<Item=(RequestId, rpc::Call)>
+  {
+    let mut it = requests.into_iter();
+    let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
+    let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
+    let request = helpers::to_string(&rpc::Request::Batch(requests));
+    debug!("Calling: {}", request);
+
+    let (tx, rx) = futures::oneshot();
+    self.pending.lock().insert(id, tx);
+    let result = {
+      let mut sender = self.write_sender.lock();
+      (*sender).send(request.into_bytes())
+    };
+
+    IpcTask {
+      state: IpcTaskState::Sending(Some(result), rx),
+      extract: Ok as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
     }
   }
 }
 
 enum IpcTaskState {
-  Sending(Option<Result<(), mpsc::SendError<Vec<u8>>>>, PendingResult),
+  Sending(Option<result::Result<(), mpsc::SendError<Vec<u8>>>>, PendingResult),
   WaitingForResult(PendingResult),
   Done,
 }
@@ -183,17 +226,21 @@ enum IpcTaskState {
 /// A future represeting IPC transport method execution.
 /// First it sends a message to writing half and waits for completion
 /// and then starts to listen for expected response.
-pub struct IpcTask {
+pub struct IpcTask<T> {
   state: IpcTaskState,
+  extract: T,
 }
 
-impl Future for IpcTask {
-  type Item = RpcValue;
+impl<T, Out> Future for IpcTask<T> where
+  T: Fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Out>,
+{
+  type Item = Out;
   type Error = RpcError;
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
 
     loop {
+      let extract = &self.extract;
       match self.state {
         IpcTaskState::Sending(ref mut result, _) => {
           if let Some(Err(e)) = result.take() {
@@ -202,7 +249,7 @@ impl Future for IpcTask {
         },
         IpcTaskState::WaitingForResult(ref mut rx) => {
           let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
-          return result.map(futures::Async::Ready);
+          return result.and_then(|x| extract(x)).map(futures::Async::Ready);
         },
         IpcTaskState::Done => {
           return Err(RpcError::Unreachable);
@@ -256,7 +303,7 @@ impl Future for WriteStream {
           }
         },
         WriteState::Writing { ref buffer, ref mut current_pos } => {
-          try_ready!(Ok(self.write.poll_write()) as Result<_, ()>);
+          try_ready!(Ok(self.write.poll_write()) as result::Result<_, ()>);
 
           // Write everything in the buffer
           while *current_pos < buffer.len() {
@@ -278,7 +325,7 @@ impl Future for WriteStream {
 /// Reads data on the socket and tries to dispatch it to awaiting requests.
 struct ReadStream {
   read: ReadHalf<UnixStream>,
-  pending: Arc<Mutex<BTreeMap<usize, Pending>>>,
+  pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
   buffer: Vec<u8>,
   current_pos: usize,
 }
@@ -292,7 +339,7 @@ impl Future for ReadStream {
     let mut new_write_size = 128;
     loop {
       // Read pending responses
-      try_ready!(Ok(self.read.poll_read()) as Result<_, ()>);
+      try_ready!(Ok(self.read.poll_read()) as result::Result<_, ()>);
 
       if self.current_pos == self.buffer.len() {
         if new_write_size < DEFAULT_BUF_SIZE {
@@ -330,16 +377,17 @@ impl Future for ReadStream {
 }
 
 impl ReadStream {
-  fn respond(&self, output: rpc::Output) {
-    let id = match output {
-      rpc::Output::Success(ref success) => success.id.clone(),
-      rpc::Output::Failure(ref failure) => failure.id.clone(),
+  fn respond(&self, outputs: Vec<rpc::Output>) {
+    let id = match outputs.get(0) {
+      Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+      Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+      None => rpc::Id::Num(0),
     };
 
     if let rpc::Id::Num(num) = id {
       if let Some(request) = self.pending.lock().remove(&(num as usize)) {
-        trace!("Responding to (id: {:?}) with {:?}", num, output);
-        request.complete(helpers::to_result_from_output(output));
+        trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+        request.complete(helpers::to_results_from_outputs(outputs));
       } else {
         warn!("Got response for unknown request (id: {:?})", num);
       }
@@ -348,15 +396,15 @@ impl ReadStream {
     }
   }
 
-  fn extract_response(buf: &[u8], min: usize) -> Option<(rpc::Output, usize)> {
+  fn extract_response(buf: &[u8], min: usize) -> Option<(Vec<rpc::Output>, usize)> {
     for pos in (min..buf.len()).rev() {
       // Look for end character
       if buf[pos] == b']' || buf[pos] == b'}' {
         // Try to deserialize
         let pos = pos + 1;
         match helpers::to_response_from_slice(&buf[0..pos]) {
-          Ok(rpc::Response::Single(output)) => return Some((output, pos)),
-          Ok(rpc::Response::Batch(_)) => panic!("Unsupported batch response"),
+          Ok(rpc::Response::Single(output)) => return Some((vec![output], pos)),
+          Ok(rpc::Response::Batch(outputs)) => return Some((outputs, pos)),
           // just continue
           _ => {},
         }

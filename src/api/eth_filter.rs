@@ -155,6 +155,10 @@ impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
       transport,
     }
   }
+
+  fn transport(&self) -> &T {
+    &self.transport
+  }
 }
 
 impl<T: Transport + Clone> EthFilter<T> {
