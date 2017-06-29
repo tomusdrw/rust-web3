@@ -15,7 +15,7 @@ pub use self::web3::Web3;
 use std::time::Duration;
 use futures::{Future, IntoFuture};
 use {confirm, Transport, Error};
-use types::{H256, U256, TransactionRequest, TransactionReceipt};
+use types::{U256, TransactionRequest, TransactionReceipt};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport> {

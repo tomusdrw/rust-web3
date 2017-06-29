@@ -637,7 +637,7 @@ mod tests {
       from: 0x123.into(), to: Some(0x123.into()),
       gas: None, gas_price: Some(0x1.into()),
       value: Some(0x1.into()), data: None,
-      nonce: None, min_block: None,
+      nonce: None, condition: None,
     }
     =>
     "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
