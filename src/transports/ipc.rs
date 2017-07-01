@@ -1,6 +1,7 @@
 //! IPC Transport for *nix
 
 extern crate tokio_core;
+extern crate tokio_io;
 extern crate tokio_uds;
 
 use std::{mem, thread, result};
@@ -10,7 +11,8 @@ use std::path::Path;
 use std::sync::{self, atomic, Arc};
 
 use self::tokio_core::reactor;
-use self::tokio_core::io::{ReadHalf, WriteHalf, Io};
+use self::tokio_io::AsyncRead;
+use self::tokio_io::io::{ReadHalf, WriteHalf};
 use self::tokio_uds::UnixStream;
 
 use futures::{self, sink, Sink, Stream, Future};
@@ -303,8 +305,6 @@ impl Future for WriteStream {
           }
         },
         WriteState::Writing { ref buffer, ref mut current_pos } => {
-          try_ready!(Ok(self.write.poll_write()) as result::Result<_, ()>);
-
           // Write everything in the buffer
           while *current_pos < buffer.len() {
             let n = try_nb!(self.write.write(&buffer[*current_pos..]));
@@ -338,9 +338,6 @@ impl Future for ReadStream {
     const DEFAULT_BUF_SIZE: usize = 4096;
     let mut new_write_size = 128;
     loop {
-      // Read pending responses
-      try_ready!(Ok(self.read.poll_read()) as result::Result<_, ()>);
-
       if self.current_pos == self.buffer.len() {
         if new_write_size < DEFAULT_BUF_SIZE {
           new_write_size *= 2;
@@ -387,7 +384,9 @@ impl ReadStream {
     if let rpc::Id::Num(num) = id {
       if let Some(request) = self.pending.lock().remove(&(num as usize)) {
         trace!("Responding to (id: {:?}) with {:?}", num, outputs);
-        request.complete(helpers::to_results_from_outputs(outputs));
+        if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
+          warn!("Sending a response to deallocated channel: {:?}", err);
+        }
       } else {
         warn!("Got response for unknown request (id: {:?})", num);
       }
