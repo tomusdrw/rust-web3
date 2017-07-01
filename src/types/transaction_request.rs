@@ -49,8 +49,78 @@ pub struct TransactionRequest {
   pub nonce: Option<U256>,
   /// Min block inclusion (None for include immediately)
   #[serde(skip_serializing_if="Option::is_none")]
-  #[serde(rename = "minBlock")]
-  pub min_block: Option<U256>,
+  pub condition: Option<TransactionCondition>,
 }
 
-// TODO serialization test
+/// Represents condition on minimum block number or block timestamp.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum TransactionCondition {
+	/// Valid at this minimum block number.
+	#[serde(rename="block")]
+	Block(u64),
+	/// Valid at given unix time.
+	#[serde(rename="time")]
+	Timestamp(u64),
+}
+
+#[cfg(test)]
+mod tests {
+  use serde_json;
+  use super::{CallRequest, TransactionRequest, TransactionCondition};
+
+  #[test]
+  fn should_serialize_call_request() {
+    // given
+    let call_request = CallRequest {
+      from: None,
+      to: 5.into(),
+      gas: Some(21_000.into()),
+      gas_price: None,
+      value: Some(5_000_000.into()),
+      data: Some(vec![1, 2, 3].into()),
+    };
+
+    // when
+    let serialized = serde_json::to_string_pretty(&call_request).unwrap();
+
+    // then
+    assert_eq!(serialized,
+r#"{
+  "to": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203"
+}"#);
+  }
+
+  #[test]
+  fn should_serialize_transaction_request() {
+    // given
+    let tx_request = TransactionRequest {
+      from: 5.into(),
+      to: None,
+      gas: Some(21_000.into()),
+      gas_price: None,
+      value: Some(5_000_000.into()),
+      data: Some(vec![1, 2, 3].into()),
+      nonce: None,
+      condition: Some(TransactionCondition::Block(5)),
+    };
+
+    // when
+    let serialized = serde_json::to_string_pretty(&tx_request).unwrap();
+
+    // then
+    assert_eq!(serialized,
+r#"{
+  "from": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203",
+  "condition": {
+    "block": 5
+  }
+}"#);
+  }
+}
