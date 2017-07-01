@@ -87,7 +87,7 @@ impl<T: Future<Item=Vec<Result<rpc::Value>>, Error=RpcError>> Future for BatchFu
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
     loop {
-      let new_state = match mem::replace(&mut self.state, BatchState::Done) {
+      match mem::replace(&mut self.state, BatchState::Done) {
         BatchState::SendingBatch(mut batch, ids) => {
           let res = match batch.poll() {
             Ok(futures::Async::NotReady) => {

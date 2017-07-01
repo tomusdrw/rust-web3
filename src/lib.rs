@@ -99,8 +99,6 @@ pub trait Transport {
   }
 }
 
-<<<<<<< HEAD
-=======
 /// A transport implementation supporting batch requests.
 pub trait BatchTransport: Transport {
   /// The type of future this transport returns when a call is made.
@@ -111,7 +109,6 @@ pub trait BatchTransport: Transport {
     T: IntoIterator<Item=(RequestId, rpc::Call)>;
 }
 
->>>>>>> master
 /// Transport eraser.
 struct Eraser<T>(T);
 
