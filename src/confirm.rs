@@ -66,7 +66,7 @@ mod tests {
       value: Some(1.into()),
       data: None,
       nonce: None,
-      min_block: None,
+      condition: None,
     };
     let transaction_receipt = TransactionReceipt {
       hash: 0.into(),

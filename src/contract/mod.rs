@@ -5,7 +5,7 @@ use ethabi;
 use api::Eth;
 use contract::result::QueryResult;
 use contract::tokens::{Output, Tokens};
-use types::{Address, Bytes, CallRequest, H256, TransactionRequest, U256};
+use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256};
 use {Transport, Error as ApiError};
 
 mod result;
@@ -45,8 +45,8 @@ pub struct Options {
   pub value: Option<U256>,
   /// Fixed transaction nonce
   pub nonce: Option<U256>,
-  /// Min block to include transaction in.
-  pub min_block: Option<U256>,
+  /// A conditon to satisfy before including transaction.
+  pub condition: Option<TransactionCondition>,
 }
 
 impl Options {
@@ -89,7 +89,7 @@ impl<T: Transport> Contract<T> {
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()))
-      .map(|data| {
+      .map(move |data| {
         let result = self.eth.send_transaction(TransactionRequest {
           from: from,
           to: Some(self.address.clone()),
@@ -98,7 +98,7 @@ impl<T: Transport> Contract<T> {
           value: options.value,
           nonce: options.nonce,
           data: Some(Bytes(data)),
-          min_block: options.min_block,
+          condition: options.condition,
         });
         QueryResult::simple(result)
       })
