@@ -3,14 +3,64 @@
 
 use std::marker::PhantomData;
 use std::time::Duration;
+use std::vec;
 use serde::de::DeserializeOwned;
-use tokio_timer::Timer;
-use futures::{Poll, Future, Stream, stream};
+use tokio_timer::{Timer, Interval};
+use futures::{Poll, Future, Stream};
 
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
+
+pub struct FilterStream<T: Transport, I> {
+  base: BaseFilter<T, I>,
+  interval: Interval,
+  state: FilterStreamState<I, T::Out>,
+}
+
+impl<T: Transport, I> FilterStream<T, I> {
+  fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
+    FilterStream {
+      base,
+      interval: Timer::default().interval(poll_interval),
+      state: FilterStreamState::WaitForInterval,
+    }
+  }
+}
+
+enum FilterStreamState<I, O> {
+  WaitForInterval,
+  GetFilterChanges(CallResult<Option<Vec<I>>, O>),
+  NextItem(vec::IntoIter<I>),
+}
+
+impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
+  type Item = I;
+  type Error = Error;
+
+  fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    loop {
+      let next_state = match self.state {
+        FilterStreamState::WaitForInterval => {
+          let _ready = try_ready!(self.interval.poll().map_err(|_| Error::Unreachable));
+          let id = helpers::serialize(&self.base.id);
+          let future = CallResult::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
+          FilterStreamState::GetFilterChanges(future)
+        },
+        FilterStreamState::GetFilterChanges(ref mut future) => {
+          let items = try_ready!(future.poll()).unwrap_or_default();
+          FilterStreamState::NextItem(items.into_iter())
+        },
+        FilterStreamState::NextItem(ref mut iter) => match iter.next() {
+          Some(item) => return Ok(Some(item).into()),
+          None => FilterStreamState::WaitForInterval
+        }
+      };
+      self.state = next_state;
+    }
+  }
+}
 
 /// Specifies filter items and constructor method.
 trait FilterInterface {
@@ -72,17 +122,8 @@ impl<T: Transport, I> BaseFilter<T, I> {
   }
 
   /// Returns the stream of items which automatically polls the server
-  pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = I, Error = Error> + 'a> where
-    T: 'a,
-    I: DeserializeOwned + 'a,
-  {
-    let result = Timer::default().interval(poll_interval)
-      .map_err(|_| Error::Unreachable)
-      .and_then(move |_| self.poll().map(Option::unwrap_or_default))
-      .map(|res| res.into_iter().map(Ok).collect::<Vec<Result<_, Error>>>())
-      .map(stream::iter)
-      .flatten();
-    Box::new(result)
+  pub fn stream(self, poll_interval: Duration) -> FilterStream<T, I> {
+    FilterStream::new(self, poll_interval)
   }
 
   /// Uninstalls the filter
