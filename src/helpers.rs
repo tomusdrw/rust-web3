@@ -144,7 +144,6 @@ pub mod tests {
     }
 
     pub fn assert_request(&mut self, method: &str, params: &[String]) {
-      println!("method: {}", method);
       let idx = self.asserted;
       self.asserted += 1;
 
