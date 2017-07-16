@@ -13,6 +13,7 @@ use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
 
+/// Stream of events
 pub struct FilterStream<T: Transport, I> {
   base: BaseFilter<T, I>,
   interval: Interval,

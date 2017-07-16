@@ -1,5 +1,5 @@
 use std::time::Duration;
-use futures::{IntoFuture, Future, Stream, Poll, Async};
+use futures::{IntoFuture, Future, Stream, Poll};
 use futures::stream::Skip;
 use api::{Eth, EthFilter, Namespace, CreateFilter, FilterStream};
 use types::{H256, U256, TransactionRequest, TransactionReceipt};
@@ -29,7 +29,8 @@ struct WaitForConfirmations<T, V, F> where T: Transport {
 impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future> where
   T: Transport,
   V: ConfirmationCheck<Check = F>,
-  F: IntoFuture<Item = Option<U256>, Error = Error> {
+  F: IntoFuture<Item = Option<U256>, Error = Error>,
+{
 
   type Item = ();
   type Error = Error;
@@ -97,7 +98,8 @@ impl<T: Transport + Clone, V, F> Confirmations<T, V, F> {
 impl<T, V, F> Future for Confirmations<T, V, F::Future> where
   T: Transport,
   V: ConfirmationCheck<Check = F>,
-  F: IntoFuture<Item = Option<U256>, Error = Error> {
+  F: IntoFuture<Item = Option<U256>, Error = Error>,
+{
 
   type Item = ();
   type Error = Error;
@@ -126,7 +128,8 @@ impl<T, V, F> Future for Confirmations<T, V, F::Future> where
 pub fn wait_for_confirmations<T, V, F>(transport: T, poll_interval: Duration, confirmations: u64, check: V) -> Confirmations<T, V, F::Future> where
   T: Transport + Clone,
   V: ConfirmationCheck<Check = F>,
-  F: IntoFuture<Item = Option<U256>, Error = Error>, {
+  F: IntoFuture<Item = Option<U256>, Error = Error>,
+{
   Confirmations::new(transport, poll_interval, confirmations, check)
 }
 
@@ -184,7 +187,7 @@ pub struct SendTransactionWithConfirmation<T: Transport> {
 
 impl<T: Transport + Clone> SendTransactionWithConfirmation<T> {
   fn new(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: u64) -> Self {
-  let eth = Eth::new(transport.clone());
+    let eth = Eth::new(transport.clone());
     SendTransactionWithConfirmation {
       state: SendTransactionWithConfirmationState::SendTransaction(eth.send_transaction(tx)),
       eth,
