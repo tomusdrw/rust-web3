@@ -12,6 +12,17 @@ pub trait ConfirmationCheck {
   fn check(&self) -> Self::Check;
 }
 
+impl<F, T> ConfirmationCheck for F where
+  F: Fn() -> T,
+  T: IntoFuture<Item = Option<U256>, Error = Error>,
+{
+  type Check = T;
+
+  fn check(&self) -> Self::Check {
+    (*self)()
+  }
+}
+
 enum WaitForConfirmationsState<F, O> {
   WaitForNextBlock,
   CheckConfirmation(F),
