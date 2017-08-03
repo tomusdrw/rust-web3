@@ -62,7 +62,7 @@ impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future> where
         },
         WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
           let block_number = try_ready!(block_number_future.poll()).low_u64();
-          if confirmation_block_number + self.confirmations >= block_number {
+          if confirmation_block_number + self.confirmations <= block_number {
             return Ok(().into())
           } else {
             WaitForConfirmationsState::WaitForNextBlock
@@ -293,7 +293,7 @@ mod tests {
     ]));
     transport.add_response(Value::Null);
     transport.add_response(json!(transaction_receipt));
-    transport.add_response(Value::String("0x5".into()));
+    transport.add_response(Value::String("0x6".into()));
     transport.add_response(json!(transaction_receipt));
     transport.add_response(Value::Bool(true));
 
@@ -313,7 +313,6 @@ mod tests {
     transport.assert_request("eth_getTransactionReceipt", &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()]);
     transport.assert_request("eth_blockNumber", &[]);
     transport.assert_request("eth_getTransactionReceipt", &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
     assert_eq!(confirmation, Ok(transaction_receipt));
   }

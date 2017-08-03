@@ -146,12 +146,6 @@ impl<T: Transport> BaseFilter<T, Log> {
   }
 }
 
-impl<T: Transport, I> Drop for BaseFilter<T, I> {
-  fn drop(&mut self) {
-    let _ = self.uninstall_internal().wait();
-  }
-}
-
 /// Should be used to create new filter future
 fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
   let future = CallResult::new(t.execute(F::constructor(), arg));
@@ -252,7 +246,6 @@ mod tests {
     transport.assert_request("eth_newFilter", &[
       r#"{"address":null,"fromBlock":null,"limit":10,"toBlock":null,"topics":null}"#.into()
     ]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -293,7 +286,6 @@ mod tests {
       r#"{"address":null,"fromBlock":null,"limit":null,"toBlock":null,"topics":[null,["0x0000000000000000000000000000000000000000000000000000000000000002"],null,null]}"#.into()
     ]);
     transport.assert_request("eth_getFilterLogs", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -334,7 +326,6 @@ mod tests {
       r#"{"address":["0x0000000000000000000000000000000000000002"],"fromBlock":null,"limit":null,"toBlock":null,"topics":null}"#.into()
     ]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -353,7 +344,6 @@ mod tests {
 
     // then
     transport.assert_request("eth_newBlockFilter", &[]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -378,7 +368,6 @@ mod tests {
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
     transport.assert_request("eth_newBlockFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -411,7 +400,6 @@ mod tests {
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
   }
 
   #[test]
@@ -429,7 +417,6 @@ mod tests {
 
     // then
     transport.assert_request("eth_newPendingTransactionFilter", &[]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -454,7 +441,6 @@ mod tests {
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
     transport.assert_request("eth_newPendingTransactionFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 }
