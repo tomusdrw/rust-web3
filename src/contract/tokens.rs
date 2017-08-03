@@ -6,12 +6,12 @@ use contract::Error;
 use types::{self, Address, H256, U256};
 
 /// Output type possible to deserialize from Contract ABI
-pub trait Output {
+pub trait Deserialize {
   /// Creates a new instance from parsed ABI tokens.
   fn from_tokens(tokens: Vec<Token>) -> Result<Self, Error> where Self: Sized;
 }
 
-impl<T: Tokenizable> Output for T {
+impl<T: Tokenizable> Deserialize for T {
   fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
     if tokens.len() != 1 {
       return Err(Error::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)));
@@ -22,7 +22,7 @@ impl<T: Tokenizable> Output for T {
 
 macro_rules! impl_output {
   ($num: expr, $( $ty: ident : $no: tt, )+) => {
-    impl<$($ty, )+> Output for ($($ty,)+) where
+    impl<$($ty, )+> Deserialize for ($($ty,)+) where
       $(
         $ty: Tokenizable,
       )+
@@ -51,26 +51,26 @@ impl_output!(4, A:0, B:1, C:2, D:3, );
 impl_output!(5, A:0, B:1, C:2, D:3, E:4, );
 
 /// Tokens conversion trait
-pub trait Tokens {
+pub trait Serialize {
   /// Convert to list of tokens
   fn into_tokens(self) -> Vec<Token>;
 }
 
-impl<'a> Tokens for &'a [Token] {
+impl<'a> Serialize for &'a [Token] {
   fn into_tokens(self) -> Vec<Token> { self.to_vec() }
 }
 
-impl<T: Tokenizable> Tokens for T {
+impl<T: Tokenizable> Serialize for T {
   fn into_tokens(self) -> Vec<Token> { vec![self.into_token()] }
 }
 
-impl Tokens for () {
+impl Serialize for () {
   fn into_tokens(self) -> Vec<Token> { vec![] }
 }
 
 macro_rules! impl_tokens {
   ($( $ty: ident : $no: tt, )+) => {
-    impl<$($ty, )+> Tokens for ($($ty,)+) where
+    impl<$($ty, )+> Serialize for ($($ty,)+) where
       $(
         $ty: Tokenizable,
       )+
@@ -255,10 +255,10 @@ impl_fixed_array!(1024);
 #[cfg(test)]
 mod tests {
   use ethabi::Token;
-  use super::Output;
+  use super::Deserialize;
   use types::{Address, U256};
 
-  fn output<R: Output>() -> R {
+  fn output<R: Deserialize>() -> R {
     unimplemented!()
   }
 
