@@ -1,5 +1,6 @@
 //! Contract Functions Output types.
 
+use arrayvec::ArrayVec;
 use ethabi::Token;
 use contract::Error;
 use types::{self, Address, H256, U256};
@@ -10,11 +11,44 @@ pub trait Output {
   fn from_tokens(tokens: Vec<Token>) -> Result<Self, Error> where Self: Sized;
 }
 
-impl Output for Vec<Token> {
-  fn from_tokens(tokens: Vec<Token>) -> Result<Self, Error> {
-    Ok(tokens)
+impl<T: Tokenizable> Output for T {
+  fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
+    if tokens.len() != 1 {
+      return Err(Error::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)));
+    }
+    Self::from_token(tokens.drain(..).next().expect("At least one element in vector; qed"))
   }
 }
+
+macro_rules! impl_output {
+  ($num: expr, $( $ty: ident : $no: tt, )+) => {
+    impl<$($ty, )+> Output for ($($ty,)+) where
+      $(
+        $ty: Tokenizable,
+      )+
+    {
+      fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
+        if tokens.len() != $num {
+          return Err(Error::InvalidOutputType(format!(
+            "Expected {} elements, got a list of {}: {:?}",
+            $num,
+            tokens.len(),
+            tokens
+          )));
+        }
+        let mut it = tokens.drain(..);
+        Ok(($(
+          $ty::from_token(it.next().expect("All elements are in vector; qed"))?,
+        )+))
+      }
+    }
+  }
+}
+
+impl_output!(2, A:0, B:1, );
+impl_output!(3, A:0, B:1, C:2, );
+impl_output!(4, A:0, B:1, C:2, D:3, );
+impl_output!(5, A:0, B:1, C:2, D:3, E:4, );
 
 /// Tokens conversion trait
 pub trait Tokens {
@@ -62,15 +96,6 @@ pub trait Tokenizable {
   fn from_token(token: Token) -> Result<Self, Error> where Self: Sized;
   /// Converts a specified type back into token.
   fn into_token(self) -> Token;
-}
-
-impl<T: Tokenizable> Output for T {
-  fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
-    if tokens.len() != 1 {
-      return Err(Error::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)));
-    }
-    Self::from_token(tokens.drain(..).next().expect("At least one element in vector; qed"))
-  }
 }
 
 impl Tokenizable for Token {
@@ -134,7 +159,7 @@ impl Tokenizable for Address {
 impl Tokenizable for U256 {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Uint(data) => Ok(U256(data)),
+      Token::Int(data) | Token::Uint(data) => Ok(U256(data)),
       other => Err(Error::InvalidOutputType(format!("Expected `U256`, got {:?}", other))),
     }
   }
@@ -160,10 +185,97 @@ impl Tokenizable for Vec<u8> {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::Bytes(data) => Ok(data),
-      other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other))),
+      other => Err(Error::InvalidOutputType(format!("Expected `bytes`, got {:?}", other))),
     }
   }
   fn into_token(self) -> Token {
     Token::Bytes(self)
+  }
+}
+
+impl<T: Tokenizable> Tokenizable for Vec<T> {
+  fn from_token(token: Token) -> Result<Self, Error> {
+    match token {
+      Token::FixedArray(tokens) | Token::Array(tokens) => tokens.into_iter().map(Tokenizable::from_token).collect(),
+      other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other))),
+    }
+  }
+
+  fn into_token(self) -> Token {
+    Token::Array(self.into_iter().map(Tokenizable::into_token).collect())
+  }
+}
+
+macro_rules! impl_fixed_array {
+  ($num: expr) => {
+    impl<T: Tokenizable + Clone> Tokenizable for [T; $num] {
+      fn from_token(token: Token) -> Result<Self, Error> {
+        match token {
+          Token::FixedArray(tokens) => {
+            if tokens.len() != $num {
+              return Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got FixedArray({})", $num, tokens.len())));
+            }
+
+            let mut arr = ArrayVec::<[T; $num]>::new();
+            let mut it = tokens.into_iter().map(T::from_token);
+            for _ in 0..$num {
+              arr.push(it.next().expect("Length validated in guard; qed")?);
+            }
+            // Can't use expect here because [T; $num]: Debug is not satisfied.
+            match arr.into_inner() {
+              Ok(arr) => Ok(arr),
+              Err(_) => panic!("All elements inserted so the array is full; qed"),
+            }
+          },
+          other => Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got {:?}", $num, other))),
+        }
+      }
+
+      fn into_token(self) -> Token {
+        Token::FixedArray(ArrayVec::from(self).into_iter().map(T::into_token).collect())
+      }
+    }
+  }
+}
+
+impl_fixed_array!(1);
+impl_fixed_array!(2);
+impl_fixed_array!(3);
+impl_fixed_array!(4);
+impl_fixed_array!(5);
+impl_fixed_array!(8);
+impl_fixed_array!(16);
+impl_fixed_array!(32);
+impl_fixed_array!(64);
+impl_fixed_array!(128);
+impl_fixed_array!(256);
+impl_fixed_array!(512);
+impl_fixed_array!(1024);
+
+#[cfg(test)]
+mod tests {
+  use ethabi::Token;
+  use super::Output;
+  use types::{Address, U256};
+
+  fn output<R: Output>() -> R {
+    unimplemented!()
+  }
+
+  #[test]
+  #[ignore]
+  fn should_be_able_to_compile() {
+    let _tokens: Vec<Token> = output();
+    let _uint: U256 = output();
+    let _address: Address = output();
+    let _string: String = output();
+    let _bool: bool = output();
+    let _bytes: Vec<u8> = output();
+
+    let _pair: (U256, bool) = output();
+    let _vec: Vec<U256> = output();
+    let _array: [U256; 4] = output();
+
+    let _mixed: (Vec<Vec<u8>>, [U256; 4], Vec<U256>, U256) = output();
   }
 }
