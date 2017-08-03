@@ -21,7 +21,7 @@ impl<T: Tokenizable> Deserialize for T {
 }
 
 macro_rules! impl_output {
-  ($num: expr, $( $ty: ident : $no: tt, )+) => {
+  ($num: expr, $( $ty: ident , )+) => {
     impl<$($ty, )+> Deserialize for ($($ty,)+) where
       $(
         $ty: Tokenizable,
@@ -45,10 +45,11 @@ macro_rules! impl_output {
   }
 }
 
-impl_output!(2, A:0, B:1, );
-impl_output!(3, A:0, B:1, C:2, );
-impl_output!(4, A:0, B:1, C:2, D:3, );
-impl_output!(5, A:0, B:1, C:2, D:3, E:4, );
+impl_output!(1, A, );
+impl_output!(2, A, B, );
+impl_output!(3, A, B, C, );
+impl_output!(4, A, B, C, D, );
+impl_output!(5, A, B, C, D, E, );
 
 /// Tokens conversion trait
 pub trait Serialize {
