@@ -5,7 +5,7 @@ use futures::{Future, Async, Poll};
 use serde;
 
 use contract;
-use contract::tokens::Output;
+use contract::tokens::Detokenize;
 use helpers;
 use rpc;
 use types::Bytes;
@@ -63,7 +63,7 @@ impl<T, F> QueryResult<T, F> where
   }
 }
 
-impl<T: Output + serde::de::DeserializeOwned, F> Future for QueryResult<T, F> where
+impl<T: Detokenize + serde::de::DeserializeOwned, F> Future for QueryResult<T, F> where
   F: Future<Item=rpc::Value, Error=ApiError>,
 {
   type Item = T;

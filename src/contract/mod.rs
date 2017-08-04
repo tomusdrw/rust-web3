@@ -4,7 +4,7 @@ use ethabi;
 
 use api::Eth;
 use contract::result::QueryResult;
-use contract::tokens::{Output, Tokens};
+use contract::tokens::{Detokenize, Tokenize};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256};
 use {Transport, Error as ApiError};
 
@@ -85,7 +85,7 @@ impl<T: Transport> Contract<T> {
 
   /// Execute a contract function
   pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<H256, T::Out> where
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()))
@@ -107,7 +107,7 @@ impl<T: Transport> Contract<T> {
 
   /// Estimate gas required for this function call.
   pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<U256, T::Out> where
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()))
@@ -127,9 +127,9 @@ impl<T: Transport> Contract<T> {
 
   /// Call constant function
   pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options) -> QueryResult<R, T::Out> where
-    R: Output,
+    R: Detokenize,
     A: Into<Option<Address>>,
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_call(params.into_tokens()).map(|call| (call, function)))
