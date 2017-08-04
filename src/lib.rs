@@ -31,7 +31,7 @@ pub mod contract;
 pub mod transports;
 pub mod types;
 
-mod confirm;
+pub mod confirm;
 
 use futures::Future;
 

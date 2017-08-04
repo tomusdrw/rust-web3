@@ -3,14 +3,65 @@
 
 use std::marker::PhantomData;
 use std::time::Duration;
+use std::vec;
 use serde::de::DeserializeOwned;
-use tokio_timer::Timer;
-use futures::{Poll, Future, Stream, stream};
+use tokio_timer::{Timer, Interval};
+use futures::{Poll, Future, Stream};
 
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
 use {Transport, Error, rpc};
+
+/// Stream of events
+pub struct FilterStream<T: Transport, I> {
+  base: BaseFilter<T, I>,
+  interval: Interval,
+  state: FilterStreamState<I, T::Out>,
+}
+
+impl<T: Transport, I> FilterStream<T, I> {
+  fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
+    FilterStream {
+      base,
+      interval: Timer::default().interval(poll_interval),
+      state: FilterStreamState::WaitForInterval,
+    }
+  }
+}
+
+enum FilterStreamState<I, O> {
+  WaitForInterval,
+  GetFilterChanges(CallResult<Option<Vec<I>>, O>),
+  NextItem(vec::IntoIter<I>),
+}
+
+impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
+  type Item = I;
+  type Error = Error;
+
+  fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    loop {
+      let next_state = match self.state {
+        FilterStreamState::WaitForInterval => {
+          let _ready = try_ready!(self.interval.poll().map_err(|_| Error::Unreachable));
+          let id = helpers::serialize(&self.base.id);
+          let future = CallResult::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
+          FilterStreamState::GetFilterChanges(future)
+        },
+        FilterStreamState::GetFilterChanges(ref mut future) => {
+          let items = try_ready!(future.poll()).unwrap_or_default();
+          FilterStreamState::NextItem(items.into_iter())
+        },
+        FilterStreamState::NextItem(ref mut iter) => match iter.next() {
+          Some(item) => return Ok(Some(item).into()),
+          None => FilterStreamState::WaitForInterval
+        }
+      };
+      self.state = next_state;
+    }
+  }
+}
 
 /// Specifies filter items and constructor method.
 trait FilterInterface {
@@ -72,17 +123,8 @@ impl<T: Transport, I> BaseFilter<T, I> {
   }
 
   /// Returns the stream of items which automatically polls the server
-  pub fn stream<'a>(self, poll_interval: Duration) -> Box<Stream<Item = I, Error = Error> + 'a> where
-    T: 'a,
-    I: DeserializeOwned + 'a,
-  {
-    let result = Timer::default().interval(poll_interval)
-      .map_err(|_| Error::Unreachable)
-      .and_then(move |_| self.poll().map(Option::unwrap_or_default))
-      .map(|res| res.into_iter().map(Ok).collect::<Vec<Result<_, Error>>>())
-      .map(stream::iter)
-      .flatten();
-    Box::new(result)
+  pub fn stream(self, poll_interval: Duration) -> FilterStream<T, I> {
+    FilterStream::new(self, poll_interval)
   }
 
   /// Uninstalls the filter
@@ -101,12 +143,6 @@ impl<T: Transport> BaseFilter<T, Log> {
   pub fn logs(&self) -> CallResult<Vec<Log>, T::Out> {
     let id = helpers::serialize(&self.id);
     CallResult::new(self.transport.execute("eth_getFilterLogs", vec![id]))
-  }
-}
-
-impl<T: Transport, I> Drop for BaseFilter<T, I> {
-  fn drop(&mut self) {
-    let _ = self.uninstall_internal().wait();
   }
 }
 
@@ -210,7 +246,6 @@ mod tests {
     transport.assert_request("eth_newFilter", &[
       r#"{"address":null,"fromBlock":null,"limit":10,"toBlock":null,"topics":null}"#.into()
     ]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -251,7 +286,6 @@ mod tests {
       r#"{"address":null,"fromBlock":null,"limit":null,"toBlock":null,"topics":[null,["0x0000000000000000000000000000000000000000000000000000000000000002"],null,null]}"#.into()
     ]);
     transport.assert_request("eth_getFilterLogs", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -292,7 +326,6 @@ mod tests {
       r#"{"address":["0x0000000000000000000000000000000000000002"],"fromBlock":null,"limit":null,"toBlock":null,"topics":null}"#.into()
     ]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -311,7 +344,6 @@ mod tests {
 
     // then
     transport.assert_request("eth_newBlockFilter", &[]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -336,7 +368,6 @@ mod tests {
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
     transport.assert_request("eth_newBlockFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -369,7 +400,6 @@ mod tests {
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
   }
 
   #[test]
@@ -387,7 +417,6 @@ mod tests {
 
     // then
     transport.assert_request("eth_newPendingTransactionFilter", &[]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 
@@ -412,7 +441,6 @@ mod tests {
     assert_eq!(result, Ok(Some(vec![0x456.into()])));
     transport.assert_request("eth_newPendingTransactionFilter", &[]);
     transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
-    transport.assert_request("eth_uninstallFilter", &[r#""0x123""#.into()]);
     transport.assert_no_more_requests();
   }
 }

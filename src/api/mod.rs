@@ -7,15 +7,15 @@ mod personal;
 mod web3;
 
 pub use self::eth::Eth;
-pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter};
+pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::net::Net;
 pub use self::personal::Personal;
 pub use self::web3::Web3;
 
 use std::time::Duration;
-use futures::{Future, IntoFuture};
+use futures::{IntoFuture};
 use {confirm, Transport, Error};
-use types::{U256, TransactionRequest, TransactionReceipt};
+use types::{U256, TransactionRequest};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport> {
@@ -80,19 +80,25 @@ impl<T: Transport> Web3Main<T> {
   }
 
   /// Should be used to wait for confirmations
-  pub fn wait_for_confirmations<'a, F, V>(&'a self, poll_interval: Duration, confirmations: usize, check: V)
-  -> Box<Future<Item = (), Error = Error> + 'a> where
-  F: 'a + IntoFuture<Item = Option<U256>, Error = Error>,
-  V: 'a + Fn() -> F,
+  pub fn wait_for_confirmations<F, V>(
+    &self,
+    poll_interval: Duration,
+    confirmations: u64,
+    check: V
+  ) -> confirm::Confirmations<&T, V, F::Future> where
+    F: IntoFuture<Item = Option<U256>, Error = Error>,
+    V: confirm::ConfirmationCheck<Check = F>,
   {
     confirm::wait_for_confirmations(&self.transport, poll_interval, confirmations, check)
   }
 
-
   /// Sends transaction and returns future resolved after transaction is confirmed
-  pub fn send_transaction_with_confirmation<'a>(&'a self, tx: TransactionRequest, poll_interval: Duration, confirmations: usize)
-  -> Box<Future<Item = TransactionReceipt, Error = Error> + 'a> where
-  {
+  pub fn send_transaction_with_confirmation(
+    &self,
+    tx: TransactionRequest,
+    poll_interval: Duration,
+    confirmations: u64
+  ) -> confirm::SendTransactionWithConfirmation<&T> {
     confirm::send_transaction_with_confirmation(&self.transport, tx, poll_interval, confirmations)
   }
 }
