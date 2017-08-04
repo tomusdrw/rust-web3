@@ -34,6 +34,12 @@ pub struct Transaction {
 /// "Receipt" of an executed transaction: details of its execution.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Receipt {
+  /// Transaction hash.
+  #[serde(rename="transactionHash")]
+  pub transaction_hash: H256,
+  /// Index within the block.
+  #[serde(rename="transactionIndex")]
+  pub transaction_index: Index,
   /// Hash of the block this transaction was included within.
   #[serde(rename="blockHash")]
   pub block_hash: H256,
