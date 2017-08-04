@@ -1,3 +1,5 @@
+//! Easy to use utilities for confirmations.
+
 use std::time::Duration;
 use futures::{IntoFuture, Future, Stream, Poll};
 use futures::stream::Skip;
@@ -6,9 +8,12 @@ use types::{H256, U256, TransactionRequest, TransactionReceipt};
 use helpers::CallResult;
 use {Transport, Error};
 
+/// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
+  /// Future resolved when is known whether an event has been confirmed.
   type Check: IntoFuture<Item = Option<U256>, Error = Error>;
 
+  /// Should be called to get future which resolves when confirmation state is known.
   fn check(&self) -> Self::Check;
 }
 
@@ -87,6 +92,7 @@ enum ConfirmationsState<T: Transport, V, F> {
   Wait(WaitForConfirmations<T, V, F>),
 }
 
+/// On each new block checks confirmations.
 pub struct Confirmations<T: Transport, V, F> {
   state: ConfirmationsState<T, V, F>,
 }
@@ -136,6 +142,7 @@ impl<T, V, F> Future for Confirmations<T, V, F::Future> where
   }
 }
 
+/// Should be used to wait for confirmations
 pub fn wait_for_confirmations<T, V, F>(transport: T, poll_interval: Duration, confirmations: u64, check: V) -> Confirmations<T, V, F::Future> where
   T: Transport + Clone,
   V: ConfirmationCheck<Check = F>,
@@ -188,6 +195,7 @@ enum SendTransactionWithConfirmationState<T: Transport> {
   GetTransactionReceipt(CallResult<Option<TransactionReceipt>, T::Out>),
 }
 
+/// Sends transaction and then checks if has been confirmed.
 pub struct SendTransactionWithConfirmation<T: Transport> {
   state: SendTransactionWithConfirmationState<T>,
   eth: Eth<T>,
@@ -237,6 +245,7 @@ impl<T: Transport + Clone> Future for SendTransactionWithConfirmation<T> {
   }
 }
 
+/// Sends transaction and returns future resolved after transaction is confirmed
 pub fn send_transaction_with_confirmation<T>(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: u64) -> SendTransactionWithConfirmation<T> where T: Transport + Clone {
   SendTransactionWithConfirmation::new(transport, tx, poll_interval, confirmations)
 }
@@ -264,6 +273,7 @@ mod tests {
       nonce: None,
       condition: None,
     };
+
     let transaction_receipt = TransactionReceipt {
       transaction_hash: 0.into(),
       transaction_index: 0.into(),
