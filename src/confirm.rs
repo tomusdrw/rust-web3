@@ -69,8 +69,8 @@ mod tests {
       condition: None,
     };
     let transaction_receipt = TransactionReceipt {
-      hash: 0.into(),
-      index: 0.into(),
+      transaction_hash: 0.into(),
+      transaction_index: 0.into(),
       block_hash: 0.into(),
       block_number: 2.into(),
       cumulative_gas_used: 0.into(),
