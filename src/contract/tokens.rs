@@ -219,9 +219,7 @@ macro_rules! impl_fixed_types {
             }
 
             let mut arr = [0; $num];
-            for i in 0..$num {
-              arr[i] = bytes[i];
-            }
+            arr.copy_from_slice(&bytes);
             Ok(arr)
           },
           other => Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other))),
