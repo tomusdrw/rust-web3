@@ -186,6 +186,7 @@ impl Tokenizable for Vec<u8> {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::Bytes(data) => Ok(data),
+      Token::FixedBytes(data) => Ok(data),
       other => Err(Error::InvalidOutputType(format!("Expected `bytes`, got {:?}", other))),
     }
   }
@@ -207,8 +208,29 @@ impl<T: Tokenizable> Tokenizable for Vec<T> {
   }
 }
 
-macro_rules! impl_fixed_array {
+macro_rules! impl_fixed_types {
   ($num: expr) => {
+    impl Tokenizable for [u8; $num] {
+      fn from_token(token: Token) -> Result<Self, Error> {
+        match token {
+          Token::FixedBytes(bytes) => {
+            if bytes.len() != $num {
+              return Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got FixedBytes({})", $num, bytes.len())));
+            }
+
+            let mut arr = [0; $num];
+            arr.copy_from_slice(&bytes);
+            Ok(arr)
+          },
+          other => Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other))),
+        }
+      }
+
+      fn into_token(self) -> Token {
+        Token::FixedBytes(self.to_vec())
+      }
+    }
+
     impl<T: Tokenizable + Clone> Tokenizable for [T; $num] {
       fn from_token(token: Token) -> Result<Self, Error> {
         match token {
@@ -239,19 +261,19 @@ macro_rules! impl_fixed_array {
   }
 }
 
-impl_fixed_array!(1);
-impl_fixed_array!(2);
-impl_fixed_array!(3);
-impl_fixed_array!(4);
-impl_fixed_array!(5);
-impl_fixed_array!(8);
-impl_fixed_array!(16);
-impl_fixed_array!(32);
-impl_fixed_array!(64);
-impl_fixed_array!(128);
-impl_fixed_array!(256);
-impl_fixed_array!(512);
-impl_fixed_array!(1024);
+impl_fixed_types!(1);
+impl_fixed_types!(2);
+impl_fixed_types!(3);
+impl_fixed_types!(4);
+impl_fixed_types!(5);
+impl_fixed_types!(8);
+impl_fixed_types!(16);
+impl_fixed_types!(32);
+impl_fixed_types!(64);
+impl_fixed_types!(128);
+impl_fixed_types!(256);
+impl_fixed_types!(512);
+impl_fixed_types!(1024);
 
 #[cfg(test)]
 mod tests {
@@ -276,7 +298,30 @@ mod tests {
     let _pair: (U256, bool) = output();
     let _vec: Vec<U256> = output();
     let _array: [U256; 4] = output();
+    let _bytes: Vec<[[u8; 1]; 64]> = output();
 
     let _mixed: (Vec<Vec<u8>>, [U256; 4], Vec<U256>, U256) = output();
+  }
+
+  #[test]
+  fn should_decode_array_of_fixed_bytes() {
+    // byte[8][]
+    let tokens = vec![
+      Token::FixedArray(vec![
+        Token::FixedBytes(vec![1]),
+        Token::FixedBytes(vec![2]),
+        Token::FixedBytes(vec![3]),
+        Token::FixedBytes(vec![4]),
+        Token::FixedBytes(vec![5]),
+        Token::FixedBytes(vec![6]),
+        Token::FixedBytes(vec![7]),
+        Token::FixedBytes(vec![8]),
+      ])
+    ];
+    let data: [[u8; 1]; 8] = Detokenize::from_tokens(tokens).unwrap();
+    assert_eq!(data[0][0], 1);
+    assert_eq!(data[1][0], 2);
+    assert_eq!(data[2][0], 3);
+    assert_eq!(data[7][0], 8);
   }
 }
