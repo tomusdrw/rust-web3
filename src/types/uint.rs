@@ -248,6 +248,7 @@ impl_uint!(hash => H128, 16);
 impl_uint!(hash => H160, 20);
 impl_uint!(hash => H256, 32);
 impl_uint!(hash => H512, 64);
+impl_uint!(hash => H520, 65);
 impl_uint!(hash => H2048, 256);
 
 #[cfg(test)]

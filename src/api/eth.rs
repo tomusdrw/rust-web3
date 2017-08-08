@@ -4,7 +4,7 @@ use api::Namespace;
 use helpers::{self, CallResult};
 use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
-  H64, H256, H512, Index,
+  H64, H256, H520, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
   U256, Work,
 };
@@ -279,7 +279,7 @@ impl<T: Transport> Eth<T> {
   }
 
   /// Signs a hash of given data
-  pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H512, T::Out> {
+  pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H520, T::Out> {
     let address = helpers::serialize(&address);
     let data = helpers::serialize(&data);
     CallResult::new(self.transport.execute("eth_sign", vec![address, data]))
@@ -652,7 +652,7 @@ mod tests {
     Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
-    Value::String("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (
