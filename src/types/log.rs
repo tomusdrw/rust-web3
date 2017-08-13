@@ -35,18 +35,18 @@ pub struct Log {
 /// Filter
 #[derive(Default, Debug, PartialEq, Clone, Serialize)]
 pub struct Filter {
-	/// From Block
-	#[serde(rename="fromBlock")]
-	from_block: Option<BlockNumber>,
-	/// To Block
-	#[serde(rename="toBlock")]
-	to_block: Option<BlockNumber>,
-	/// Address
-	address: Option<Vec<H160>>,
-	/// Topics
-	topics: Option<Vec<Option<Vec<H256>>>>,
-	/// Limit
-	limit: Option<usize>,
+  /// From Block
+  #[serde(rename="fromBlock")]
+  pub from_block: Option<BlockNumber>,
+  /// To Block
+  #[serde(rename="toBlock")]
+  pub to_block: Option<BlockNumber>,
+  /// Address
+  pub address: Option<Vec<H160>>,
+  /// Topics
+  pub topics: Option<Vec<Option<Vec<H256>>>>,
+  /// Limit
+  pub limit: Option<usize>,
 }
 
 /// Filter Builder

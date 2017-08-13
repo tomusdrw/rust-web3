@@ -4,9 +4,9 @@ use api::Namespace;
 use helpers::{self, CallResult};
 use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
-  H64, H256, H512, Index,
+  H64, H256, H512, H520, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
-  U256, Work,
+  U256, Work, Log, Filter,
 };
 use {Transport};
 
@@ -241,6 +241,11 @@ impl<T: Transport> Eth<T> {
     CallResult::new(self.transport.execute("eth_getWork", vec![]))
   }
 
+  /// Get logs
+  pub fn logs(&self, filter: &Filter) -> CallResult<Vec<Log>, T::Out> {
+    CallResult::new(self.transport.execute("eth_getLogs", vec![helpers::serialize(filter)]))
+  }
+
   /// Get hash rate
   pub fn hashrate(&self) -> CallResult<U256, T::Out> {
     CallResult::new(self.transport.execute("eth_hashrate", vec![]))
@@ -279,7 +284,7 @@ impl<T: Transport> Eth<T> {
   }
 
   /// Signs a hash of given data
-  pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H512, T::Out> {
+  pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H520, T::Out> {
     let address = helpers::serialize(&address);
     let data = helpers::serialize(&data);
     CallResult::new(self.transport.execute("eth_sign", vec![address, data]))
