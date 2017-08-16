@@ -1,27 +1,25 @@
 //! IPC Transport for *nix
 
-extern crate tokio_core;
-extern crate tokio_io;
 extern crate tokio_uds;
 
-use std::{mem, thread, result};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 use std::path::Path;
-use std::sync::{self, atomic, Arc};
+use std::sync::{atomic, Arc};
 
-use self::tokio_core::reactor;
-use self::tokio_io::AsyncRead;
-use self::tokio_io::io::{ReadHalf, WriteHalf};
 use self::tokio_uds::UnixStream;
 
-use futures::{self, sink, Sink, Stream, Future};
 use futures::sync::{oneshot, mpsc};
+use futures::{self, sink, Sink, Stream, Future};
 use helpers;
 use parking_lot::Mutex;
 use rpc;
-use transports::Result as RpcResult;
-use {BatchTransport, Transport, Error as RpcError, RequestId};
+use transports::Result;
+use transports::shared::{EventLoopHandle, Response};
+use transports::tokio_core::reactor;
+use transports::tokio_io::AsyncRead;
+use transports::tokio_io::io::{ReadHalf, WriteHalf};
+use {BatchTransport, Transport, Error, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -36,38 +34,10 @@ macro_rules! try_nb {
   })
 }
 
-/// Event Loop Handle.
-/// NOTE: Event loop is stopped when handle is dropped!
-pub struct EventLoopHandle {
-  thread: Option<thread::JoinHandle<()>>,
-  remote: reactor::Remote,
-  done: Arc<atomic::AtomicBool>,
-}
+type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
 
-impl EventLoopHandle {
-  /// Returns event loop remote.
-  pub fn remote(&self) -> &reactor::Remote {
-    &self.remote
-  }
-}
-
-impl Drop for EventLoopHandle {
-  fn drop(&mut self) {
-    self.done.store(true, atomic::Ordering::Relaxed);
-    self.thread.take()
-      .expect("We never touch thread except for drop; drop happens only once; qed")
-      .join()
-      .expect("Thread should shut down cleanly.");
-  }
-}
-
-/// Error returned while initializing IPC transport.
-pub type Error = io::Error;
-/// Result of initializing IPC transport.
-pub type Result<T> = result::Result<T, Error>;
-
-type Pending = oneshot::Sender<RpcResult<Vec<RpcResult<rpc::Value>>>>;
-type PendingResult = oneshot::Receiver<RpcResult<Vec<RpcResult<rpc::Value>>>>;
+/// A future representing pending IPC request, resolves to a response.
+pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 
 /// Unix Domain Sockets (IPC) transport
 pub struct Ipc {
@@ -77,6 +47,17 @@ pub struct Ipc {
 }
 
 impl Ipc {
+  /// Create new IPC transport with separate event loop.
+  /// NOTE: Dropping event loop handle will stop the transport layer!
+  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self)> where
+    P: AsRef<Path>,
+  {
+    let path = path.as_ref().to_owned();
+    EventLoopHandle::spawn(move |handle| {
+      Self::with_event_loop(&path, &handle).map_err(Into::into)
+    })
+  }
+
   /// Create new IPC transport within existing Event Loop.
   pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self> where
     P: AsRef<Path>,
@@ -115,51 +96,25 @@ impl Ipc {
     })
   }
 
-  /// Create new IPC transport with separate event loop.
-  /// NOTE: Dropping event loop handle will stop the transport layer!
-  pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self)> where
-    P: AsRef<Path>,
+  fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> IpcTask<F> where
+    F: Fn(Vec<Result<rpc::Value>>) -> O,
   {
-    let done = Arc::new(atomic::AtomicBool::new(false));
-    let (tx, rx) = sync::mpsc::channel();
-    let path = path.as_ref().to_owned();
-    let done2 = done.clone();
+    let request = helpers::to_string(&request);
+    debug!("[{}] Calling: {}", id, request);
 
-    let eloop = thread::spawn(move || {
-      let run = move || {
-        let event_loop = reactor::Core::new()?;
-        let ipc = Self::with_event_loop(path, &event_loop.handle())?;
-        Ok((ipc, event_loop))
-      };
+    let (tx, rx) = futures::oneshot();
+    self.pending.lock().insert(id, tx);
+    let result = {
+      let mut sender = self.write_sender.lock();
+      (*sender).send(request.into_bytes()).map_err(|err| Error::Transport(format!("{:?}", err)))
+    };
 
-      let send = move |result| {
-        tx.send(result).expect("Receiving end is always waiting.");
-      };
-
-      let res: Result<_> = run();
-      match res {
-        Err(e) => send(Err(e)),
-        Ok((ipc, mut event_loop)) => {
-          send(Ok((ipc, event_loop.remote())));
-
-          while !done2.load(atomic::Ordering::Relaxed) {
-            event_loop.turn(None);
-          }
-        },
-      }
-    });
-
-    rx.recv()
-      .expect("Thread is always spawned.")
-      .map(|(ipc, remote)| (
-        EventLoopHandle { thread: Some(eloop), remote: remote, done: done },
-        ipc,
-      ))
+    Response::new(id, result, rx, extract)
   }
 }
 
 impl Transport for Ipc {
-  type Out = IpcTask<fn (Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>>;
+  type Out = IpcTask<fn (Vec<Result<rpc::Value>>) -> Result<rpc::Value>>;
 
   fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
     let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -169,32 +124,23 @@ impl Transport for Ipc {
   }
 
   fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-    let request = helpers::to_string(&rpc::Request::Single(request));
-    debug!("Calling: {}", request);
-
-    let (tx, rx) = futures::oneshot();
-    self.pending.lock().insert(id, tx);
-    let result = {
-      let mut sender = self.write_sender.lock();
-      (*sender).send(request.into_bytes())
-    };
-
-    IpcTask {
-      state: IpcTaskState::Sending(Some(result), rx),
-      extract: single_response as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value>,
-    }
+    self.send_request(
+      id,
+      rpc::Request::Single(request),
+      single_response
+    )
   }
 }
 
-fn single_response(response: Vec<RpcResult<rpc::Value>>) -> RpcResult<rpc::Value> {
+fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
   match response.into_iter().next() {
     Some(res) => res,
-    None => Err(RpcError::Transport(format!("Expected single response got empty batch."))),
+    None => Err(Error::Transport(format!("Expected single response got empty batch."))),
   }
 }
 
 impl BatchTransport for Ipc {
-  type Batch = IpcTask<fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>>;
+  type Batch = IpcTask<fn(Vec<Result<rpc::Value>>) -> Result<Vec<Result<rpc::Value>>>>;
 
   fn send_batch<T>(&self, requests: T) -> Self::Batch where
     T: IntoIterator<Item=(RequestId, rpc::Call)>
@@ -202,69 +148,11 @@ impl BatchTransport for Ipc {
     let mut it = requests.into_iter();
     let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
     let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
-    let request = helpers::to_string(&rpc::Request::Batch(requests));
-    debug!("Calling: {}", request);
-
-    let (tx, rx) = futures::oneshot();
-    self.pending.lock().insert(id, tx);
-    let result = {
-      let mut sender = self.write_sender.lock();
-      (*sender).send(request.into_bytes())
-    };
-
-    IpcTask {
-      state: IpcTaskState::Sending(Some(result), rx),
-      extract: Ok as fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Vec<RpcResult<rpc::Value>>>,
-    }
-  }
-}
-
-enum IpcTaskState {
-  Sending(Option<result::Result<(), mpsc::SendError<Vec<u8>>>>, PendingResult),
-  WaitingForResult(PendingResult),
-  Done,
-}
-
-/// A future represeting IPC transport method execution.
-/// First it sends a message to writing half and waits for completion
-/// and then starts to listen for expected response.
-pub struct IpcTask<T> {
-  state: IpcTaskState,
-  extract: T,
-}
-
-impl<T, Out> Future for IpcTask<T> where
-  T: Fn(Vec<RpcResult<rpc::Value>>) -> RpcResult<Out>,
-{
-  type Item = Out;
-  type Error = RpcError;
-
-  fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-
-    loop {
-      let extract = &self.extract;
-      match self.state {
-        IpcTaskState::Sending(ref mut result, _) => {
-          if let Some(Err(e)) = result.take() {
-            return Err(RpcError::Transport(format!("{:?}", e)));
-          }
-        },
-        IpcTaskState::WaitingForResult(ref mut rx) => {
-          let result = try_ready!(rx.poll().map_err(|e| RpcError::Transport(format!("{:?}", e))));
-          return result.and_then(|x| extract(x)).map(futures::Async::Ready);
-        },
-        IpcTaskState::Done => {
-          return Err(RpcError::Unreachable);
-        },
-      }
-      // Proceeed to the next state
-      let state = mem::replace(&mut self.state, IpcTaskState::Done);
-      self.state = if let IpcTaskState::Sending(_, rx) = state {
-        IpcTaskState::WaitingForResult(rx)
-      } else {
-        state
-      }
-    }
+    self.send_request(
+      id,
+      rpc::Request::Batch(requests),
+      Ok
+    )
   }
 }
 
