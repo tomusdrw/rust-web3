@@ -28,6 +28,9 @@ impl From<hyper::error::UriError> for Error {
   }
 }
 
+// The max string length of a request without transfer-encoding: chunked.
+const MAX_SINGLE_CHUNK: usize = 256;
+const DEFAULT_MAX_PARALLEL: usize = 64;
 type Pending = oneshot::Sender<Result<hyper::Chunk>>;
 
 /// A future representing pending HTTP request, resolves to a response.
@@ -47,36 +50,46 @@ impl Http {
   /// Create new HTTP transport with given URL and spawn an event loop in a separate thread.
   /// NOTE: Dropping event loop handle will stop the transport layer!
   pub fn new(url: &str) -> Result<(EventLoopHandle, Self)> {
+    Self::with_max_parallel(url, DEFAULT_MAX_PARALLEL)
+  }
+
+  /// Create new HTTP transport with given URL and spawn an event loop in a separate thread.
+  /// You can set a maximal number of parallel requests using the second parameter.
+  /// NOTE: Dropping event loop handle will stop the transport layer!
+  pub fn with_max_parallel(url: &str, max_parallel: usize) -> Result<(EventLoopHandle, Self)> {
     let url = url.to_owned();
     EventLoopHandle::spawn(move |handle| {
-        Self::with_event_loop(&url, handle)
+        Self::with_event_loop(&url, handle, max_parallel)
     })
   }
 
   /// Create new HTTP transport with given URL and existing event loop handle.
-  pub fn with_event_loop(url: &str, handle: &reactor::Handle) -> Result<Self> {
+  pub fn with_event_loop(url: &str, handle: &reactor::Handle, max_parallel: usize) -> Result<Self> {
     let (write_sender, write_receiver) = mpsc::channel(1024);
     let client = hyper::Client::new(handle);
 
     handle.spawn(write_receiver
-      .for_each(move |(request, tx): (_, Pending)| {
-        client.request(request)
-          .then(|response| {
-            use futures::future::Either::{A, B};
-            match response {
-              Ok(ref res) if !res.status().is_success() => {
-                A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status()))))
-              },
-              Ok(res) => B(res.body().concat2().map_err(Into::into)),
-              Err(err) => A(future::err(err.into())),
-            }
-          })
-          .then(move |result| {
-            if let Err(err) = tx.send(result) {
-              warn!("Error resuming asynchronous request: {:?}", err);
-            }
-            Ok(())
-          })
+      .map(move |(request, tx): (_, Pending)| {
+        client.request(request).then(move |response| {
+          Ok((response, tx))
+        })
+      })
+      .buffer_unordered(max_parallel)
+      .for_each(|(response, tx)| {
+        use futures::future::Either::{A, B};
+        let future = match response {
+          Ok(ref res) if !res.status().is_success() => {
+            A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status()))))
+          },
+          Ok(res) => B(res.body().concat2().map_err(Into::into)),
+          Err(err) => A(future::err(err.into())),
+        };
+        future.then(move |result| {
+          if let Err(err) = tx.send(result) {
+            warn!("Error resuming asynchronous request: {:?}", err);
+          }
+          Ok(())
+        })
       })
     );
 
@@ -91,12 +104,16 @@ impl Http {
     F: Fn(hyper::Chunk) -> O,
   {
     let request = helpers::to_string(&request);
-    debug!("[{}] Calling: {}", id, request);
+    debug!("[{}] Sending: {} to {}", id, request, self.url);
 
     let mut req = hyper::client::Request::new(hyper::Method::Post, self.url.clone());
     req.headers_mut().set(hyper::header::ContentType::json());
     req.headers_mut().set(hyper::header::UserAgent::new("web3.rs"));
-    req.headers_mut().set(hyper::header::ContentLength(request.len() as u64));
+    let len = request.len();
+    // Don't send chunked request
+    if len < MAX_SINGLE_CHUNK {
+      req.headers_mut().set(hyper::header::ContentLength(len as u64));
+    }
     req.set_body(request);
 
     let (tx, rx) = futures::oneshot();

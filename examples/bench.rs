@@ -36,7 +36,7 @@ impl Ticker {
     let reqs = self.reqs.fetch_add(1, atomic::Ordering::AcqRel) as u64;
     self.started.fetch_sub(1, atomic::Ordering::AcqRel);
 
-    if reqs >= 10_000 {
+    if reqs >= 100_000 {
       self.print_result(reqs);
     }
   }
@@ -62,8 +62,8 @@ impl Ticker {
 
 
 fn main() {
-  let requests = 100_000;
-  let (eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
+  let requests = 200_000;
+  let (eloop, http) = web3::transports::Http::new("http://localhost:8545/").unwrap();
   bench("http", eloop, http, requests);
 
   let (eloop, http) = web3::transports::Ipc::new("/home/tomusdrw/.local/share/io.parity.ethereum/jsonrpc.ipc").unwrap();
