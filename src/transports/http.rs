@@ -96,6 +96,7 @@ impl Http {
     let mut req = hyper::client::Request::new(hyper::Method::Post, self.url.clone());
     req.headers_mut().set(hyper::header::ContentType::json());
     req.headers_mut().set(hyper::header::UserAgent::new("web3.rs"));
+    req.headers_mut().set(hyper::header::ContentLength(request.len() as u64));
     req.set_body(request);
 
     let (tx, rx) = futures::oneshot();

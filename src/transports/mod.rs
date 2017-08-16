@@ -24,3 +24,5 @@ mod shared;
 extern crate tokio_core;
 #[cfg(any(feature = "ipc", feature = "http"))]
 extern crate tokio_io;
+#[cfg(any(feature = "ipc", feature = "http"))]
+pub use self::shared::EventLoopHandle;

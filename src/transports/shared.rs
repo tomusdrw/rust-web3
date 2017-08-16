@@ -15,6 +15,7 @@ pub struct EventLoopHandle {
 }
 
 impl EventLoopHandle {
+  /// Creates a new `EventLoopHandle` and transport given the transport initializer.
   pub fn spawn<T, F>(func: F) -> Result<(Self, T)> where
     F: FnOnce(&reactor::Handle) -> Result<T>,
     F: Send + 'static,
