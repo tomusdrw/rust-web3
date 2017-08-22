@@ -6,18 +6,15 @@ use web3::futures::Future;
 
 fn main() {
   let mut event_loop = reactor::Core::new().unwrap();
-  event_loop.remote().spawn(|handle| {
-    let ipc = web3::transports::Ipc::with_event_loop("./jsonrpc.ipc", handle).unwrap();
-    let web3 = web3::Web3::new(ipc);
-    println!("Calling accounts.");
+  let handle = event_loop.handle();
 
-    web3.eth().accounts().then(|accounts| {
-      println!("Accounts: {:?}", accounts);
-      Ok(())
-    })
+  let ipc = web3::transports::Ipc::with_event_loop("./jsonrpc.ipc", &handle).unwrap();
+  let web3 = web3::Web3::new(ipc);
+  println!("Calling accounts.");
+
+  let future = web3.eth().accounts().map(|accounts| {
+    println!("Accounts: {:?}", accounts);
   });
 
-  loop {
-    event_loop.turn(None);
-  }
+  event_loop.run(future).unwrap();
 }
