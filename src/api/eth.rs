@@ -4,7 +4,7 @@ use api::Namespace;
 use helpers::{self, CallResult};
 use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
-  H64, H256, H512, H520, Index,
+  H64, H256, H520, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
   U256, Work, Log, Filter,
 };
@@ -657,7 +657,7 @@ mod tests {
     Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
-    Value::String("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
   rpc_test! (

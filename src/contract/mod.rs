@@ -4,7 +4,7 @@ use ethabi;
 
 use api::Eth;
 use contract::result::QueryResult;
-use contract::tokens::{Output, Tokens};
+use contract::tokens::{Detokenize, Tokenize};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256};
 use {Transport, Error as ApiError};
 
@@ -78,17 +78,17 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Creates new Contract Interface given blockchain address and JSON containing ABI
-  pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::spec::Error> {
-    let abi = ethabi::Contract::new(ethabi::Interface::load(json)?);
+  pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::Error> {
+    let abi = ethabi::Contract::load(json)?;
     Ok(Self::new(eth, address, abi))
   }
 
   /// Execute a contract function
   pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<H256, T::Out> where
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()))
+      .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(move |data| {
         let result = self.eth.send_transaction(TransactionRequest {
           from: from,
@@ -107,10 +107,10 @@ impl<T: Transport> Contract<T> {
 
   /// Estimate gas required for this function call.
   pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<U256, T::Out> where
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()))
+      .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(|data| {
         let result = self.eth.estimate_gas(CallRequest {
           from: Some(from),
@@ -127,12 +127,12 @@ impl<T: Transport> Contract<T> {
 
   /// Call constant function
   pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options) -> QueryResult<R, T::Out> where
-    R: Output,
+    R: Detokenize,
     A: Into<Option<Address>>,
-    P: Tokens,
+    P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()).map(|call| (call, function)))
+      .and_then(|function| function.encode_input(&params.into_tokens()).map(|call| (call, function)))
       .map(|(call, function)| {
         let result = self.eth.call(CallRequest {
           from: from.into(),
@@ -142,7 +142,7 @@ impl<T: Transport> Contract<T> {
           value: options.value,
           data: Some(Bytes(call))
         }, None);
-        QueryResult::new(result, function)
+        QueryResult::new(result, function.clone())
       })
       .unwrap_or_else(Into::into)
   }

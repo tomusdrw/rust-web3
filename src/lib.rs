@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+extern crate arrayvec;
 extern crate ethabi;
 extern crate jsonrpc_core as rpc;
 extern crate parking_lot;
@@ -33,6 +34,7 @@ pub mod types;
 
 pub mod confirm;
 
+use std::io;
 use futures::Future;
 
 pub use api::{Web3Main as Web3, ErasedWeb3};
@@ -55,6 +57,12 @@ pub enum Error {
   Rpc(rpc::Error),
   /// Internal Error
   Internal,
+}
+
+impl From<io::Error> for Error {
+  fn from(err: io::Error) -> Self {
+    Error::Transport(format!("{:?}", err))
+  }
 }
 
 impl From<serde_json::Error> for Error {
