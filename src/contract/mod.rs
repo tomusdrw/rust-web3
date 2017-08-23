@@ -78,8 +78,8 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Creates new Contract Interface given blockchain address and JSON containing ABI
-  pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::spec::Error> {
-    let abi = ethabi::Contract::new(ethabi::Interface::load(json)?);
+  pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::Error> {
+    let abi = ethabi::Contract::load(json)?;
     Ok(Self::new(eth, address, abi))
   }
 
@@ -88,7 +88,7 @@ impl<T: Transport> Contract<T> {
     P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()))
+      .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(move |data| {
         let result = self.eth.send_transaction(TransactionRequest {
           from: from,
@@ -110,7 +110,7 @@ impl<T: Transport> Contract<T> {
     P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()))
+      .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(|data| {
         let result = self.eth.estimate_gas(CallRequest {
           from: Some(from),
@@ -132,7 +132,7 @@ impl<T: Transport> Contract<T> {
     P: Tokenize,
   {
     self.abi.function(func.into())
-      .and_then(|function| function.encode_call(params.into_tokens()).map(|call| (call, function)))
+      .and_then(|function| function.encode_input(&params.into_tokens()).map(|call| (call, function)))
       .map(|(call, function)| {
         let result = self.eth.call(CallRequest {
           from: from.into(),
@@ -142,7 +142,7 @@ impl<T: Transport> Contract<T> {
           value: options.value,
           data: Some(Bytes(call))
         }, None);
-        QueryResult::new(result, function)
+        QueryResult::new(result, function.clone())
       })
       .unwrap_or_else(Into::into)
   }

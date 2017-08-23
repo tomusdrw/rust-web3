@@ -11,7 +11,7 @@ authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 
 [dependencies]
 arrayvec = "0.3"
-ethabi = "2.0"
+ethabi = "4.0"
 futures = "0.1"
 jsonrpc-core = "7.0"
 log = "0.3"
