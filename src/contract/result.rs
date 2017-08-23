@@ -77,7 +77,7 @@ impl<T: Detokenize + serde::de::DeserializeOwned, F> Future for QueryResult<T, F
       },
       ResultType::Decodable(ref mut inner, ref function) => {
         let bytes: Bytes = try_ready!(inner.poll());
-        Some(T::from_tokens(function.decode_output(bytes.0)?))
+        Some(T::from_tokens(function.decode_output(&bytes.0)?))
       },
       _ => None,
     };
