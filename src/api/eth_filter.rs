@@ -28,6 +28,11 @@ impl<T: Transport, I> FilterStream<T, I> {
       state: FilterStreamState::WaitForInterval,
     }
   }
+
+  /// Borrow a transport from this filter.
+  pub fn transport(&self) -> &T {
+    self.base.transport()
+  }
 }
 
 enum FilterStreamState<I, O> {
@@ -136,6 +141,11 @@ impl<T: Transport, I> BaseFilter<T, I> {
     let id = helpers::serialize(&self.id);
     CallResult::new(self.transport.execute("eth_uninstallFilter", vec![id]))
   }
+
+  /// Borrows the transport.
+  pub fn transport(&self) -> &T {
+    &self.transport
+  }
 }
 
 impl<T: Transport> BaseFilter<T, Log> {
@@ -185,7 +195,7 @@ pub struct EthFilter<T> {
   transport: T,
 }
 
-impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
+impl<T: Transport> Namespace<T> for EthFilter<T> {
   fn new(transport: T) -> Self where Self: Sized {
     EthFilter {
       transport,
@@ -197,21 +207,21 @@ impl<T: Transport + Clone> Namespace<T> for EthFilter<T> {
   }
 }
 
-impl<T: Transport + Clone> EthFilter<T> {
+impl<T: Transport> EthFilter<T> {
   /// Installs a new logs filter.
-  pub fn create_logs_filter(&self, filter: Filter) -> CreateFilter<T, Log> {
+  pub fn create_logs_filter(self, filter: Filter) -> CreateFilter<T, Log> {
     let f = helpers::serialize(&filter);
-    create_filter::<_, LogsFilter>(self.transport.clone(), vec![f])
+    create_filter::<_, LogsFilter>(self.transport, vec![f])
   }
 
   /// Installs a new block filter.
-  pub fn create_blocks_filter(&self) -> CreateFilter<T, H256> {
-    create_filter::<_, BlocksFilter>(self.transport.clone(), vec![])
+  pub fn create_blocks_filter(self) -> CreateFilter<T, H256> {
+    create_filter::<_, BlocksFilter>(self.transport, vec![])
   }
 
   /// Installs a new pending transactions filter.
-  pub fn create_pending_transactions_filter(&self) -> CreateFilter<T, H256> {
-    create_filter::<_, PendingTransactionsFilter>(self.transport.clone(), vec![])
+  pub fn create_pending_transactions_filter(self) -> CreateFilter<T, H256> {
+    create_filter::<_, PendingTransactionsFilter>(self.transport, vec![])
   }
 }
 
