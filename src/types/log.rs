@@ -1,7 +1,7 @@
 use types::{BlockNumber, Bytes, U256, H160, H256};
 
 /// A log produced by a transaction.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Log {
   /// H160
   pub address: H160,
