@@ -83,7 +83,7 @@ pub mod tests {
   use serde_json;
   use std::cell::RefCell;
   use std::collections::VecDeque;
-  use futures::{self, Future};
+  use futures;
   use rpc;
   use {Result, Error, Transport, RequestId};
 
@@ -105,8 +105,8 @@ pub mod tests {
 
     fn send(&self, _id: RequestId, _request: rpc::Call)-> Result<rpc::Value> {
       match self.response.borrow_mut().pop_front() {
-        Some(response) => futures::finished(response).boxed(),
-        None => futures::failed(Error::Unreachable).boxed(),
+        Some(response) => Box::new(futures::finished(response)),
+        None => Box::new(futures::failed(Error::Unreachable)),
       }
     }
   }
