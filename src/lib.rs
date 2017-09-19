@@ -40,7 +40,7 @@ use futures::Future;
 pub use api::{Web3Main as Web3, ErasedWeb3};
 
 /// RPC result
-pub type Result<T> = futures::BoxFuture<T, Error>;
+pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
 
 /// RPC error
 #[derive(Debug, Clone, PartialEq)]
@@ -130,7 +130,7 @@ impl<T: Transport> Transport for Eraser<T> where
   }
 
   fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-    self.0.send(id, request).boxed()
+    Box::new(self.0.send(id, request))
   }
 }
 
@@ -181,12 +181,12 @@ impl<X, T> BatchTransport for X where
 mod tests {
   use std::sync::Arc;
   use api::Web3Main;
-  use futures::BoxFuture;
+  use futures::Future;
   use super::{rpc, Error, Transport, RequestId};
 
   struct FakeTransport;
   impl Transport for FakeTransport {
-    type Out = BoxFuture<rpc::Value, Error>;
+    type Out = Box<Future<Item = rpc::Value, Error = Error> + Send + 'static>;
 
     fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
       unimplemented!()
