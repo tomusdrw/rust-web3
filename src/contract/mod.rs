@@ -126,9 +126,10 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Call constant function
-  pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options, block: Option<BlockNumber>) -> QueryResult<R, T::Out> where
+  pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out> where
     R: Detokenize,
     A: Into<Option<Address>>,
+    B: Into<Option<BlockNumber>>,
     P: Tokenize,
   {
     self.abi.function(func.into())
@@ -141,7 +142,7 @@ impl<T: Transport> Contract<T> {
           gas_price: options.gas_price,
           value: options.value,
           data: Some(Bytes(call))
-        }, block);
+        }, block.into());
         QueryResult::new(result, function.clone())
       })
       .unwrap_or_else(Into::into)
@@ -173,7 +174,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), None, Options::default(), Some(BlockNumber::Number(1))).wait().unwrap()
+      token.query("name", (), None, Options::default(), BlockNumber::Number(1)).wait().unwrap()
     };
 
     // then
@@ -197,7 +198,7 @@ mod tests {
       // when
       token.query("name", (), Address::from(5), Options::with(|mut options| {
         options.gas_price = Some(10_000_000.into());
-      }), Some(BlockNumber::Latest)).wait().unwrap()
+      }), BlockNumber::Latest).wait().unwrap()
     };
 
     // then
