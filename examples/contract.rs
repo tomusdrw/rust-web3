@@ -14,7 +14,7 @@ fn main() {
     include_bytes!("../src/contract/res/token.json")
   ).unwrap();
 
-  let result = contract.query("balanceOf", (Address::from(10), ), None, Options::default());
+  let result = contract.query("balanceOf", (Address::from(10), ), None, Options::default(), None);
   let balance_of: U256 = result.wait().unwrap();
   assert_eq!(balance_of, 10.into());
 }
