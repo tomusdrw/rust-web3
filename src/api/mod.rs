@@ -83,13 +83,13 @@ impl<T: Transport> Web3Main<T> {
   pub fn wait_for_confirmations<F, V>(
     &self,
     poll_interval: Duration,
-    confirmations: u64,
+    confirmations: usize,
     check: V
   ) -> confirm::Confirmations<&T, V, F::Future> where
     F: IntoFuture<Item = Option<U256>, Error = Error>,
     V: confirm::ConfirmationCheck<Check = F>,
   {
-    confirm::wait_for_confirmations(&self.transport, poll_interval, confirmations, check)
+    confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)
   }
 
   /// Sends transaction and returns future resolved after transaction is confirmed
@@ -97,7 +97,7 @@ impl<T: Transport> Web3Main<T> {
     &self,
     tx: TransactionRequest,
     poll_interval: Duration,
-    confirmations: u64
+    confirmations: usize
   ) -> confirm::SendTransactionWithConfirmation<&T> {
     confirm::send_transaction_with_confirmation(&self.transport, tx, poll_interval, confirmations)
   }

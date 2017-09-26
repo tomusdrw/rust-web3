@@ -3,7 +3,7 @@
 use arrayvec::ArrayVec;
 use ethabi::Token;
 use contract::Error;
-use types::{self, Address, H256, U256};
+use types::{self, Address, H256, U256, U64};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Detokenize {
@@ -157,16 +157,38 @@ impl Tokenizable for Address {
   }
 }
 
-impl Tokenizable for U256 {
+macro_rules! uint_tokenizable {
+  ($uint: ident, $name: expr) => {
+    impl Tokenizable for $uint {
+      fn from_token(token: Token) -> Result<Self, Error> {
+        match token {
+          Token::Int(data) | Token::Uint(data) => Ok($uint::from(data.as_ref())),
+          other => Err(Error::InvalidOutputType(format!("Expected `{}`, got {:?}",  $name, other))),
+        }
+      }
+
+      fn into_token(self) -> Token {
+        let u = U256::from(self.0.as_ref());
+        Token::Uint(u.0)
+      }
+    }
+  }
+}
+
+uint_tokenizable!(U256, "U256");
+uint_tokenizable!(U64, "U64");
+
+impl Tokenizable for u64 {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Int(data) | Token::Uint(data) => Ok(U256(data)),
-      other => Err(Error::InvalidOutputType(format!("Expected `U256`, got {:?}", other))),
+      Token::Int(data) | Token::Uint(data) => Ok(U256::from(data.as_ref()).low_u64()),
+      other => Err(Error::InvalidOutputType(format!("Expected `u64`, got {:?}",  other))),
     }
   }
 
   fn into_token(self) -> Token {
-    Token::Uint(self.0)
+    let u = U256::from(self);
+    Token::Uint(u.0)
   }
 }
 
