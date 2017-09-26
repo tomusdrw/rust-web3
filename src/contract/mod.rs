@@ -2,6 +2,7 @@
 
 use ethabi;
 
+use std::time;
 use api::Eth;
 use contract::result::{QueryResult, CallResult};
 use contract::tokens::{Detokenize, Tokenize};
@@ -10,6 +11,7 @@ use {Transport, Error as ApiError};
 
 mod result;
 pub mod tokens;
+pub mod deploy;
 
 /// Contract call/query error.
 #[derive(Debug)]
@@ -67,13 +69,27 @@ pub struct Contract<T: Transport> {
   abi: ethabi::Contract,
 }
 
+impl<T: Transport + Clone> Contract<T> {
+  /// Creates deployment builder for a contract given it's ABI in JSON.
+  pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>, ethabi::Error> {
+    let abi = ethabi::Contract::load(json)?;
+    Ok(deploy::Builder {
+      eth,
+      abi,
+      options: Options::default(),
+      confirmations: 1,
+      poll_interval: time::Duration::from_secs(7),
+    })
+  }
+}
+
 impl<T: Transport> Contract<T> {
   /// Creates new Contract Interface given blockchain address and ABI
   pub fn new(eth: Eth<T>, address: Address, abi: ethabi::Contract) -> Self {
     Contract {
-      address: address,
-      eth: eth,
-      abi: abi,
+      address,
+      eth,
+      abi,
     }
   }
 
@@ -81,6 +97,11 @@ impl<T: Transport> Contract<T> {
   pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::Error> {
     let abi = ethabi::Contract::load(json)?;
     Ok(Self::new(eth, address, abi))
+  }
+
+  /// Returns contract address
+  pub fn address(&self) -> Address {
+    self.address
   }
 
   /// Execute a contract function

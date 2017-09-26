@@ -103,10 +103,13 @@ pub mod tests {
       (self.requests.borrow().len(), request)
     }
 
-    fn send(&self, _id: RequestId, _request: rpc::Call)-> Result<rpc::Value> {
+    fn send(&self, id: RequestId, request: rpc::Call)-> Result<rpc::Value> {
       match self.response.borrow_mut().pop_front() {
         Some(response) => Box::new(futures::finished(response)),
-        None => Box::new(futures::failed(Error::Unreachable)),
+        None => {
+          println!("Unexpected request (id: {:?}): {:?}", id, request);
+          Box::new(futures::failed(Error::Unreachable))
+        },
       }
     }
   }
