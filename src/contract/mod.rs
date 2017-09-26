@@ -6,7 +6,7 @@ use std::time;
 use api::Eth;
 use contract::result::{QueryResult, CallResult};
 use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256};
+use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256, BlockNumber};
 use {Transport, Error as ApiError};
 
 mod result;
@@ -147,9 +147,10 @@ impl<T: Transport> Contract<T> {
   }
 
   /// Call constant function
-  pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options) -> QueryResult<R, T::Out> where
+  pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out> where
     R: Detokenize,
     A: Into<Option<Address>>,
+    B: Into<Option<BlockNumber>>,
     P: Tokenize,
   {
     self.abi.function(func.into())
@@ -162,7 +163,7 @@ impl<T: Transport> Contract<T> {
           gas_price: options.gas_price,
           value: options.value,
           data: Some(Bytes(call))
-        }, None);
+        }, block.into());
         QueryResult::new(result, function.clone())
       })
       .unwrap_or_else(Into::into)
@@ -175,7 +176,7 @@ mod tests {
   use futures::Future;
   use helpers::tests::TestTransport;
   use rpc;
-  use types::{Address, H256, U256};
+  use types::{Address, H256, U256, BlockNumber};
   use {Transport};
   use super::{Contract, Options};
 
@@ -194,13 +195,13 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), None, Options::default()).wait().unwrap()
+      token.query("name", (), None, Options::default(), BlockNumber::Number(1)).wait().unwrap()
     };
 
     // then
     transport.assert_request("eth_call", &[
       "{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-      "\"latest\"".into(),
+      "\"0x1\"".into(),
     ]);
     transport.assert_no_more_requests();
     assert_eq!(result, "Hello World!".to_owned());
@@ -218,7 +219,7 @@ mod tests {
       // when
       token.query("name", (), Address::from(5), Options::with(|mut options| {
         options.gas_price = Some(10_000_000.into());
-      })).wait().unwrap()
+      }), BlockNumber::Latest).wait().unwrap()
     };
 
     // then
@@ -283,7 +284,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("balanceOf", (Address::from(5)), None, Options::default()).wait().unwrap()
+      token.query("balanceOf", (Address::from(5)), None, Options::default(), None).wait().unwrap()
     };
 
     // then

@@ -20,7 +20,7 @@ fn main() {
       .wait()
       .unwrap();
 
-  let result = contract.query("balanceOf", (my_account, ), None, Options::default());
+  let result = contract.query("balanceOf", (my_account, ), None, Options::default(), None);
   let balance_of: U256 = result.wait().unwrap();
   assert_eq!(balance_of, 1_000_000.into());
 
@@ -32,7 +32,7 @@ fn main() {
     include_bytes!("../src/contract/res/token.json")
   ).unwrap();
 
-  let result = contract.query("balanceOf", (my_account, ), None, Options::default());
+  let result = contract.query("balanceOf", (my_account, ), None, Options::default(), None);
   let balance_of: U256 = result.wait().unwrap();
   assert_eq!(balance_of, 1_000_000.into());
 }
