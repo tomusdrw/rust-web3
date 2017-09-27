@@ -74,7 +74,7 @@ impl<T: Detokenize, F> Future for QueryResult<T, F> where
   type Item = T;
   type Error = contract::Error;
 
-  fn poll(&mut self) -> Poll<T, contract::Error> {
+  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
     if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
       let bytes: Bytes = try_ready!(inner.poll());
       return Ok(Async::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?))
@@ -93,7 +93,7 @@ impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F> where
   type Item = T;
   type Error = contract::Error;
 
-  fn poll(&mut self) -> Poll<T, contract::Error> {
+  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
     if let ResultType::Simple(ref mut inner) = self.inner {
       let hash: T = try_ready!(inner.poll());
       return Ok(Async::Ready(hash))
