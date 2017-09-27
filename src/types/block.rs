@@ -58,7 +58,7 @@ pub struct Block<TX> {
 }
 
 /// Block Number
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockNumber {
   /// Latest block
   Latest,
