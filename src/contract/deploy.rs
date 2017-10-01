@@ -8,8 +8,10 @@ use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::Tokenize;
 use contract::{Contract, Options};
-use types::{Address, Bytes, TransactionRequest, H256};
-use {Transport, Error as ApiError};
+use types::{Address, Bytes, TransactionRequest};
+use {Transport};
+
+pub use contract::error::deploy::{Error, ErrorKind};
 
 /// A configuration builder for contract deployment.
 pub struct Builder<T: Transport + Clone> {
@@ -79,21 +81,6 @@ impl<T: Transport + Clone> Builder<T> {
   }
 }
 
-/// Deployment error
-#[derive(Debug, Clone)]
-pub enum Error {
-  /// Any RPC or transport error encountered during the process.
-  Api(ApiError),
-  /// Contract deployment failed. Contains transaction hash for further review.
-  ContractDeploymentFailure(H256),
-}
-
-impl From<ApiError> for Error {
-  fn from(err: ApiError) -> Self {
-    Error::Api(err)
-  }
-}
-
 /// Contract being deployed.
 pub struct PendingContract<T: Transport> {
   eth: Option<Eth<T>>,
@@ -112,7 +99,7 @@ impl<T: Transport + Clone> Future for PendingContract<T> {
 
     match receipt.contract_address {
       Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
-      None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
+      None => Err(ErrorKind::ContractDeploymentFailure(receipt.transaction_hash).into()),
     }
   }
 }
