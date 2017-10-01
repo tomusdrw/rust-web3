@@ -6,7 +6,7 @@ use rpc;
 use futures::{Async, Poll, Future};
 use serde;
 use serde_json;
-use {Error};
+use {Error, ErrorKind};
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value,
@@ -61,7 +61,7 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
   serde_json::from_slice(response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+    .map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
@@ -73,7 +73,7 @@ pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<r
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
   match output {
     rpc::Output::Success(success) => Ok(success.result),
-    rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error)),
+    rpc::Output::Failure(failure) => Err(ErrorKind::Rpc(failure.error).into()),
   }
 }
 
@@ -85,7 +85,7 @@ pub mod tests {
   use std::collections::VecDeque;
   use futures;
   use rpc;
-  use {Result, Error, Transport, RequestId};
+  use {Result, ErrorKind, Transport, RequestId};
 
   #[derive(Default)]
   pub struct TestTransport {
@@ -108,7 +108,7 @@ pub mod tests {
         Some(response) => Box::new(futures::finished(response)),
         None => {
           println!("Unexpected request (id: {:?}): {:?}", id, request);
-          Box::new(futures::failed(Error::Unreachable))
+          Box::new(futures::failed(ErrorKind::Unreachable.into()))
         },
       }
     }

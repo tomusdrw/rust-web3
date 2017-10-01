@@ -13,6 +13,8 @@ mod result;
 pub mod tokens;
 pub mod deploy;
 
+// TODO [ToDr] Error
+
 /// Contract call/query error.
 #[derive(Debug)]
 pub enum Error {

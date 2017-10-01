@@ -14,17 +14,17 @@ use serde_json;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
-use {BatchTransport, Transport, Error, RequestId};
+use {BatchTransport, Transport, Error, ErrorKind, RequestId};
 
 impl From<hyper::Error> for Error {
   fn from(err: hyper::Error) -> Self {
-    Error::Transport(format!("{:?}", err))
+    ErrorKind::Transport(format!("{:?}", err)).into()
   }
 }
 
 impl From<hyper::error::UriError> for Error {
   fn from(err: hyper::error::UriError) -> Self {
-    Error::Transport(format!("{:?}", err))
+    ErrorKind::Transport(format!("{:?}", err)).into()
   }
 }
 
@@ -79,7 +79,7 @@ impl Http {
         use futures::future::Either::{A, B};
         let future = match response {
           Ok(ref res) if !res.status().is_success() => {
-            A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status()))))
+            A(future::err(ErrorKind::Transport(format!("Unexpected response status code: {}", res.status())).into()))
           },
           Ok(res) => B(res.body().concat2().map_err(Into::into)),
           Err(err) => A(future::err(err.into())),
@@ -119,7 +119,7 @@ impl Http {
     let (tx, rx) = futures::oneshot();
     let result = {
       let mut sender = self.write_sender.lock();
-      (*sender).send((req, tx)).map_err(|err| Error::Transport(format!("{:?}", err)))
+      (*sender).send((req, tx)).map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into())
     };
 
     Response::new(id, result, rx, extract)
@@ -166,22 +166,22 @@ impl BatchTransport for Http {
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target=[u8]>>(response: T) -> Result<rpc::Value> {
   let response = serde_json::from_slice(&*response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+    .map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
   match response {
     rpc::Response::Single(output) => helpers::to_result_from_output(output),
-    _ => Err(Error::InvalidResponse("Expected single, got batch.".into())),
+    _ => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
   }
 }
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target=[u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
   let response = serde_json::from_slice(&*response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+    .map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
   match response {
     rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
-    _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),
+    _ => Err(ErrorKind::InvalidResponse("Expected batch, got single.".into()).into()),
   }
 }
 
