@@ -4,7 +4,7 @@ use futures::{self, Future};
 use futures::sync::oneshot;
 use transports::Result;
 use transports::tokio_core::reactor;
-use {Error, RequestId};
+use {Error, ErrorKind, RequestId};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
@@ -119,12 +119,12 @@ impl<T, O, Out> Future for Response<T, O> where
         },
         RequestState::WaitingForResponse(ref mut rx) => {
           trace!("[{}] Checking response.", self.id);
-          let result = try_ready!(rx.poll().map_err(|e| Error::Transport(format!("{:?}", e))));
+          let result = try_ready!(rx.poll().map_err(|_| Error::from(ErrorKind::Io(::std::io::ErrorKind::TimedOut.into()))));
           trace!("[{}] Extracting result.", self.id);
           return result.and_then(|x| extract(x)).map(futures::Async::Ready);
         },
         RequestState::Done => {
-          return Err(Error::Unreachable);
+          return Err(ErrorKind::Unreachable.into());
         },
       }
       // Proceeed to the next state

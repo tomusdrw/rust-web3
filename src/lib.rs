@@ -14,6 +14,8 @@ extern crate tokio_timer;
 extern crate serde_json;
 
 #[macro_use]
+extern crate error_chain;
+#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate serde_derive;
@@ -29,53 +31,19 @@ pub mod helpers;
 
 pub mod api;
 pub mod contract;
+pub mod error;
 pub mod transports;
 pub mod types;
 
 pub mod confirm;
 
-use std::io;
 use futures::Future;
 
+pub use error::{Error, ErrorKind};
 pub use api::{Web3Main as Web3, ErasedWeb3};
 
 /// RPC result
 pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
-
-/// RPC error
-#[derive(Debug, Clone, PartialEq)]
-pub enum Error {
-  /// Server is unreachable
-  Unreachable,
-  /// Unexpected response was returned
-  InvalidResponse(String),
-  /// Transport Error
-  Transport(String),
-  /// JSON decoding error.
-  Decoder(String),
-  /// Error returned by RPC
-  Rpc(rpc::Error),
-  /// Internal Error
-  Internal,
-}
-
-impl From<io::Error> for Error {
-  fn from(err: io::Error) -> Self {
-    Error::Transport(format!("{:?}", err))
-  }
-}
-
-impl From<serde_json::Error> for Error {
-  fn from(err: serde_json::Error) -> Self {
-    Error::Decoder(format!("{:?}", err))
-  }
-}
-
-impl From<rpc::Error> for Error {
-  fn from(err: rpc::Error) -> Self {
-    Error::Rpc(err)
-  }
-}
 
 /// Assigned RequestId
 pub type RequestId = usize;

@@ -8,7 +8,7 @@ use futures::sync::oneshot;
 use parking_lot::Mutex;
 use rpc;
 use transports::Result;
-use {BatchTransport, Transport, Error as RpcError, RequestId};
+use {BatchTransport, Transport, Error as RpcError, ErrorKind, RequestId};
 
 type Pending = oneshot::Sender<Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -108,7 +108,7 @@ impl<T: Future<Item=Vec<Result<rpc::Value>>, Error=RpcError>> Future for BatchFu
                       rx.send(results[idx].clone())
                     },
                     Err(ref err) => rx.send(Err(err.clone())),
-                    _ => rx.send(Err(RpcError::Internal)),
+                    _ => rx.send(Err(ErrorKind::Internal.into())),
                   }
                 })
               })
@@ -144,7 +144,7 @@ impl Future for SingleResult {
   type Error = RpcError;
 
   fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-    let res = try_ready!(self.0.poll().map_err(|_| RpcError::Internal));
+    let res = try_ready!(self.0.poll().map_err(|_| RpcError::from(ErrorKind::Internal)));
     res.map(futures::Async::Ready)
   }
 

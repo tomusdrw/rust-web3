@@ -2,7 +2,7 @@
 
 use arrayvec::ArrayVec;
 use ethabi::Token;
-use contract::Error;
+use contract::error::{Error, ErrorKind};
 use types::{self, Address, H256, U256, U64};
 
 /// Output type possible to deserialize from Contract ABI
@@ -14,7 +14,7 @@ pub trait Detokenize {
 impl<T: Tokenizable> Detokenize for T {
   fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
     if tokens.len() != 1 {
-      return Err(Error::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)));
+      bail!(ErrorKind::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)));
     }
     Self::from_token(tokens.drain(..).next().expect("At least one element in vector; qed"))
   }
@@ -29,7 +29,7 @@ macro_rules! impl_output {
     {
       fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
         if tokens.len() != $num {
-          return Err(Error::InvalidOutputType(format!(
+          bail!(ErrorKind::InvalidOutputType(format!(
             "Expected {} elements, got a list of {}: {:?}",
             $num,
             tokens.len(),
@@ -112,7 +112,7 @@ impl Tokenizable for String {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::String(s) => Ok(s),
-      other => Err(Error::InvalidOutputType(format!("Expected `String`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `String`, got {:?}", other)).into()),
     }
   }
 
@@ -126,7 +126,7 @@ impl Tokenizable for H256 {
     match token {
       Token::FixedBytes(mut s) => {
         if s.len() != 32 {
-          return Err(Error::InvalidOutputType(format!("Expected `H256`, got {:?}", s)));
+          bail!(ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", s)));
         }
         let mut data = [0; 32];
         for (idx, val) in s.drain(..).enumerate() {
@@ -134,7 +134,7 @@ impl Tokenizable for H256 {
         }
         Ok(H256(data))
       },
-      other => Err(Error::InvalidOutputType(format!("Expected `H256`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into()),
     }
   }
 
@@ -148,7 +148,7 @@ impl Tokenizable for Address {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::Address(data) => Ok(types::H160(data)),
-      other => Err(Error::InvalidOutputType(format!("Expected `Address`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
     }
   }
 
@@ -163,7 +163,7 @@ macro_rules! uint_tokenizable {
       fn from_token(token: Token) -> Result<Self, Error> {
         match token {
           Token::Int(data) | Token::Uint(data) => Ok($uint::from(data.as_ref())),
-          other => Err(Error::InvalidOutputType(format!("Expected `{}`, got {:?}",  $name, other))),
+          other => Err(ErrorKind::InvalidOutputType(format!("Expected `{}`, got {:?}",  $name, other)).into()),
         }
       }
 
@@ -182,7 +182,7 @@ impl Tokenizable for u64 {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::Int(data) | Token::Uint(data) => Ok(U256::from(data.as_ref()).low_u64()),
-      other => Err(Error::InvalidOutputType(format!("Expected `u64`, got {:?}",  other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `u64`, got {:?}",  other)).into()),
     }
   }
 
@@ -196,7 +196,7 @@ impl Tokenizable for bool {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::Bool(data) => Ok(data),
-      other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `bool`, got {:?}", other)).into()),
     }
   }
   fn into_token(self) -> Token {
@@ -209,7 +209,7 @@ impl Tokenizable for Vec<u8> {
     match token {
       Token::Bytes(data) => Ok(data),
       Token::FixedBytes(data) => Ok(data),
-      other => Err(Error::InvalidOutputType(format!("Expected `bytes`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `bytes`, got {:?}", other)).into()),
     }
   }
   fn into_token(self) -> Token {
@@ -221,7 +221,7 @@ impl<T: Tokenizable> Tokenizable for Vec<T> {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
       Token::FixedArray(tokens) | Token::Array(tokens) => tokens.into_iter().map(Tokenizable::from_token).collect(),
-      other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other))),
+      other => Err(ErrorKind::InvalidOutputType(format!("Expected `Array`, got {:?}", other)).into()),
     }
   }
 
@@ -237,14 +237,14 @@ macro_rules! impl_fixed_types {
         match token {
           Token::FixedBytes(bytes) => {
             if bytes.len() != $num {
-              return Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got FixedBytes({})", $num, bytes.len())));
+              bail!(ErrorKind::InvalidOutputType(format!("Expected `FixedBytes({})`, got FixedBytes({})", $num, bytes.len())));
             }
 
             let mut arr = [0; $num];
             arr.copy_from_slice(&bytes);
             Ok(arr)
           },
-          other => Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other))),
+          other => Err(ErrorKind::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other)).into()),
         }
       }
 
@@ -258,7 +258,7 @@ macro_rules! impl_fixed_types {
         match token {
           Token::FixedArray(tokens) => {
             if tokens.len() != $num {
-              return Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got FixedArray({})", $num, tokens.len())));
+              bail!(ErrorKind::InvalidOutputType(format!("Expected `FixedArray({})`, got FixedArray({})", $num, tokens.len())));
             }
 
             let mut arr = ArrayVec::<[T; $num]>::new();
@@ -272,7 +272,7 @@ macro_rules! impl_fixed_types {
               Err(_) => panic!("All elements inserted so the array is full; qed"),
             }
           },
-          other => Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got {:?}", $num, other))),
+          other => Err(ErrorKind::InvalidOutputType(format!("Expected `FixedArray({})`, got {:?}", $num, other)).into()),
         }
       }
 

@@ -19,7 +19,7 @@ use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
 use transports::tokio_io::AsyncRead;
 use transports::tokio_io::io::{ReadHalf, WriteHalf};
-use {BatchTransport, Transport, Error, RequestId};
+use {BatchTransport, Transport, ErrorKind, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -106,7 +106,9 @@ impl Ipc {
     self.pending.lock().insert(id, tx);
     let result = {
       let mut sender = self.write_sender.lock();
-      (*sender).send(request.into_bytes()).map_err(|err| Error::Transport(format!("{:?}", err)))
+      (*sender).send(request.into_bytes()).map_err(|_| {
+        ErrorKind::Io(io::ErrorKind::BrokenPipe.into()).into()
+      })
     };
 
     Response::new(id, result, rx, extract)
@@ -135,7 +137,7 @@ impl Transport for Ipc {
 fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
   match response.into_iter().next() {
     Some(res) => res,
-    None => Err(Error::Transport(format!("Expected single response got empty batch."))),
+    None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
   }
 }
 

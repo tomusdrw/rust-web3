@@ -7,34 +7,14 @@ use api::Eth;
 use contract::result::{QueryResult, CallResult};
 use contract::tokens::{Detokenize, Tokenize};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256, BlockNumber};
-use {Transport, Error as ApiError};
+use {Transport};
 
+mod error;
 mod result;
-pub mod tokens;
 pub mod deploy;
+pub mod tokens;
 
-/// Contract call/query error.
-#[derive(Debug)]
-pub enum Error {
-  /// API call errror.
-  Api(ApiError),
-  /// ABI encoding error.
-  Abi(ethabi::Error),
-  /// Invalid output type requested from caller.
-  InvalidOutputType(String),
-}
-
-impl From<ethabi::Error> for Error {
-  fn from(error: ethabi::Error) -> Self {
-    Error::Abi(error)
-  }
-}
-
-impl From<ApiError> for Error {
-  fn from(error: ApiError) -> Self {
-    Error::Api(error)
-  }
-}
+pub use self::error::{Error, ErrorKind};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -122,7 +102,6 @@ impl<T: Transport> Contract<T> {
           condition: options.condition,
         }).into()
       })
-      .map_err(Error::Abi)
       .unwrap_or_else(Into::into)
   }
 
@@ -142,7 +121,6 @@ impl<T: Transport> Contract<T> {
           data: Some(Bytes(data)),
         }, None).into()
       })
-      .map_err(Error::Abi)
       .unwrap_or_else(Into::into)
   }
 

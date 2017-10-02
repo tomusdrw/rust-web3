@@ -11,7 +11,7 @@ use futures::{Poll, Future, Stream};
 use api::Namespace;
 use helpers::{self, CallResult};
 use types::{Filter, H256, Log, U256};
-use {Transport, Error, rpc};
+use {Transport, Error, ErrorKind, rpc};
 
 /// Stream of events
 pub struct FilterStream<T: Transport, I> {
@@ -49,7 +49,7 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
     loop {
       let next_state = match self.state {
         FilterStreamState::WaitForInterval => {
-          let _ready = try_ready!(self.interval.poll().map_err(|_| Error::Unreachable));
+          let _ready = try_ready!(self.interval.poll().map_err(|_| Error::from(ErrorKind::Unreachable)));
           let id = helpers::serialize(&self.base.id);
           let future = CallResult::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
           FilterStreamState::GetFilterChanges(future)
