@@ -57,6 +57,7 @@ impl Clone for Error {
       ErrorKind::Rpc(ref e) => ErrorKind::Rpc(e.clone()),
       ErrorKind::Internal => ErrorKind::Internal,
       ErrorKind::Msg(ref e) => ErrorKind::Msg(e.clone()).into(),
+      _ => unimplemented!(),
     }.into()
   }
 }
