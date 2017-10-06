@@ -14,6 +14,7 @@ use types::{Filter, H256, Log, U256};
 use {Transport, Error, ErrorKind, rpc};
 
 /// Stream of events
+#[derive(Debug)]
 pub struct FilterStream<T: Transport, I> {
   base: BaseFilter<T, I>,
   interval: Interval,
@@ -35,6 +36,7 @@ impl<T: Transport, I> FilterStream<T, I> {
   }
 }
 
+#[derive(Debug)]
 enum FilterStreamState<I, O> {
   WaitForInterval,
   GetFilterChanges(CallResult<Option<Vec<I>>, O>),
@@ -113,6 +115,7 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Base filter handle.
 /// Uninstall filter on drop.
 /// Allows to poll the filter.
+#[derive(Debug)]
 pub struct BaseFilter<T: Transport, I> {
   id: U256,
   transport: T,

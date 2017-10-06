@@ -11,6 +11,7 @@ use {Error, ErrorKind};
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value,
 /// a future which yields that type, and
+#[derive(Debug)]
 pub struct CallResult<T, F> {
   inner: F,
   _marker: PhantomData<T>,
