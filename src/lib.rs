@@ -49,7 +49,7 @@ pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
 pub type RequestId = usize;
 
 /// Transport implementation
-pub trait Transport {
+pub trait Transport: ::std::fmt::Debug {
   /// The type of future this transport returns when a call is made.
   type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
@@ -86,6 +86,7 @@ pub trait BatchTransport: Transport {
 }
 
 /// Transport eraser.
+#[derive(Debug)]
 struct Eraser<T>(T);
 
 impl<T: Transport> Transport for Eraser<T> where
@@ -103,6 +104,7 @@ impl<T: Transport> Transport for Eraser<T> where
 }
 
 /// Transport with erased output type.
+#[derive(Debug)]
 pub struct Erased(Box<Transport<Out=Result<rpc::Value>>>);
 
 impl Transport for Erased {
@@ -120,6 +122,7 @@ impl Transport for Erased {
 impl<X, T> Transport for X where
   T: Transport + ?Sized,
   X: ::std::ops::Deref<Target=T>,
+  X: ::std::fmt::Debug,
 {
   type Out = T::Out;
 
@@ -135,6 +138,7 @@ impl<X, T> Transport for X where
 impl<X, T> BatchTransport for X where
   T: BatchTransport + ?Sized,
   X: ::std::ops::Deref<Target=T>,
+  X: ::std::fmt::Debug,
 {
   type Batch = T::Batch;
 
@@ -152,6 +156,7 @@ mod tests {
   use futures::Future;
   use super::{rpc, Error, Transport, RequestId};
 
+  #[derive(Debug)]
   struct FakeTransport;
   impl Transport for FakeTransport {
     type Out = Box<Future<Item = rpc::Value, Error = Error> + Send + 'static>;
