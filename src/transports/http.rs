@@ -37,7 +37,6 @@ type Pending = oneshot::Sender<Result<hyper::Chunk>>;
 pub type FetchTask<F> = Response<F, hyper::Chunk>;
 
 /// HTTP Transport (synchronous)
-#[derive(Debug)]
 pub struct Http {
   id: AtomicUsize,
   url: hyper::Uri,

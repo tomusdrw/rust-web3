@@ -4,6 +4,7 @@ use ethabi;
 
 use std::time;
 use api::Eth;
+use contract::result::{QueryResult, CallResult};
 use contract::tokens::{Detokenize, Tokenize};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256, BlockNumber};
 use {Transport};
@@ -13,8 +14,7 @@ mod result;
 pub mod deploy;
 pub mod tokens;
 
-pub use contract::result::{QueryResult, CallResult};
-pub use contract::error::{Error, ErrorKind};
+pub use self::error::{Error, ErrorKind};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
