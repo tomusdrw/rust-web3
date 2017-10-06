@@ -7,6 +7,7 @@ use types::{Bytes, H256};
 use {Transport};
 
 /// `Web3` namespace
+#[derive(Debug)]
 pub struct Web3<T> {
   transport: T,
 }

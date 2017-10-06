@@ -40,6 +40,7 @@ type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
 pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 
 /// Unix Domain Sockets (IPC) transport
+#[derive(Debug)]
 pub struct Ipc {
   id: atomic::AtomicUsize,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,

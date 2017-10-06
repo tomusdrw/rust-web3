@@ -87,7 +87,7 @@ pub mod tests {
   use rpc;
   use {Result, ErrorKind, Transport, RequestId};
 
-  #[derive(Default)]
+  #[derive(Debug, Default)]
   pub struct TestTransport {
     asserted: usize,
     requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
