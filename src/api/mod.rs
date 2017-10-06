@@ -27,6 +27,7 @@ pub trait Namespace<T: Transport> {
 }
 
 /// `Web3` wrapper for all namespaces
+#[derive(Debug)]
 pub struct Web3Main<T: Transport> {
   transport: T,
 }

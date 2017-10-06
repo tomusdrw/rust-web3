@@ -14,6 +14,7 @@ use {Transport};
 pub use contract::error::deploy::{Error, ErrorKind};
 
 /// A configuration builder for contract deployment.
+#[derive(Debug)]
 pub struct Builder<T: Transport + Clone> {
   pub(crate) eth: Eth<T>,
   pub(crate) abi: ethabi::Contract,

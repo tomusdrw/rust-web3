@@ -10,6 +10,7 @@ use rpc;
 use types::Bytes;
 use {Error as ApiError};
 
+#[derive(Debug)]
 enum ResultType<T, F> {
   Decodable(helpers::CallResult<Bytes, F>, ethabi::Function),
   Simple(helpers::CallResult<T, F>),
@@ -20,6 +21,7 @@ enum ResultType<T, F> {
 /// A standard function (RPC) call result.
 /// Takes any type which is deserializable from JSON,
 /// a function definition and a future which yields that type.
+#[derive(Debug)]
 pub struct CallResult<T, F> {
   inner: ResultType<T, F>,
 }
@@ -45,6 +47,7 @@ impl<T, F, E> From<E> for CallResult<T, F> where
 /// Function-specific bytes-decoder future.
 /// Takes any type which is deserializable from `Vec<ethabi::Token>`,
 /// a function definition and a future which yields that type.
+#[derive(Debug)]
 pub struct QueryResult<T, F> {
   inner: ResultType<T, F>,
 }

@@ -6,6 +6,7 @@ use helpers::CallResult;
 use {Transport};
 
 /// `Net` namespace
+#[derive(Debug)]
 pub struct Net<T> {
   transport: T,
 }
