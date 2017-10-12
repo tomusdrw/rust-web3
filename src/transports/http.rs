@@ -110,6 +110,7 @@ impl Http {
     let mut req = hyper::client::Request::new(hyper::Method::Post, self.url.clone());
     req.headers_mut().set(hyper::header::ContentType::json());
     req.headers_mut().set(hyper::header::UserAgent::new("web3.rs"));
+    req.headers_mut().set(hyper::header::Connection::close());
     let len = request.len();
     // Don't send chunked request
     if len < MAX_SINGLE_CHUNK {
