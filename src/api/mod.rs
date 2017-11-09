@@ -18,16 +18,16 @@ use {confirm, Transport, Error};
 use types::{U256, TransactionRequest};
 
 /// Common API for all namespaces
-pub trait Namespace<T: Transport> {
+pub trait Namespace<T: Transport>: Clone {
   /// Creates new API namespace
-  fn new(transport: T) -> Self where Self: Sized;
+  fn new(transport: T) -> Self;
 
   /// Borrows a transport.
   fn transport(&self) -> &T;
 }
 
 /// `Web3` wrapper for all namespaces
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Web3<T: Transport> {
   transport: T,
 }
