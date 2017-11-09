@@ -14,11 +14,11 @@ type Pending = oneshot::Sender<Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
 
 /// Transport allowing to batch queries together.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Batch<T> {
   transport: T,
   pending: PendingRequests,
-  batch: Mutex<Vec<(RequestId, rpc::Call)>>,
+  batch: Arc<Mutex<Vec<(RequestId, rpc::Call)>>>,
 }
 
 impl<T> Batch<T> where

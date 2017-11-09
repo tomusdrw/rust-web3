@@ -219,7 +219,7 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
   }
 }
 
-impl<T: Transport + Clone> Future for SendTransactionWithConfirmation<T> {
+impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
   type Item = TransactionReceipt;
   type Error = Error;
 

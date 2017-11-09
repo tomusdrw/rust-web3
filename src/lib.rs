@@ -40,7 +40,7 @@ pub mod confirm;
 use futures::Future;
 
 pub use error::{Error, ErrorKind};
-pub use api::{Web3Main as Web3, ErasedWeb3};
+pub use api::Web3;
 
 /// RPC result
 pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
@@ -49,7 +49,7 @@ pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
 pub type RequestId = usize;
 
 /// Transport implementation
-pub trait Transport: ::std::fmt::Debug {
+pub trait Transport: ::std::fmt::Debug + Clone {
   /// The type of future this transport returns when a call is made.
   type Out: futures::Future<Item=rpc::Value, Error=Error>;
 
@@ -64,15 +64,6 @@ pub trait Transport: ::std::fmt::Debug {
     let (id, request) = self.prepare(method, params);
     self.send(id, request)
   }
-
-  /// Erase the type of the transport by boxing it and boxing all produced
-  /// futures.
-  fn erase(self) -> Erased where
-    Self: Sized + 'static,
-    Self::Out: Send + 'static,
-  {
-    Erased(Box::new(Eraser(self)))
-  }
 }
 
 /// A transport implementation supporting batch requests.
@@ -85,44 +76,11 @@ pub trait BatchTransport: Transport {
     T: IntoIterator<Item=(RequestId, rpc::Call)>;
 }
 
-/// Transport eraser.
-#[derive(Debug)]
-struct Eraser<T>(T);
-
-impl<T: Transport> Transport for Eraser<T> where
-  T::Out: Send + 'static,
-{
-  type Out = Result<rpc::Value>;
-
-  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
-    self.0.prepare(method, params)
-  }
-
-  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-    Box::new(self.0.send(id, request))
-  }
-}
-
-/// Transport with erased output type.
-#[derive(Debug)]
-pub struct Erased(Box<Transport<Out=Result<rpc::Value>>>);
-
-impl Transport for Erased {
-  type Out = Result<rpc::Value>;
-
-  fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
-    self.0.prepare(method, params)
-  }
-
-  fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-    self.0.send(id, request)
-  }
-}
-
 impl<X, T> Transport for X where
   T: Transport + ?Sized,
   X: ::std::ops::Deref<Target=T>,
   X: ::std::fmt::Debug,
+  X: Clone,
 {
   type Out = T::Out;
 
@@ -139,6 +97,7 @@ impl<X, T> BatchTransport for X where
   T: BatchTransport + ?Sized,
   X: ::std::ops::Deref<Target=T>,
   X: ::std::fmt::Debug,
+  X: Clone,
 {
   type Batch = T::Batch;
 
@@ -152,11 +111,11 @@ impl<X, T> BatchTransport for X where
 #[cfg(test)]
 mod tests {
   use std::sync::Arc;
-  use api::Web3Main;
+  use api::Web3;
   use futures::Future;
   use super::{rpc, Error, Transport, RequestId};
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct FakeTransport;
   impl Transport for FakeTransport {
     type Out = Box<Future<Item = rpc::Value, Error = Error> + Send + 'static>;
@@ -175,7 +134,7 @@ mod tests {
     let transport = Arc::new(FakeTransport);
     let transport2 = transport.clone();
 
-    let _web3_1 = Web3Main::new(transport);
-    let _web3_2 = Web3Main::new(transport2);
+    let _web3_1 = Web3::new(transport);
+    let _web3_2 = Web3::new(transport2);
   }
 }
