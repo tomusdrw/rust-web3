@@ -1,20 +1,49 @@
-use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::{cmp, fmt, ops};
+use std::{fmt, ops};
 use serde;
+use ethcore_bigint as bigint;
 
 const PREFIX: usize = 2;
 
+// TODO [ToDr] Error chain
 #[derive(Debug)]
-pub enum FromStrError {
+pub enum FromStrErr {
   InvalidLength { got: usize, expected: usize },
   InvalidPrefix,
   InvalidCharacter(char),
 }
 
 macro_rules! impl_uint {
+  ($name: ident, $other: ident, $len: expr) => {
+    impl_uint!($name, $other, $len, false);
+
+    impl From<$name> for [u8; $len] {
+      fn from(x: $name) -> Self {
+        let mut data = [0u8; $len];
+        x.copy_to(&mut data);
+        data
+      }
+    }
+
+    impl fmt::Display for $name {
+      fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO [ToDr] Decimal?
+        write!(f, "0x")?;
+        fmt::LowerHex::fmt(self, f)
+      }
+    }
+  };
+
   ($name: ident, $len: expr) => {
-    impl_uint!($name, $len, false);
+    impl_uint!($name, $name, $len, false);
+
+    impl From<$name> for [u8; $len] {
+      fn from(x: $name) -> Self {
+        let mut data = [0u8; $len];
+        x.to_big_endian(&mut data);
+        data
+      }
+    }
 
     impl fmt::Display for $name {
       fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -26,7 +55,15 @@ macro_rules! impl_uint {
   };
 
   (hash => $name: ident, $len: expr) => {
-    impl_uint!($name, $len, true);
+    impl_uint!($name, $name, $len, true);
+
+    impl From<$name> for [u8; $len] {
+      fn from(x: $name) -> Self {
+        let mut data = [0u8; $len];
+        x.copy_to(&mut data);
+        data
+      }
+    }
 
     impl fmt::Display for $name {
       fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -43,118 +80,51 @@ macro_rules! impl_uint {
     }
   };
 
-  ($name: ident, $len: expr, $strict: expr) => {
+  ($name: ident, $other: ident, $len: expr, $strict: expr) => {
     /// Uint serialization.
-    pub struct $name(pub [u8; $len]);
+    #[derive(Default, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
+    pub struct $name(pub bigint::prelude::$other);
+
+    impl Copy for $name {}
+
+    impl $name {
+      /// Converts itself into an array of bytes.
+      pub fn into_array(self) -> [u8; $len] {
+        self.into()
+      }
+
+      /// Converts itself into underlying bigint object.
+      pub fn into_inner(self) -> bigint::prelude::$other {
+        self.0
+      }
+    }
 
     impl ops::Deref for $name {
-      type Target = [u8];
+      type Target = bigint::prelude::$other;
       fn deref(&self) -> &Self::Target {
         &self.0
       }
     }
 
-    impl Default for $name {
-      fn default() -> Self {
-        $name([0; $len])
-      }
-    }
-
-    impl Eq for $name { }
-
-    impl PartialEq for $name {
-      fn eq(&self, other: &$name) -> bool {
-        for i in 0..$len {
-          if self.0[i] != other.0[i] {
-            return false;
-          }
-        }
-        true
-      }
-    }
-
-    impl Ord for $name {
-      fn cmp(&self, other: &Self) -> cmp::Ordering {
-        for i in 0..$len {
-          if self.0[i] < other.0[i] {
-            return cmp::Ordering::Less;
-          }
-
-          if self.0[i] > other.0[i] {
-            return cmp::Ordering::Greater;
-          }
-        }
-
-        cmp::Ordering::Equal
-      }
-    }
-
-    impl PartialOrd for $name {
-      fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-      }
-    }
-
-    impl Copy for $name {}
-
-    impl Clone for $name {
-      fn clone(&self) -> Self {
-        let mut v = $name::default();
-        v.0.copy_from_slice(&self.0);
-        v
-      }
-    }
-
-    impl Hash for $name {
-      fn hash<H: Hasher>(&self, state: &mut H) {
-          self.0.hash(state);
-      }
-    }
-
-    impl From<u64> for $name {
-      fn from(mut num: u64) -> Self {
-        let mut arr = [0; $len];
-        for i in 0..8 {
-          arr[$len - 1 - i] = num as u8;
-          num = num >> 8;
-        }
-        $name(arr)
-      }
-    }
-
-    impl $name {
-      /// Returns value created from lowest 8 bytes
-      pub fn low_u64(&self) -> u64 {
-        let mut result = 0u64;
-        for i in 0..8 {
-          result += (self.0[$len - 1 - i] as u64) << (i * 8);
-        }
-        result
-      }
-    }
-
-    impl<'a> From<&'a [u8]> for $name {
-      fn from(x: &'a [u8]) -> Self {
-        let mut arr = [0; $len];
-        let len = cmp::min(x.len(), $len);
-        arr[$len - len .. ].copy_from_slice(&x[x.len() - $len .. ]);
-        $name(arr)
+    impl<T: Into<bigint::prelude::$other>> From<T> for $name {
+      fn from(x: T) -> Self {
+        $name(x.into())
       }
     }
 
     impl FromStr for $name {
-      type Err = FromStrError;
+      type Err = FromStrErr;
 
       fn from_str(s: &str) -> Result<Self, Self::Err> {
         let strict_len = $strict;
         let len = s.len();
         let expected = $len * 2 + PREFIX;
         if len < PREFIX || len > expected || (strict_len && (len < expected)) {
-          return Err(FromStrError::InvalidLength { got: len, expected: expected });
+          return Err(FromStrErr::InvalidLength { got: len, expected: expected });
         }
 
         if &s[0..PREFIX] != "0x" {
-          return Err(FromStrError::InvalidPrefix);
+          return Err(FromStrErr::InvalidPrefix);
         }
 
         let mut arr = [0; $len];
@@ -163,7 +133,7 @@ macro_rules! impl_uint {
             b'A'...b'F' => byte - b'A' + 10,
             b'a'...b'f' => byte - b'a' + 10,
             b'0'...b'9' => byte - b'0',
-            _ => return Err(FromStrError::InvalidCharacter(byte as char)),
+            _ => return Err(FromStrErr::InvalidCharacter(byte as char)),
           } as u8;
 
           let pos = idx >> 1;
@@ -171,7 +141,7 @@ macro_rules! impl_uint {
           arr[$len - 1 - pos] |= byte << (shift * 4);
         }
 
-        Ok($name(arr))
+        Ok(arr.into())
       }
     }
 
@@ -184,17 +154,18 @@ macro_rules! impl_uint {
 
     impl fmt::LowerHex for $name {
       fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let arr = self.into_array();
         let mut skiping = !$strict;
         for i in 0..$len {
-          match self.0[i] {
+          match arr[i] {
             0 if skiping => {},
-            _ if skiping => {
+            x if skiping => {
               skiping = false;
-              write!(f, "{:x}", self.0[i])?;
+              write!(f, "{:x}", x)?;
             },
-            _ => {
+            x => {
               skiping = false;
-              write!(f, "{:02x}", self.0[i])?;
+              write!(f, "{:02x}", x)?;
             }
           }
         }
@@ -240,7 +211,8 @@ macro_rules! impl_uint {
   };
 }
 
-impl_uint!(U64, 8);
+impl_uint!(U64, H64, 8);
+impl_uint!(U128, 16);
 impl_uint!(U256, 32);
 
 impl_uint!(hash => H64, 8);
@@ -320,7 +292,7 @@ mod tests {
     arr[13] = 1;
     arr[12] = 0;
     arr[11] = 10;
-    let a = H128(arr);
+    let a = H128::from(arr);
     let b = H128::from(1023);
     let c = H128::from(0);
     let d = H128::from(10000);
@@ -387,7 +359,7 @@ mod tests {
     let deserialized4: U256 = serde_json::from_str(r#""0x01""#).unwrap();
     let deserialized5: U256 = serde_json::from_str(r#""0x100""#).unwrap();
 
-    assert_eq!(deserialized1, U256([0; 32]));
+    assert_eq!(deserialized1, U256::default());
     assert_eq!(deserialized2, 0.into());
     assert_eq!(deserialized3, 1.into());
     assert_eq!(deserialized4, 1.into());

@@ -144,7 +144,7 @@ mod tests {
 
       // when
       builder
-        .options(Options::with(|mut opt| opt.value = Some(5.into())))
+        .options(Options::with(|opt| opt.value = Some(5.into())))
         .confirmations(1)
         .execute(vec![1, 2, 3, 4], (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()), 5.into())
         .unwrap()

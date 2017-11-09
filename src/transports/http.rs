@@ -97,6 +97,9 @@ impl Http {
     Ok(Http {
       id: Default::default(),
       url: url.parse()?,
+      // TODO [ToDr] This may lock down the event loop
+      // if the queue is full and you send another request
+      // from the event loop.
       write_sender: Mutex::new(write_sender.wait()),
     })
   }

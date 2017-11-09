@@ -92,6 +92,9 @@ impl Ipc {
 
     Ok(Ipc {
       id: atomic::AtomicUsize::new(1),
+      // TODO [ToDr] This may lock down the event loop
+      // if the queue is full and you send another request
+      // from the event loop.
       write_sender: Mutex::new(write_sender.wait()),
       pending,
     })
@@ -102,7 +105,6 @@ impl Ipc {
   {
     let request = helpers::to_string(&request);
     debug!("[{}] Calling: {}", id, request);
-
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
     let result = {

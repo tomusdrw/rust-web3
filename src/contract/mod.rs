@@ -196,7 +196,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), Address::from(5), Options::with(|mut options| {
+      token.query("name", (), Address::from(5), Options::with(|options| {
         options.gas_price = Some(10_000_000.into());
       }), BlockNumber::Latest).wait().unwrap()
     };

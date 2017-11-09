@@ -3,7 +3,7 @@
 use arrayvec::ArrayVec;
 use ethabi::Token;
 use contract::error::{Error, ErrorKind};
-use types::{self, Address, H256, U256, U64};
+use types::{Address, H256, U256, U64};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Detokenize {
@@ -132,7 +132,7 @@ impl Tokenizable for H256 {
         for (idx, val) in s.drain(..).enumerate() {
           data[idx] = val;
         }
-        Ok(H256(data))
+        Ok(data.into())
       },
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into()),
     }
@@ -147,13 +147,13 @@ impl Tokenizable for H256 {
 impl Tokenizable for Address {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Address(data) => Ok(types::H160(data)),
+      Token::Address(data) => Ok(data.into()),
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
     }
   }
 
   fn into_token(self) -> Token {
-    Token::Address(self.0)
+    Token::Address(self.into())
   }
 }
 
@@ -168,8 +168,8 @@ macro_rules! uint_tokenizable {
       }
 
       fn into_token(self) -> Token {
-        let u = U256::from(self.0.as_ref());
-        Token::Uint(u.0)
+        let u = U256::from(self.into_array().as_ref());
+        Token::Uint(u.into())
       }
     }
   }
@@ -188,7 +188,7 @@ impl Tokenizable for u64 {
 
   fn into_token(self) -> Token {
     let u = U256::from(self);
-    Token::Uint(u.0)
+    Token::Uint(u.into())
   }
 }
 
