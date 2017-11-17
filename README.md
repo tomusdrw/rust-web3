@@ -25,6 +25,12 @@ fn main() {
 }
 ```
 
+If you want to deploy smart contracts you have written you can do something like this (make sure you have the solidity compiler installed):
+
+`solc -o build --bin --abi contracts/*.sol`
+
+The solidity compiler is generating the binary and abi code for the smart contracts in a directory called contracts and is being output to a directory called build.
+
 For more see [examples folder](./examples).
 
 # TODO
