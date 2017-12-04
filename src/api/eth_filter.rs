@@ -80,6 +80,7 @@ trait FilterInterface {
 }
 
 /// Logs Filter
+#[derive(Debug)]
 struct LogsFilter;
 
 impl FilterInterface for LogsFilter {
@@ -91,6 +92,7 @@ impl FilterInterface for LogsFilter {
 }
 
 /// New blocks hashes filter.
+#[derive(Debug)]
 struct BlocksFilter;
 
 impl FilterInterface for BlocksFilter {
@@ -102,6 +104,7 @@ impl FilterInterface for BlocksFilter {
 }
 
 /// New Pending Transactions Filter
+#[derive(Debug)]
 struct PendingTransactionsFilter;
 
 impl FilterInterface for PendingTransactionsFilter {
@@ -170,6 +173,7 @@ fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -
 }
 
 /// Future which resolves with new filter
+#[derive(Debug)]
 pub struct CreateFilter<T: Transport, I> {
   transport: Option<T>,
   item: PhantomData<I>,
@@ -194,6 +198,7 @@ impl<T, I> Future for CreateFilter<T, I> where
 }
 
 /// `Eth` namespace, filters
+#[derive(Debug, Clone)]
 pub struct EthFilter<T> {
   transport: T,
 }

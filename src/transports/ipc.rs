@@ -10,7 +10,7 @@ use std::sync::{atomic, Arc};
 use self::tokio_uds::UnixStream;
 
 use futures::sync::{oneshot, mpsc};
-use futures::{self, sink, Sink, Stream, Future};
+use futures::{self, Stream, Future};
 use helpers;
 use parking_lot::Mutex;
 use rpc;
@@ -40,11 +40,11 @@ type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
 pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 
 /// Unix Domain Sockets (IPC) transport
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ipc {
-  id: atomic::AtomicUsize,
+  id: Arc<atomic::AtomicUsize>,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-  write_sender: Mutex<sink::Wait<mpsc::Sender<Vec<u8>>>>,
+  write_sender: mpsc::UnboundedSender<Vec<u8>>,
 }
 
 impl Ipc {
@@ -71,7 +71,7 @@ impl Ipc {
   /// Creates new IPC transport from existing `UnixStream` and `Handle`
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
     let (read, write) = stream.split();
-    let (write_sender, write_receiver) = mpsc::channel(1024);
+    let (write_sender, write_receiver) = mpsc::unbounded();
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
@@ -91,8 +91,8 @@ impl Ipc {
     handle.spawn(w);
 
     Ok(Ipc {
-      id: atomic::AtomicUsize::new(1),
-      write_sender: Mutex::new(write_sender.wait()),
+      id: Arc::new(atomic::AtomicUsize::new(1)),
+      write_sender,
       pending,
     })
   }
@@ -105,12 +105,9 @@ impl Ipc {
 
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
-    let result = {
-      let mut sender = self.write_sender.lock();
-      (*sender).send(request.into_bytes()).map_err(|_| {
-        ErrorKind::Io(io::ErrorKind::BrokenPipe.into()).into()
-      })
-    };
+
+    let result = self.write_sender.unbounded_send(request.into_bytes())
+      .map_err(|_| ErrorKind::Io(io::ErrorKind::BrokenPipe.into()).into());
 
     Response::new(id, result, rx, extract)
   }
@@ -168,10 +165,10 @@ enum WriteState {
 }
 
 /// Writing part of the IPC transport
-/// Awaits new requests using `mpsc::Receiver` and writes them to the socket.
+/// Awaits new requests using `mpsc::UnboundedReceiver` and writes them to the socket.
 struct WriteStream {
   write: WriteHalf<UnixStream>,
-  incoming: mpsc::Receiver<Vec<u8>>,
+  incoming: mpsc::UnboundedReceiver<Vec<u8>>,
   state: WriteState
 }
 

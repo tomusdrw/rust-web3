@@ -3,12 +3,12 @@
 extern crate hyper;
 
 use std::ops::Deref;
+use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
 
 use futures::sync::{mpsc, oneshot};
-use futures::{self, future, Future, sink, Sink, Stream};
+use futures::{self, future, Future, Stream};
 use helpers;
-use parking_lot::Mutex;
 use rpc;
 use serde_json;
 use transports::Result;
@@ -37,14 +37,14 @@ type Pending = oneshot::Sender<Result<hyper::Chunk>>;
 pub type FetchTask<F> = Response<F, hyper::Chunk>;
 
 /// HTTP Transport (synchronous)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Http {
-  id: AtomicUsize,
+  id: Arc<AtomicUsize>,
   url: hyper::Uri,
-  write_sender: Mutex<sink::Wait<mpsc::Sender<(
+  write_sender: mpsc::UnboundedSender<(
     hyper::client::Request,
     Pending
-  )>>>,
+  )>,
 }
 
 impl Http {
@@ -66,7 +66,7 @@ impl Http {
 
   /// Create new HTTP transport with given URL and existing event loop handle.
   pub fn with_event_loop(url: &str, handle: &reactor::Handle, max_parallel: usize) -> Result<Self> {
-    let (write_sender, write_receiver) = mpsc::channel(1024);
+    let (write_sender, write_receiver) = mpsc::unbounded();
     let client = hyper::Client::new(handle);
 
     handle.spawn(write_receiver
@@ -97,7 +97,7 @@ impl Http {
     Ok(Http {
       id: Default::default(),
       url: url.parse()?,
-      write_sender: Mutex::new(write_sender.wait()),
+      write_sender,
     })
   }
 
@@ -118,10 +118,8 @@ impl Http {
     req.set_body(request);
 
     let (tx, rx) = futures::oneshot();
-    let result = {
-      let mut sender = self.write_sender.lock();
-      (*sender).send((req, tx)).map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into())
-    };
+    let result = self.write_sender.unbounded_send((req, tx))
+      .map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
 
     Response::new(id, result, rx, extract)
   }

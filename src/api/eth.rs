@@ -11,7 +11,7 @@ use types::{
 use {Transport};
 
 /// `Eth` namespace
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Eth<T> {
   transport: T,
 }

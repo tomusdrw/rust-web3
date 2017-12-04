@@ -50,7 +50,7 @@ pub struct Contract<T: Transport> {
   abi: ethabi::Contract,
 }
 
-impl<T: Transport + Clone> Contract<T> {
+impl<T: Transport> Contract<T> {
   /// Creates deployment builder for a contract given it's ABI in JSON.
   pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>, ethabi::Error> {
     let abi = ethabi::Contract::load(json)?;
