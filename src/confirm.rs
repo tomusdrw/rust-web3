@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::{IntoFuture, Future, Stream, Poll};
 use futures::stream::Skip;
 use api::{Eth, EthFilter, Namespace, CreateFilter, FilterStream};
-use types::{H256, U256, TransactionRequest, TransactionReceipt};
+use types::{H256, U256, Bytes, TransactionRequest, TransactionReceipt};
 use helpers::CallResult;
 use {Transport, Error};
 
@@ -217,6 +217,14 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
       confirmations,
     }
   }
+  fn raw(transport: T, tx: Bytes, poll_interval: Duration, confirmations: usize) -> Self {
+    SendTransactionWithConfirmation {
+      state: SendTransactionWithConfirmationState::SendTransaction(Eth::new(&transport).send_raw_transaction(tx)),
+      transport,
+      poll_interval,
+      confirmations,
+    }
+  }
 }
 
 impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
@@ -252,6 +260,11 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
 /// Sends transaction and returns future resolved after transaction is confirmed
 pub fn send_transaction_with_confirmation<T>(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmation<T> where T: Transport {
   SendTransactionWithConfirmation::new(transport, tx, poll_interval, confirmations)
+}
+
+/// Sends raw transaction and returns future resolved after transaction is confirmed
+pub fn send_raw_transaction_with_confirmation<T>(transport: T, tx: Bytes, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmation<T> where T: Transport {
+  SendTransactionWithConfirmation::raw(transport, tx, poll_interval, confirmations)
 }
 
 #[cfg(test)]
