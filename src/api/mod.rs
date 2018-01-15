@@ -15,7 +15,7 @@ pub use self::web3::Web3 as Web3Api;
 use std::time::Duration;
 use futures::{IntoFuture};
 use {confirm, Transport, Error};
-use types::{U256, TransactionRequest};
+use types::{U256, Bytes, TransactionRequest};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {
@@ -97,4 +97,16 @@ impl<T: Transport> Web3<T> {
   ) -> confirm::SendTransactionWithConfirmation<T> {
     confirm::send_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
   }
+
+  /// Sends raw transaction and returns future resolved after transaction is confirmed
+  pub fn send_raw_transaction_with_confirmation(
+    &self,
+    tx: Bytes,
+    poll_interval: Duration,
+    confirmations: usize
+  ) -> confirm::SendTransactionWithConfirmation<T> {
+    confirm::send_raw_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
+  }
+
 }
+
