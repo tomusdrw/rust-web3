@@ -258,7 +258,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().limit(10).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -281,7 +281,7 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".to_owned(),
+      log_type: "mined".into(),
     };
 
     let mut transport = TestTransport::default();
@@ -295,7 +295,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().topics(None, Some(vec![2.into()]), None, None).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.logs().wait()
     };
 
@@ -321,7 +321,7 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".to_owned(),
+      log_type: "mined".into(),
     };
 
     let mut transport = TestTransport::default();
@@ -335,7 +335,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().address(vec![2.into()]).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 
@@ -358,7 +358,7 @@ mod tests {
 
       // when
       let filter = eth.create_blocks_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -379,7 +379,7 @@ mod tests {
 
       // when
       let filter = eth.create_blocks_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 
@@ -431,7 +431,7 @@ mod tests {
 
       // when
       let filter = eth.create_pending_transactions_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -452,7 +452,7 @@ mod tests {
 
       // when
       let filter = eth.create_pending_transactions_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 
