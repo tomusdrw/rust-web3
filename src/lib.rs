@@ -4,7 +4,7 @@
 
 extern crate arrayvec;
 extern crate ethabi;
-extern crate ethcore_bigint;
+extern crate ethereum_types;
 extern crate jsonrpc_core as rpc;
 extern crate parking_lot;
 extern crate rustc_serialize;

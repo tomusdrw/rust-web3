@@ -13,7 +13,7 @@ authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 arrayvec = "0.3"
 error-chain = "0.11.0"
 ethabi = "4.0"
-ethcore-bigint = "0.2"
+ethereum-types = "0.1"
 futures = "0.1"
 jsonrpc-core = "7.1"
 log = "0.3"
@@ -35,7 +35,7 @@ tokio-core = "0.1"
 rustc-hex = "1.0"
 
 [features]
-default = ["http", "ipc", "ethcore-bigint/std"]
+default = ["http", "ipc"]
 # TODO [ToDr] move transports to separate crates
 http = ["hyper", "tokio-core"]
 ipc = ["tokio-uds", "tokio-core", "tokio-io"]
