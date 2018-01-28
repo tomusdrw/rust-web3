@@ -10,7 +10,7 @@ use futures::{Poll, Future, Stream};
 
 use api::Namespace;
 use helpers::{self, CallResult};
-use types::{Filter, H256, Log, U256};
+use types::{Filter, H256, Log};
 use {Transport, Error, ErrorKind, rpc};
 
 /// Stream of events
@@ -120,7 +120,8 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Allows to poll the filter.
 #[derive(Debug)]
 pub struct BaseFilter<T: Transport, I> {
-  id: U256,
+  // TODO [ToDr] Workaround for ganache returning 0x03 instead of 0x3
+  id: String,
   transport: T,
   item: PhantomData<I>,
 }
@@ -177,7 +178,7 @@ fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -
 pub struct CreateFilter<T: Transport, I> {
   transport: Option<T>,
   item: PhantomData<I>,
-  future: CallResult<U256, T::Out>,
+  future: CallResult<String, T::Out>,
 }
 
 impl<T, I> Future for CreateFilter<T, I> where
@@ -257,7 +258,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().limit(10).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -280,7 +281,7 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".to_owned(),
+      log_type: "mined".into(),
     };
 
     let mut transport = TestTransport::default();
@@ -294,7 +295,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().topics(None, Some(vec![2.into()]), None, None).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.logs().wait()
     };
 
@@ -320,7 +321,7 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".to_owned(),
+      log_type: "mined".into(),
     };
 
     let mut transport = TestTransport::default();
@@ -334,7 +335,7 @@ mod tests {
       // when
       let filter = FilterBuilder::default().address(vec![2.into()]).build();
       let filter = eth.create_logs_filter(filter).wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 
@@ -357,7 +358,7 @@ mod tests {
 
       // when
       let filter = eth.create_blocks_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -378,7 +379,7 @@ mod tests {
 
       // when
       let filter = eth.create_blocks_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 
@@ -430,7 +431,7 @@ mod tests {
 
       // when
       let filter = eth.create_pending_transactions_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
     };
 
     // then
@@ -451,7 +452,7 @@ mod tests {
 
       // when
       let filter = eth.create_pending_transactions_filter().wait().unwrap();
-      assert_eq!(filter.id, 0x123.into());
+      assert_eq!(filter.id, "0x123".to_owned());
       filter.poll().wait()
     };
 

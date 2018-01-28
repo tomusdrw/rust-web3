@@ -4,7 +4,7 @@ extern crate rustc_hex;
 
 use web3::futures::Future;
 use web3::contract::{Contract, Options};
-use web3::types::{Address, U256};
+use web3::types::U256;
 use rustc_hex::FromHex;
 use std::time;
 
@@ -24,7 +24,7 @@ fn main() {
   let contract = Contract::deploy(web3.eth(), include_bytes!("./build/SimpleStorage.abi")).unwrap()
     .confirmations(0)
     .poll_interval(time::Duration::from_secs(10))
-    .options(Options::with(|mut opt| opt.gas = Some(3_000_000.into())))
+    .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
     .execute(bytecode, (), accounts[0])
     .unwrap()
   	.wait()
@@ -43,5 +43,5 @@ fn main() {
   //View changes made
   let result = contract.query("get", (), None, Options::default(), None);
   let storage: U256 = result.wait().unwrap();
-  println!("{}", storage); 
+  println!("{}", storage);
 }
