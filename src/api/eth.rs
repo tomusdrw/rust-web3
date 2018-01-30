@@ -316,7 +316,7 @@ mod tests {
     Block, BlockId, BlockNumber, Bytes,
     CallRequest, H256, Transaction, TransactionId,
     TransactionReceipt, TransactionRequest,
-    Work,
+    Work, SyncState, SyncInfo,
   };
   use rpc::Value;
 
@@ -671,6 +671,6 @@ mod tests {
 
   rpc_test! (
     Eth:syncing => "eth_syncing";
-    Value::Bool(true) => true
+    json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
   );
 }
