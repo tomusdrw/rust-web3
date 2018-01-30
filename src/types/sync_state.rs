@@ -3,7 +3,7 @@ use serde::ser::{Serialize,Serializer};
 use types::U256;
 
 /// Information about current blockchain syncing operations.
-#[derive(Debug,Clone,Serialize,Deserialize)]
+#[derive(Debug,Clone,PartialEq,Serialize,Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncInfo {
     /// The block at which import began.
@@ -18,7 +18,7 @@ pub struct SyncInfo {
 
 
 /// The current state of blockchain syncing operations.
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq)]
 pub enum SyncState {
     /// Blockchain is syncing.
     Syncing(SyncInfo),
