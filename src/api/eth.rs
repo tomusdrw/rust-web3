@@ -6,7 +6,7 @@ use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
   H64, H256, H520, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
-  U256, Work,
+  U256, Work, SyncState,
 };
 use {Transport};
 
@@ -301,9 +301,8 @@ impl<T: Transport> Eth<T> {
     CallResult::new(self.transport.execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]))
   }
 
-  // TODO [ToDr] Proper type?
   /// Get syncing status
-  pub fn syncing(&self) -> CallResult<bool, T::Out> {
+  pub fn syncing(&self) -> CallResult<SyncState, T::Out> {
     CallResult::new(self.transport.execute("eth_syncing", vec![]))
   }
 }
