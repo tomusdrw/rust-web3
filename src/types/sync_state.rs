@@ -2,6 +2,7 @@ use serde::de::{Deserialize,Deserializer,Error};
 use serde::ser::{Serialize,Serializer};
 use types::U256;
 
+
 /// Information about current blockchain syncing operations.
 #[derive(Debug,Clone,PartialEq,Serialize,Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +27,6 @@ pub enum SyncState {
     /// Blockchain is not syncing.
     NotSyncing
 }
-
 
 
 // The `eth_syncing` method returns either `false` or an instance of the sync info object.
@@ -69,6 +69,3 @@ enum Either<A,B> {
     A(A),
     B(B)
 }
-
-
-
