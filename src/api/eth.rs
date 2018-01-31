@@ -670,7 +670,12 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:syncing => "eth_syncing";
+    Eth:syncing:syncing => "eth_syncing";
     json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
   );
+
+  rpc_test! {
+    Eth:syncing:not_syncing => "eth_syncing";
+    Value::Bool(false) => SyncState::NotSyncing
+  }
 }
