@@ -2,6 +2,7 @@
 
 use api::Namespace;
 use helpers::CallResult;
+use types::U256;
 
 use {Transport};
 
@@ -30,7 +31,7 @@ impl<T: Transport> Net<T> {
   }
 
   /// Returns number of peers connected to node.
-  pub fn peer_count(&self) -> CallResult<String, T::Out> {
+  pub fn peer_count(&self) -> CallResult<U256, T::Out> {
     CallResult::new(self.transport.execute("net_peerCount", vec![]))
   }
 
@@ -46,6 +47,7 @@ mod tests {
 
   use api::Namespace;
   use rpc::Value;
+  use types::U256;
 
   use super::Net;
 
@@ -56,7 +58,7 @@ mod tests {
 
   rpc_test! (
     Net:peer_count => "net_peerCount";
-    Value::String("Test123".into()) => "Test123"
+    Value::String("0x123".into()) => U256::from(0x123)
   );
 
   rpc_test! (
