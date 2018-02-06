@@ -3,7 +3,7 @@
 use arrayvec::ArrayVec;
 use ethabi::Token;
 use contract::error::{Error, ErrorKind};
-use types::{Address, H256, U256, U64};
+use types::{Address, H256, U256, U128};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Detokenize {
@@ -168,7 +168,9 @@ macro_rules! uint_tokenizable {
       }
 
       fn into_token(self) -> Token {
-        let u = U256::from(self.into_array().as_ref());
+        let mut arr = [0; 32];
+        self.to_big_endian(&mut arr);
+        let u = U256::from(&arr);
         Token::Uint(u.into())
       }
     }
@@ -176,7 +178,7 @@ macro_rules! uint_tokenizable {
 }
 
 uint_tokenizable!(U256, "U256");
-uint_tokenizable!(U64, "U64");
+uint_tokenizable!(U128, "U128");
 
 impl Tokenizable for u64 {
   fn from_token(token: Token) -> Result<Self, Error> {

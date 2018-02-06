@@ -1,5 +1,5 @@
 use serde::{Serialize, Serializer};
-use types::{Bytes, U64, U256, H256, H160, H2048};
+use types::{Bytes, U128, U256, H256, H160, H2048};
 
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
@@ -26,7 +26,7 @@ pub struct Block<TX> {
   #[serde(rename="receiptsRoot")]
   pub receipts_root: H256,
   /// Block number. None if pending.
-  pub number: Option<U64>,
+  pub number: Option<U128>,
   /// Gas Used
   #[serde(rename="gasUsed")]
   pub gas_used: U256,
