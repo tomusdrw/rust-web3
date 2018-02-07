@@ -25,6 +25,12 @@ fn main() {
 }
 ```
 
+If you want to deploy smart contracts you have written you can do something like this (make sure you have the solidity compiler installed):
+
+`solc -o build --bin --abi contracts/*.sol`
+
+The solidity compiler is generating the binary and abi code for the smart contracts in a directory called contracts and is being output to a directory called build.
+
 For more see [examples folder](./examples).
 
 # TODO
@@ -66,4 +72,12 @@ For more see [examples folder](./examples).
 ```rust
 let web3 = Web3::new(transport);
 web3.api::<CustomNamespace>().custom_method().wait().unwrap()
+```
+
+# Installation on Windows
+
+Currently, Windows does not support IPC, which is enabled in the library by default.
+To complile, you need to disable IPC feature:
+```
+web3 = { version = "0.1.0", default-features = false, features = ["http"] }
 ```

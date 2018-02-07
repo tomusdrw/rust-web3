@@ -15,7 +15,7 @@ pub use contract::error::deploy::{Error, ErrorKind};
 
 /// A configuration builder for contract deployment.
 #[derive(Debug)]
-pub struct Builder<T: Transport + Clone> {
+pub struct Builder<T: Transport> {
   pub(crate) eth: Eth<T>,
   pub(crate) abi: ethabi::Contract,
   pub(crate) options: Options,
@@ -23,7 +23,7 @@ pub struct Builder<T: Transport + Clone> {
   pub(crate) poll_interval: time::Duration,
 }
 
-impl<T: Transport + Clone> Builder<T> {
+impl<T: Transport> Builder<T> {
   /// Number of confirmations required after code deployment.
   pub fn confirmations(mut self, confirmations: usize) -> Self {
     self.confirmations = confirmations;
@@ -89,7 +89,7 @@ pub struct PendingContract<T: Transport> {
   waiting: confirm::SendTransactionWithConfirmation<T>,
 }
 
-impl<T: Transport + Clone> Future for PendingContract<T> {
+impl<T: Transport> Future for PendingContract<T> {
   type Item = Contract<T>;
   type Error = Error;
 
