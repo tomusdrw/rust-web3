@@ -102,7 +102,6 @@ impl Ipc {
   {
     let request = helpers::to_string(&request);
     debug!("[{}] Calling: {}", id, request);
-
     let (tx, rx) = futures::oneshot();
     self.pending.lock().insert(id, tx);
 

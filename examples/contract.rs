@@ -16,7 +16,7 @@ fn main() {
   // Deploying a contract
   let contract = Contract::deploy(web3.eth(), include_bytes!("../src/contract/res/token.json")).unwrap()
       .confirmations(4)
-      .options(Options::with(|mut opt| opt.gas = Some(5_000_000.into())))
+      .options(Options::with(|opt| opt.value = Some(5.into())))
       .execute(bytecode, (
           U256::from(1_000_000),
           "My Token".to_owned(),

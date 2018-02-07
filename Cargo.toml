@@ -10,18 +10,19 @@ keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
 authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
 
 [dependencies]
-arrayvec = "0.3"
-ethabi = "4.0"
+arrayvec = "0.4"
+error-chain = "0.11"
+ethabi = "5.1"
+ethereum-types = "0.2"
 futures = "0.1"
-jsonrpc-core = "7.0"
-log = "0.3"
-parking_lot = "0.4"
-rustc-serialize = "0.3"
+jsonrpc-core = "8.0.1"
+log = "0.4"
+parking_lot = "0.5"
+rustc-hex = "1.0"
 serde = "1.0"
-serde_json = "1.0"
 serde_derive = "1.0"
+serde_json = "1.0"
 tokio-timer = "0.1"
-error-chain = "0.11.0-rc.2"
 # Optional deps
 hyper = { version = "0.11", optional = true }
 tokio-core = { version = "0.1", optional = true }

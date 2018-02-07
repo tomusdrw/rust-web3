@@ -3,7 +3,7 @@
 use arrayvec::ArrayVec;
 use ethabi::Token;
 use contract::error::{Error, ErrorKind};
-use types::{self, Address, H256, U256, U64};
+use types::{Address, H256, U256, U128};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Detokenize {
@@ -143,7 +143,7 @@ impl Tokenizable for H256 {
         for (idx, val) in s.drain(..).enumerate() {
           data[idx] = val;
         }
-        Ok(H256(data))
+        Ok(data.into())
       },
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into()),
     }
@@ -158,13 +158,13 @@ impl Tokenizable for H256 {
 impl Tokenizable for Address {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Address(data) => Ok(types::H160(data)),
+      Token::Address(data) => Ok(data),
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
     }
   }
 
   fn into_token(self) -> Token {
-    Token::Address(self.0)
+    Token::Address(self)
   }
 }
 
@@ -173,33 +173,31 @@ macro_rules! uint_tokenizable {
     impl Tokenizable for $uint {
       fn from_token(token: Token) -> Result<Self, Error> {
         match token {
-          Token::Int(data) | Token::Uint(data) => Ok($uint::from(data.as_ref())),
+          Token::Int(data) | Token::Uint(data) => Ok(data.into()),
           other => Err(ErrorKind::InvalidOutputType(format!("Expected `{}`, got {:?}",  $name, other)).into()),
         }
       }
 
       fn into_token(self) -> Token {
-        let u = U256::from(self.0.as_ref());
-        Token::Uint(u.0)
+        Token::Uint(self.into())
       }
     }
   }
 }
 
 uint_tokenizable!(U256, "U256");
-uint_tokenizable!(U64, "U64");
+uint_tokenizable!(U128, "U128");
 
 impl Tokenizable for u64 {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Int(data) | Token::Uint(data) => Ok(U256::from(data.as_ref()).low_u64()),
+      Token::Int(data) | Token::Uint(data) => Ok(data.low_u64()),
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `u64`, got {:?}",  other)).into()),
     }
   }
 
   fn into_token(self) -> Token {
-    let u = U256::from(self);
-    Token::Uint(u.0)
+    Token::Uint(self.into())
   }
 }
 

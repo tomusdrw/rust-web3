@@ -4,9 +4,10 @@
 
 extern crate arrayvec;
 extern crate ethabi;
+extern crate ethereum_types;
 extern crate jsonrpc_core as rpc;
 extern crate parking_lot;
-extern crate rustc_serialize;
+extern crate rustc_hex;
 extern crate serde;
 extern crate tokio_timer;
 

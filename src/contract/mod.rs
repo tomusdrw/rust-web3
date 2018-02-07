@@ -196,7 +196,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), Address::from(5), Options::with(|mut options| {
+      token.query("name", (), Address::from(5), Options::with(|options| {
         options.gas_price = Some(10_000_000.into());
       }), BlockNumber::Latest).wait().unwrap()
     };
@@ -214,7 +214,7 @@ mod tests {
   fn should_call_a_contract_function() {
     // given
     let mut transport = TestTransport::default();
-    transport.set_response(rpc::Value::String(format!("{:?}", H256::from(5))));
+    transport.set_response(rpc::Value::String(format!("0x{:?}", H256::from(5))));
 
     let result = {
       let token = contract(&transport);
@@ -235,7 +235,7 @@ mod tests {
   fn should_estimate_gas_usage() {
     // given
     let mut transport = TestTransport::default();
-    transport.set_response(rpc::Value::String(format!("{:?}", U256::from(5))));
+    transport.set_response(rpc::Value::String(format!("0x{:?}", U256::from(5))));
 
     let result = {
       let token = contract(&transport);
