@@ -4,10 +4,11 @@ version = "0.2.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
-documentation = "https://tomusdrw.github.io/rust-web3/web3/index.html"
+documentation = "https://docs.rs/web3"
 license = "MIT"
 keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
-authors = ["Tomasz Drwięga <tomasz@ethcore.io>"]
+authors = ["Tomasz Drwięga <tomasz@parity.io>"]
+readme = "README.md"
 
 [dependencies]
 arrayvec = "0.4"
