@@ -6,11 +6,12 @@ use types::{
   Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
   H64, H256, H520, Index,
   Transaction, TransactionId, TransactionReceipt, TransactionRequest,
-  U256, Work, Log, Filter,
+  U256, Work, Log, Filter, SyncState
 };
 use {Transport};
 
 /// `Eth` namespace
+#[derive(Debug, Clone)]
 pub struct Eth<T> {
   transport: T,
 }
@@ -305,9 +306,8 @@ impl<T: Transport> Eth<T> {
     CallResult::new(self.transport.execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]))
   }
 
-  // TODO [ToDr] Proper type?
   /// Get syncing status
-  pub fn syncing(&self) -> CallResult<bool, T::Out> {
+  pub fn syncing(&self) -> CallResult<SyncState, T::Out> {
     CallResult::new(self.transport.execute("eth_syncing", vec![]))
   }
 }
@@ -321,7 +321,7 @@ mod tests {
     Block, BlockId, BlockNumber, Bytes,
     CallRequest, H256, Transaction, TransactionId,
     TransactionReceipt, TransactionRequest,
-    Work,
+    Work, SyncState, SyncInfo,
   };
   use rpc::Value;
 
@@ -675,7 +675,12 @@ mod tests {
   );
 
   rpc_test! (
-    Eth:syncing => "eth_syncing";
-    Value::Bool(true) => true
+    Eth:syncing:syncing => "eth_syncing";
+    json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
   );
+
+  rpc_test! {
+    Eth:syncing:not_syncing => "eth_syncing";
+    Value::Bool(false) => SyncState::NotSyncing
+  }
 }

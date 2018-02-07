@@ -1,255 +1,4 @@
-use std::hash::{Hash, Hasher};
-use std::str::FromStr;
-use std::{cmp, fmt, ops};
-use serde;
-
-const PREFIX: usize = 2;
-
-#[derive(Debug)]
-pub enum FromStrError {
-  InvalidLength { got: usize, expected: usize },
-  InvalidPrefix,
-  InvalidCharacter(char),
-}
-
-macro_rules! impl_uint {
-  ($name: ident, $len: expr) => {
-    impl_uint!($name, $len, false);
-
-    impl fmt::Display for $name {
-      fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO [ToDr] Decimal?
-        write!(f, "0x")?;
-        fmt::LowerHex::fmt(self, f)
-      }
-    }
-  };
-
-  (hash => $name: ident, $len: expr) => {
-    impl_uint!($name, $len, true);
-
-    impl fmt::Display for $name {
-      fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x")?;
-        for i in &self.0[0..2] {
-            write!(f, "{:02x}", i)?;
-        }
-        write!(f, "…")?;
-        for i in &self.0[$len - 2..$len] {
-            write!(f, "{:02x}", i)?;
-        }
-        Ok(())
-      }
-    }
-  };
-
-  ($name: ident, $len: expr, $strict: expr) => {
-    /// Uint serialization.
-    pub struct $name(pub [u8; $len]);
-
-    impl ops::Deref for $name {
-      type Target = [u8];
-      fn deref(&self) -> &Self::Target {
-        &self.0
-      }
-    }
-
-    impl Default for $name {
-      fn default() -> Self {
-        $name([0; $len])
-      }
-    }
-
-    impl Eq for $name { }
-
-    impl PartialEq for $name {
-      fn eq(&self, other: &$name) -> bool {
-        for i in 0..$len {
-          if self.0[i] != other.0[i] {
-            return false;
-          }
-        }
-        true
-      }
-    }
-
-    impl Ord for $name {
-      fn cmp(&self, other: &Self) -> cmp::Ordering {
-        for i in 0..$len {
-          if self.0[i] < other.0[i] {
-            return cmp::Ordering::Less;
-          }
-
-          if self.0[i] > other.0[i] {
-            return cmp::Ordering::Greater;
-          }
-        }
-
-        cmp::Ordering::Equal
-      }
-    }
-
-    impl PartialOrd for $name {
-      fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-      }
-    }
-
-    impl Copy for $name {}
-
-    impl Clone for $name {
-      fn clone(&self) -> Self {
-        let mut v = $name::default();
-        v.0.copy_from_slice(&self.0);
-        v
-      }
-    }
-
-    impl Hash for $name {
-      fn hash<H: Hasher>(&self, state: &mut H) {
-          self.0.hash(state);
-      }
-    }
-
-    impl From<u64> for $name {
-      fn from(mut num: u64) -> Self {
-        let mut arr = [0; $len];
-        for i in 0..8 {
-          arr[$len - 1 - i] = num as u8;
-          num = num >> 8;
-        }
-        $name(arr)
-      }
-    }
-
-    impl $name {
-      /// Returns value created from lowest 8 bytes
-      pub fn low_u64(&self) -> u64 {
-        let mut result = 0u64;
-        for i in 0..8 {
-          result += (self.0[$len - 1 - i] as u64) << (i * 8);
-        }
-        result
-      }
-    }
-
-    impl<'a> From<&'a [u8]> for $name {
-      fn from(x: &'a [u8]) -> Self {
-        let mut arr = [0; $len];
-        let len = cmp::min(x.len(), $len);
-        arr[$len - len .. ].copy_from_slice(&x[x.len() - $len .. ]);
-        $name(arr)
-      }
-    }
-
-    impl FromStr for $name {
-      type Err = FromStrError;
-
-      fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let strict_len = $strict;
-        let len = s.len();
-        let expected = $len * 2 + PREFIX;
-        if len < PREFIX || len > expected || (strict_len && (len < expected)) {
-          return Err(FromStrError::InvalidLength { got: len, expected: expected });
-        }
-
-        if &s[0..PREFIX] != "0x" {
-          return Err(FromStrError::InvalidPrefix);
-        }
-
-        let mut arr = [0; $len];
-        for (idx, byte) in s[PREFIX..].bytes().rev().enumerate() {
-          let byte = match byte {
-            b'A'...b'F' => byte - b'A' + 10,
-            b'a'...b'f' => byte - b'a' + 10,
-            b'0'...b'9' => byte - b'0',
-            _ => return Err(FromStrError::InvalidCharacter(byte as char)),
-          } as u8;
-
-          let pos = idx >> 1;
-          let shift = idx - (pos << 1);
-          arr[$len - 1 - pos] |= byte << (shift * 4);
-        }
-
-        Ok($name(arr))
-      }
-    }
-
-    impl fmt::Debug for $name {
-      fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x")?;
-        fmt::LowerHex::fmt(self, f)
-      }
-    }
-
-    impl fmt::LowerHex for $name {
-      fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut skiping = !$strict;
-        for i in 0..$len {
-          match self.0[i] {
-            0 if skiping => {},
-            _ if skiping => {
-              skiping = false;
-              write!(f, "{:x}", self.0[i])?;
-            },
-            _ => {
-              skiping = false;
-              write!(f, "{:02x}", self.0[i])?;
-            }
-          }
-        }
-
-        if skiping {
-          write!(f, "0")?;
-        }
-
-        Ok(())
-      }
-    }
-
-    impl serde::Serialize for $name {
-      fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-        serializer.serialize_str(&format!("0x{:x}", self))
-      }
-    }
-
-    impl<'a> serde::Deserialize<'a> for $name {
-      fn deserialize<D>(deserializer: D) -> Result<$name, D::Error>
-        where D: serde::Deserializer<'a> {
-          struct UintVisitor;
-
-          impl<'d> serde::de::Visitor<'d> for UintVisitor {
-            type Value = $name;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-              write!(formatter, "a 0x-prefixed hex-encoded number")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error {
-              value.parse().map_err(|e| E::custom(format!("Invalid hex value: {:?}", e)))
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E> where E: serde::de::Error {
-              self.visit_str(&value)
-            }
-          }
-
-          deserializer.deserialize_identifier(UintVisitor)
-        }
-    }
-  };
-}
-
-impl_uint!(U64, 8);
-impl_uint!(U256, 32);
-
-impl_uint!(hash => H64, 8);
-impl_uint!(hash => H128, 16);
-impl_uint!(hash => H160, 20);
-impl_uint!(hash => H256, 32);
-impl_uint!(hash => H512, 64);
-impl_uint!(hash => H520, 65);
-impl_uint!(hash => H2048, 256);
+pub use ethereum_types::{U128, U256, H64, H128, H160, H256, H512, H520, H1024, Bloom as H2048};
 
 #[cfg(test)]
 mod tests {
@@ -294,16 +43,16 @@ mod tests {
     let d = U256::from(10000);
 
     // Debug
-    assert_eq!(&format!("{:?}", a), "0xa00010f00");
-    assert_eq!(&format!("{:?}", b), "0x3ff");
-    assert_eq!(&format!("{:?}", c), "0x0");
-    assert_eq!(&format!("{:?}", d), "0x2710");
+    assert_eq!(&format!("{:?}", a), "42949742336");
+    assert_eq!(&format!("{:?}", b), "1023");
+    assert_eq!(&format!("{:?}", c), "0");
+    assert_eq!(&format!("{:?}", d), "10000");
 
     // Display
-    assert_eq!(&format!("{}", a), "0xa00010f00");
-    assert_eq!(&format!("{}", b), "0x3ff");
-    assert_eq!(&format!("{}", c), "0x0");
-    assert_eq!(&format!("{}", d), "0x2710");
+    assert_eq!(&format!("{}", a), "42949742336");
+    assert_eq!(&format!("{}", b), "1023");
+    assert_eq!(&format!("{}", c), "0");
+    assert_eq!(&format!("{}", d), "10000");
 
     // Lowerhex
     assert_eq!(&format!("{:x}", a), "a00010f00");
@@ -320,22 +69,22 @@ mod tests {
     arr[13] = 1;
     arr[12] = 0;
     arr[11] = 10;
-    let a = H128(arr);
+    let a = H128::from(arr);
     let b = H128::from(1023);
     let c = H128::from(0);
     let d = H128::from(10000);
 
     // Debug
-    assert_eq!(&format!("{:?}", a), "0x00000000000000000000000a00010f00");
-    assert_eq!(&format!("{:?}", b), "0x000000000000000000000000000003ff");
-    assert_eq!(&format!("{:?}", c), "0x00000000000000000000000000000000");
-    assert_eq!(&format!("{:?}", d), "0x00000000000000000000000000002710");
+    assert_eq!(&format!("0x{:?}", a), "0x00000000000000000000000a00010f00");
+    assert_eq!(&format!("0x{:?}", b), "0x000000000000000000000000000003ff");
+    assert_eq!(&format!("0x{:?}", c), "0x00000000000000000000000000000000");
+    assert_eq!(&format!("0x{:?}", d), "0x00000000000000000000000000002710");
 
     // Display
-    assert_eq!(&format!("{}", a), "0x0000…0f00");
-    assert_eq!(&format!("{}", b), "0x0000…03ff");
-    assert_eq!(&format!("{}", c), "0x0000…0000");
-    assert_eq!(&format!("{}", d), "0x0000…2710");
+    assert_eq!(&format!("0x{}", a), "0x0000…0f00");
+    assert_eq!(&format!("0x{}", b), "0x0000…03ff");
+    assert_eq!(&format!("0x{}", c), "0x0000…0000");
+    assert_eq!(&format!("0x{}", d), "0x0000…2710");
 
     // Lowerhex
     assert_eq!(&format!("{:x}", a), "00000000000000000000000a00010f00");
@@ -381,13 +130,13 @@ mod tests {
 
   #[test]
   fn should_deserialize_u256() {
-    let deserialized1: U256 = serde_json::from_str(r#""0x""#).unwrap();
+    let deserialized1: Result<U256, _> = serde_json::from_str(r#""0x""#);
     let deserialized2: U256 = serde_json::from_str(r#""0x0""#).unwrap();
     let deserialized3: U256 = serde_json::from_str(r#""0x1""#).unwrap();
     let deserialized4: U256 = serde_json::from_str(r#""0x01""#).unwrap();
     let deserialized5: U256 = serde_json::from_str(r#""0x100""#).unwrap();
 
-    assert_eq!(deserialized1, U256([0; 32]));
+    assert!(deserialized1.is_err());
     assert_eq!(deserialized2, 0.into());
     assert_eq!(deserialized3, 1.into());
     assert_eq!(deserialized4, 1.into());

@@ -3,28 +3,28 @@
 extern crate hyper;
 
 use std::ops::Deref;
+use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
 
 use futures::sync::{mpsc, oneshot};
-use futures::{self, future, Future, sink, Sink, Stream};
+use futures::{self, future, Future, Stream};
 use helpers;
-use parking_lot::Mutex;
 use rpc;
 use serde_json;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
-use {BatchTransport, Transport, Error, RequestId};
+use {BatchTransport, Transport, Error, ErrorKind, RequestId};
 
 impl From<hyper::Error> for Error {
   fn from(err: hyper::Error) -> Self {
-    Error::Transport(format!("{:?}", err))
+    ErrorKind::Transport(format!("{:?}", err)).into()
   }
 }
 
 impl From<hyper::error::UriError> for Error {
   fn from(err: hyper::error::UriError) -> Self {
-    Error::Transport(format!("{:?}", err))
+    ErrorKind::Transport(format!("{:?}", err)).into()
   }
 }
 
@@ -37,13 +37,14 @@ type Pending = oneshot::Sender<Result<hyper::Chunk>>;
 pub type FetchTask<F> = Response<F, hyper::Chunk>;
 
 /// HTTP Transport (synchronous)
+#[derive(Debug, Clone)]
 pub struct Http {
-  id: AtomicUsize,
+  id: Arc<AtomicUsize>,
   url: hyper::Uri,
-  write_sender: Mutex<sink::Wait<mpsc::Sender<(
+  write_sender: mpsc::UnboundedSender<(
     hyper::client::Request,
     Pending
-  )>>>,
+  )>,
 }
 
 impl Http {
@@ -65,7 +66,7 @@ impl Http {
 
   /// Create new HTTP transport with given URL and existing event loop handle.
   pub fn with_event_loop(url: &str, handle: &reactor::Handle, max_parallel: usize) -> Result<Self> {
-    let (write_sender, write_receiver) = mpsc::channel(1024);
+    let (write_sender, write_receiver) = mpsc::unbounded();
     let client = hyper::Client::new(handle);
 
     handle.spawn(write_receiver
@@ -79,7 +80,7 @@ impl Http {
         use futures::future::Either::{A, B};
         let future = match response {
           Ok(ref res) if !res.status().is_success() => {
-            A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status()))))
+            A(future::err(ErrorKind::Transport(format!("Unexpected response status code: {}", res.status())).into()))
           },
           Ok(res) => B(res.body().concat2().map_err(Into::into)),
           Err(err) => A(future::err(err.into())),
@@ -96,7 +97,7 @@ impl Http {
     Ok(Http {
       id: Default::default(),
       url: url.parse()?,
-      write_sender: Mutex::new(write_sender.wait()),
+      write_sender,
     })
   }
 
@@ -117,10 +118,8 @@ impl Http {
     req.set_body(request);
 
     let (tx, rx) = futures::oneshot();
-    let result = {
-      let mut sender = self.write_sender.lock();
-      (*sender).send((req, tx)).map_err(|err| Error::Transport(format!("{:?}", err)))
-    };
+    let result = self.write_sender.unbounded_send((req, tx))
+      .map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
 
     Response::new(id, result, rx, extract)
   }
@@ -166,22 +165,22 @@ impl BatchTransport for Http {
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target=[u8]>>(response: T) -> Result<rpc::Value> {
   let response = serde_json::from_slice(&*response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+    .map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
   match response {
     rpc::Response::Single(output) => helpers::to_result_from_output(output),
-    _ => Err(Error::InvalidResponse("Expected single, got batch.".into())),
+    _ => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
   }
 }
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target=[u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
   let response = serde_json::from_slice(&*response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+    .map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
   match response {
     rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
-    _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),
+    _ => Err(ErrorKind::InvalidResponse("Expected batch, got single.".into()).into()),
   }
 }
 

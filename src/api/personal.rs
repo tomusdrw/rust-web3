@@ -7,6 +7,7 @@ use types::{Address, H256, TransactionRequest};
 use {Transport};
 
 /// `Personal` namespace
+#[derive(Debug, Clone)]
 pub struct Personal<T> {
   transport: T,
 }

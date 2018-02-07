@@ -6,11 +6,12 @@ use rpc;
 use futures::{Async, Poll, Future};
 use serde;
 use serde_json;
-use {Error};
+use {Error, ErrorKind};
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value,
 /// a future which yields that type, and
+#[derive(Debug)]
 pub struct CallResult<T, F> {
   inner: F,
   _marker: PhantomData<T>,
@@ -61,7 +62,7 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
   serde_json::from_slice(response)
-    .map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+    .map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
@@ -73,7 +74,7 @@ pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<r
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
   match output {
     rpc::Output::Success(success) => Ok(success.result),
-    rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error)),
+    rpc::Output::Failure(failure) => Err(ErrorKind::Rpc(failure.error).into()),
   }
 }
 
@@ -83,11 +84,11 @@ pub mod tests {
   use serde_json;
   use std::cell::RefCell;
   use std::collections::VecDeque;
-  use futures::{self, Future};
+  use futures;
   use rpc;
-  use {Result, Error, Transport, RequestId};
+  use {Result, ErrorKind, Transport, RequestId};
 
-  #[derive(Default)]
+  #[derive(Debug, Default, Clone)]
   pub struct TestTransport {
     asserted: usize,
     requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
@@ -103,10 +104,13 @@ pub mod tests {
       (self.requests.borrow().len(), request)
     }
 
-    fn send(&self, _id: RequestId, _request: rpc::Call)-> Result<rpc::Value> {
+    fn send(&self, id: RequestId, request: rpc::Call)-> Result<rpc::Value> {
       match self.response.borrow_mut().pop_front() {
-        Some(response) => futures::finished(response).boxed(),
-        None => futures::failed(Error::Unreachable).boxed(),
+        Some(response) => Box::new(futures::finished(response)),
+        None => {
+          println!("Unexpected request (id: {:?}): {:?}", id, request);
+          Box::new(futures::failed(ErrorKind::Unreachable.into()))
+        },
       }
     }
   }

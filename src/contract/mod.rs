@@ -2,37 +2,19 @@
 
 use ethabi;
 
+use std::time;
 use api::Eth;
-use contract::result::QueryResult;
 use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256};
-use {Transport, Error as ApiError};
+use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256, BlockNumber};
+use {Transport};
 
+mod error;
 mod result;
+pub mod deploy;
 pub mod tokens;
 
-/// Contract call/query error.
-#[derive(Debug)]
-pub enum Error {
-  /// API call errror.
-  Api(ApiError),
-  /// ABI encoding error.
-  Abi(ethabi::Error),
-  /// Invalid output type requested from caller.
-  InvalidOutputType(String),
-}
-
-impl From<ethabi::Error> for Error {
-  fn from(error: ethabi::Error) -> Self {
-    Error::Abi(error)
-  }
-}
-
-impl From<ApiError> for Error {
-  fn from(error: ApiError) -> Self {
-    Error::Api(error)
-  }
-}
+pub use contract::result::{QueryResult, CallResult};
+pub use contract::error::{Error, ErrorKind};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -61,6 +43,7 @@ impl Options {
 }
 
 /// Ethereum Contract Interface
+#[derive(Debug)]
 pub struct Contract<T: Transport> {
   address: Address,
   eth: Eth<T>,
@@ -68,12 +51,26 @@ pub struct Contract<T: Transport> {
 }
 
 impl<T: Transport> Contract<T> {
+  /// Creates deployment builder for a contract given it's ABI in JSON.
+  pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>, ethabi::Error> {
+    let abi = ethabi::Contract::load(json)?;
+    Ok(deploy::Builder {
+      eth,
+      abi,
+      options: Options::default(),
+      confirmations: 1,
+      poll_interval: time::Duration::from_secs(7),
+    })
+  }
+}
+
+impl<T: Transport> Contract<T> {
   /// Creates new Contract Interface given blockchain address and ABI
   pub fn new(eth: Eth<T>, address: Address, abi: ethabi::Contract) -> Self {
     Contract {
-      address: address,
-      eth: eth,
-      abi: abi,
+      address,
+      eth,
+      abi,
     }
   }
 
@@ -83,14 +80,19 @@ impl<T: Transport> Contract<T> {
     Ok(Self::new(eth, address, abi))
   }
 
+  /// Returns contract address
+  pub fn address(&self) -> Address {
+    self.address
+  }
+
   /// Execute a contract function
-  pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<H256, T::Out> where
+  pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallResult<H256, T::Out> where
     P: Tokenize,
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(move |data| {
-        let result = self.eth.send_transaction(TransactionRequest {
+        self.eth.send_transaction(TransactionRequest {
           from: from,
           to: Some(self.address.clone()),
           gas: options.gas,
@@ -99,36 +101,35 @@ impl<T: Transport> Contract<T> {
           nonce: options.nonce,
           data: Some(Bytes(data)),
           condition: options.condition,
-        });
-        QueryResult::simple(result)
+        }).into()
       })
       .unwrap_or_else(Into::into)
   }
 
   /// Estimate gas required for this function call.
-  pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> QueryResult<U256, T::Out> where
+  pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallResult<U256, T::Out> where
     P: Tokenize,
   {
     self.abi.function(func.into())
       .and_then(|function| function.encode_input(&params.into_tokens()))
       .map(|data| {
-        let result = self.eth.estimate_gas(CallRequest {
+        self.eth.estimate_gas(CallRequest {
           from: Some(from),
           to: self.address.clone(),
           gas: options.gas,
           gas_price: options.gas_price,
           value: options.value,
           data: Some(Bytes(data)),
-        }, None);
-        QueryResult::simple(result)
+        }, None).into()
       })
       .unwrap_or_else(Into::into)
   }
 
   /// Call constant function
-  pub fn query<R, A, P>(&self, func: &str, params: P, from: A, options: Options) -> QueryResult<R, T::Out> where
+  pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out> where
     R: Detokenize,
     A: Into<Option<Address>>,
+    B: Into<Option<BlockNumber>>,
     P: Tokenize,
   {
     self.abi.function(func.into())
@@ -141,7 +142,7 @@ impl<T: Transport> Contract<T> {
           gas_price: options.gas_price,
           value: options.value,
           data: Some(Bytes(call))
-        }, None);
+        }, block.into());
         QueryResult::new(result, function.clone())
       })
       .unwrap_or_else(Into::into)
@@ -154,7 +155,7 @@ mod tests {
   use futures::Future;
   use helpers::tests::TestTransport;
   use rpc;
-  use types::{Address, H256, U256};
+  use types::{Address, H256, U256, BlockNumber};
   use {Transport};
   use super::{Contract, Options};
 
@@ -173,13 +174,13 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), None, Options::default()).wait().unwrap()
+      token.query("name", (), None, Options::default(), BlockNumber::Number(1)).wait().unwrap()
     };
 
     // then
     transport.assert_request("eth_call", &[
       "{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-      "\"latest\"".into(),
+      "\"0x1\"".into(),
     ]);
     transport.assert_no_more_requests();
     assert_eq!(result, "Hello World!".to_owned());
@@ -195,9 +196,9 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("name", (), Address::from(5), Options::with(|mut options| {
+      token.query("name", (), Address::from(5), Options::with(|options| {
         options.gas_price = Some(10_000_000.into());
-      })).wait().unwrap()
+      }), BlockNumber::Latest).wait().unwrap()
     };
 
     // then
@@ -213,7 +214,7 @@ mod tests {
   fn should_call_a_contract_function() {
     // given
     let mut transport = TestTransport::default();
-    transport.set_response(rpc::Value::String(format!("{:?}", H256::from(5))));
+    transport.set_response(rpc::Value::String(format!("0x{:?}", H256::from(5))));
 
     let result = {
       let token = contract(&transport);
@@ -234,7 +235,7 @@ mod tests {
   fn should_estimate_gas_usage() {
     // given
     let mut transport = TestTransport::default();
-    transport.set_response(rpc::Value::String(format!("{:?}", U256::from(5))));
+    transport.set_response(rpc::Value::String(format!("0x{:?}", U256::from(5))));
 
     let result = {
       let token = contract(&transport);
@@ -262,7 +263,7 @@ mod tests {
       let token = contract(&transport);
 
       // when
-      token.query("balanceOf", (Address::from(5)), None, Options::default()).wait().unwrap()
+      token.query("balanceOf", (Address::from(5)), None, Options::default(), None).wait().unwrap()
     };
 
     // then
