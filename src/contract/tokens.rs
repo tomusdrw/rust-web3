@@ -147,13 +147,13 @@ impl Tokenizable for H256 {
 impl Tokenizable for Address {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Address(data) => Ok(data.into()),
+      Token::Address(data) => Ok(data),
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
     }
   }
 
   fn into_token(self) -> Token {
-    Token::Address(self.into())
+    Token::Address(self)
   }
 }
 
@@ -162,16 +162,13 @@ macro_rules! uint_tokenizable {
     impl Tokenizable for $uint {
       fn from_token(token: Token) -> Result<Self, Error> {
         match token {
-          Token::Int(data) | Token::Uint(data) => Ok($uint::from(data.as_ref())),
+          Token::Int(data) | Token::Uint(data) => Ok(data.into()),
           other => Err(ErrorKind::InvalidOutputType(format!("Expected `{}`, got {:?}",  $name, other)).into()),
         }
       }
 
       fn into_token(self) -> Token {
-        let mut arr = [0; 32];
-        self.to_big_endian(&mut arr);
-        let u = U256::from(&arr);
-        Token::Uint(u.into())
+        Token::Uint(self.into())
       }
     }
   }
@@ -183,14 +180,13 @@ uint_tokenizable!(U128, "U128");
 impl Tokenizable for u64 {
   fn from_token(token: Token) -> Result<Self, Error> {
     match token {
-      Token::Int(data) | Token::Uint(data) => Ok(U256::from(data.as_ref()).low_u64()),
+      Token::Int(data) | Token::Uint(data) => Ok(data.low_u64()),
       other => Err(ErrorKind::InvalidOutputType(format!("Expected `u64`, got {:?}",  other)).into()),
     }
   }
 
   fn into_token(self) -> Token {
-    let u = U256::from(self);
-    Token::Uint(u.into())
+    Token::Uint(self.into())
   }
 }
 
