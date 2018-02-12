@@ -33,12 +33,10 @@ The solidity compiler is generating the binary and abi code for the smart contra
 
 For more see [examples folder](./examples).
 
-# TODO
-
 ## General
 - [ ] More flexible API (accept `Into<X>`)
 - [x] Contract calls (ABI encoding; `debris/ethabi`)
-- [ ] Batch Requests
+- [X] Batch Requests
 
 ## Transports
 - [x] HTTP transport
@@ -52,7 +50,7 @@ For more see [examples folder](./examples).
 - [x] Transaction receipt type (`TransactionReceipt` from Parity)
 - [x] Block type (`RichBlock` from Parity)
 - [x] Work type (`Work` from Parity)
-- [ ] Syncing type (`SyncStats` from Parity)
+- [X] Syncing type (`SyncStats` from Parity)
 
 ## APIs
 - [x] Eth: `eth_*`
