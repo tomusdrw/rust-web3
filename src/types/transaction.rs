@@ -57,6 +57,8 @@ pub struct Receipt {
   pub contract_address: Option<H160>,
   /// Logs generated within this transaction.
   pub logs: Vec<Log>,
+  /// Status: either 1 (success) or 0 (failure).
+  pub status: Option<u32>,
 }
 
 #[cfg(test)]
