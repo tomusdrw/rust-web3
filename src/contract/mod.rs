@@ -3,7 +3,8 @@
 use ethabi;
 
 use std::time;
-use api::Eth;
+use api::{Eth, Namespace};
+use confirm;
 use contract::tokens::{Detokenize, Tokenize};
 use types::{Address, Bytes, CallRequest, H256, TransactionRequest, TransactionCondition, U256, BlockNumber};
 use {Transport};
@@ -104,6 +105,31 @@ impl<T: Transport> Contract<T> {
         }).into()
       })
       .unwrap_or_else(Into::into)
+  }
+
+  /// Execute a contract function and wait for confirmations
+  pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize)
+    -> confirm::SendTransactionWithConfirmation<T>
+    where P: Tokenize
+  {
+    let poll_interval = time::Duration::from_secs(1);
+
+    let fn_data = self.abi.function(func.into())
+        .and_then(|function| function.encode_input(&params.into_tokens()))
+        .unwrap();
+
+    let transaction_request = TransactionRequest {
+        from: from,
+        to: Some(self.address.clone()),
+        gas: options.gas,
+        gas_price: options.gas_price,
+        value: options.value,
+        nonce: options.nonce,
+        data: Some(Bytes(fn_data)),
+        condition: options.condition,
+    };
+
+    confirm::send_transaction_with_confirmation(self.eth.transport().clone(), transaction_request, poll_interval, confirmations)
   }
 
   /// Estimate gas required for this function call.
