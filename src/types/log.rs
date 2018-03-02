@@ -28,8 +28,29 @@ pub struct Log {
   #[serde(rename="transactionLogIndex")]
   pub transaction_log_index: Option<U256>,
   /// Log Type
-  #[serde(rename="type")]
-  pub log_type: String,
+  #[serde(rename="logType")]
+  pub log_type: Option<String>,
+  /// Removed
+  pub removed: Option<bool>,
+}
+
+impl Log {
+  /// Returns true if the log has been removed.
+  pub fn is_removed(&self) -> bool{
+    match self.removed {
+      Some(val_removed) => return val_removed,
+      None => (),
+    }
+    match self.log_type {
+      Some(ref val_log_type) => {
+        if val_log_type == "removed" {
+          return true;
+        }
+      },
+      None => (),
+    }
+    return false;
+  }
 }
 
 /// Filter
@@ -95,5 +116,100 @@ impl FilterBuilder {
   /// Returns filter
   pub fn build(&self) -> Filter {
     self.filter.clone()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use types::log::{Bytes, Log};
+
+  #[test]
+  fn is_removed_removed_true() {
+    let log = Log {
+      address: 1.into(),
+      topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: None,
+      removed: Some(true),
+    };
+    assert_eq!(true, log.is_removed());
+  }
+
+  #[test]
+  fn is_removed_removed_false() {
+    let log = Log {
+      address: 1.into(),
+      topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: None,
+      removed: Some(false),
+    };
+    assert_eq!(false, log.is_removed());
+  }
+
+  #[test]
+  fn is_removed_log_type_removed() {
+    let log = Log {
+      address: 1.into(),
+      topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: Some("removed".into()),
+      removed: None,
+    };
+    assert_eq!(true, log.is_removed());
+  }
+
+  #[test]
+  fn is_removed_log_type_mined() {
+    let log = Log {
+      address: 1.into(),
+      topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: Some("mined".into()),
+      removed: None,
+    };
+    assert_eq!(false, log.is_removed());
+  }
+
+  #[test]
+  fn is_removed_log_type_and_removed_none() {
+    let log = Log {
+      address: 1.into(),
+      topics: vec![],
+      data: Bytes(vec![]),
+      block_hash: Some(2.into()),
+      block_number: Some(1.into()),
+      transaction_hash: Some(3.into()),
+      transaction_index: Some(0.into()),
+      log_index: Some(0.into()),
+      transaction_log_index: Some(0.into()),
+      log_type: None,
+      removed: None,
+    };
+    assert_eq!(false, log.is_removed());
   }
 }

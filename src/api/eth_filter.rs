@@ -281,7 +281,8 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".into(),
+      log_type: Some("mined".into()),
+      removed: None,
     };
 
     let mut transport = TestTransport::default();
@@ -321,7 +322,8 @@ mod tests {
       transaction_index: Some(0.into()),
       log_index: Some(0.into()),
       transaction_log_index: Some(0.into()),
-      log_type: "mined".into(),
+      log_type: Some("mined".into()),
+      removed: None,
     };
 
     let mut transport = TestTransport::default();
