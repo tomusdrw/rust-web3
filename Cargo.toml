@@ -41,6 +41,6 @@ default = ["http", "ipc", "ws"]
 # TODO [ToDr] move transports to separate crates
 http = ["hyper", "tokio-core"]
 ipc = ["tokio-uds", "tokio-core", "tokio-io"]
-ws = ["websocket"]
+ws = ["tokio-core", "websocket"]
 
 [workspace]

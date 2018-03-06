@@ -64,7 +64,6 @@ impl WebSocket {
       let write_sender_ = write_sender.clone();
 
       ClientBuilder::from_url(&url)
-        .add_protocol("web3.rs")
         .async_connect(None, handle)
         .from_err::<Error>()
         .map(|(duplex, _)| duplex.split())
