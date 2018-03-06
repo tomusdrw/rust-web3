@@ -128,7 +128,7 @@ impl WebSocket {
     }));
 
     Ok(Self {
-      id: Default::default(),
+      id: Arc::new(atomic::AtomicUsize::new(1)),
       url: url,
       write_sender,
       pending,
@@ -228,10 +228,10 @@ mod tests {
                 OwnedMessage::Text(t) => {
                   assert_eq!(
                     t,
-                    r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":0}"#
+                    r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#
                   );
                   Some(OwnedMessage::Text(
-                    r#"{"jsonrpc":"2.0","id":0,"result":"x"}"#.to_owned(),
+                    r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#.to_owned(),
                   ))
                 }
                 _ => None,
