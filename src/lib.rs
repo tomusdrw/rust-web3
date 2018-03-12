@@ -38,13 +38,11 @@ pub mod types;
 
 pub mod confirm;
 
-use futures::Future;
-
 pub use error::{Error, ErrorKind};
 pub use api::Web3;
 
 /// RPC result
-pub type Result<T> = Box<Future<Item = T, Error = Error> + Send + 'static>;
+pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
 
 /// Assigned RequestId
 pub type RequestId = usize;
@@ -77,6 +75,18 @@ pub trait BatchTransport: Transport {
     T: IntoIterator<Item=(RequestId, rpc::Call)>;
 }
 
+/// A transport implementation supporting pub sub subscriptions.
+pub trait DuplexTransport: Transport {
+    /// The type of stream this transport returns
+    type NotificationStream: futures::Stream<Item=rpc::Value, Error=Error>;
+
+    /// Add a subscription to this transport
+    fn subscribe(&self, id: &str) -> Self::NotificationStream;
+
+    /// Remove a subscription from this transport
+    fn unsubscribe(&self, id: &str);
+}
+
 impl<X, T> Transport for X where
   T: Transport + ?Sized,
   X: ::std::ops::Deref<Target=T>,
@@ -107,6 +117,23 @@ impl<X, T> BatchTransport for X where
   {
     (**self).send_batch(requests)
   }
+}
+
+impl<X, T> DuplexTransport for X where
+  T: DuplexTransport + ?Sized,
+  X: ::std::ops::Deref<Target=T>,
+  X: ::std::fmt::Debug,
+  X: Clone,
+{
+    type NotificationStream = T::NotificationStream;
+
+    fn subscribe(&self, id: &str) -> Self::NotificationStream {
+        (**self).subscribe(id)
+    }
+
+    fn unsubscribe(&self, id: &str) {
+        (**self).unsubscribe(id)
+    }
 }
 
 #[cfg(test)]

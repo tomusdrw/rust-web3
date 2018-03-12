@@ -19,7 +19,7 @@ use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
 use transports::tokio_io::AsyncRead;
 use transports::tokio_io::io::{ReadHalf, WriteHalf};
-use {BatchTransport, Transport, ErrorKind, RequestId};
+use {BatchTransport, DuplexTransport, Transport, Error, ErrorKind, RequestId};
 
 macro_rules! try_nb {
   ($e:expr) => (match $e {
@@ -36,6 +36,8 @@ macro_rules! try_nb {
 
 type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
 
+type Subscription = mpsc::UnboundedSender<rpc::Value>;
+
 /// A future representing pending IPC request, resolves to a response.
 pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 
@@ -44,6 +46,7 @@ pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 pub struct Ipc {
   id: Arc<atomic::AtomicUsize>,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
+  subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>>,
   write_sender: mpsc::UnboundedSender<Vec<u8>>,
 }
 
@@ -73,10 +76,12 @@ impl Ipc {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::unbounded();
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
+    let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
 
     let r = ReadStream {
       read,
       pending: pending.clone(),
+      subscriptions: subscriptions.clone(),
       buffer: vec![],
       current_pos: 0,
     };
@@ -94,6 +99,7 @@ impl Ipc {
       id: Arc::new(atomic::AtomicUsize::new(1)),
       write_sender,
       pending,
+      subscriptions,
     })
   }
 
@@ -155,6 +161,20 @@ impl BatchTransport for Ipc {
   }
 }
 
+impl DuplexTransport for Ipc {
+  type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
+
+  fn subscribe(&self, id: &str) -> Self::NotificationStream {
+    let (tx, rx) = mpsc::unbounded();
+    self.subscriptions.lock().insert(id.to_owned(), tx);
+    Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
+  }
+
+  fn unsubscribe(&self, id: &str) {
+    self.subscriptions.lock().remove(id);
+  }
+}
+
 enum WriteState {
   WaitingForRequest,
   Writing {
@@ -213,6 +233,7 @@ impl Future for WriteStream {
 struct ReadStream {
   read: ReadHalf<UnixStream>,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
+  subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>>,
   buffer: Vec<u8>,
   current_pos: usize,
 }
@@ -239,9 +260,9 @@ impl Future for ReadStream {
 
       let mut min = self.current_pos;
       self.current_pos += read;
-      while let Some((output, len)) = Self::extract_response(&self.buffer[0..self.current_pos], min) {
+      while let Some((response, len)) = Self::extract_response(&self.buffer[0..self.current_pos], min) {
         // Respond
-        self.respond(output);
+        self.respond(response);
 
         // copy rest of buffer to the beginning
         for i in len..self.current_pos {
@@ -260,38 +281,67 @@ impl Future for ReadStream {
   }
 }
 
-impl ReadStream {
-  fn respond(&self, outputs: Vec<rpc::Output>) {
-    let id = match outputs.get(0) {
-      Some(&rpc::Output::Success(ref success)) => success.id.clone(),
-      Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
-      None => rpc::Id::Num(0),
-    };
+enum Message {
+    Rpc(Vec<rpc::Output>),
+    Notification(rpc::Notification),
+}
 
-    if let rpc::Id::Num(num) = id {
-      if let Some(request) = self.pending.lock().remove(&(num as usize)) {
-        trace!("Responding to (id: {:?}) with {:?}", num, outputs);
-        if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-          warn!("Sending a response to deallocated channel: {:?}", err);
+impl ReadStream {
+  fn respond(&self, response: Message) {
+    match response {
+      Message::Rpc(outputs) => {
+        let id = match outputs.get(0) {
+          Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+          Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+          None => rpc::Id::Num(0),
+        };
+
+        if let rpc::Id::Num(num) = id {
+          if let Some(request) = self.pending.lock().remove(&(num as usize)) {
+            trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+            if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
+              warn!("Sending a response to deallocated channel: {:?}", err);
+            }
+          } else {
+            warn!("Got response for unknown request (id: {:?})", num);
+          }
+        } else {
+          warn!("Got unsupported response (id: {:?})", id);
         }
-      } else {
-        warn!("Got response for unknown request (id: {:?})", num);
-      }
-    } else {
-      warn!("Got unsupported response (id: {:?})", id);
+      },
+      Message::Notification(notification) => {
+        if let Some(rpc::Params::Map(params)) = notification.params {
+          let id = params.get("subscription");
+          let result = params.get("result");
+
+          if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
+            if let Some(stream) = self.subscriptions.lock().get(id) {
+              if let Err(e) = stream.unbounded_send(result.clone()) {
+                error!("Error sending notification (id: {:?}): {:?}", id, e);
+              }
+            } else {
+              warn!("Got notification for unknown subscription (id: {:?})", id);
+            }
+          }
+        }
+      },
     }
   }
 
-  fn extract_response(buf: &[u8], min: usize) -> Option<(Vec<rpc::Output>, usize)> {
+  fn extract_response(buf: &[u8], min: usize) -> Option<(Message, usize)> {
     for pos in (min..buf.len()).rev() {
       // Look for end character
       if buf[pos] == b']' || buf[pos] == b'}' {
         // Try to deserialize
         let pos = pos + 1;
         match helpers::to_response_from_slice(&buf[0..pos]) {
-          Ok(rpc::Response::Single(output)) => return Some((vec![output], pos)),
-          Ok(rpc::Response::Batch(outputs)) => return Some((outputs, pos)),
+          Ok(rpc::Response::Single(output)) => return Some((Message::Rpc(vec![output]), pos)),
+          Ok(rpc::Response::Batch(outputs)) => return Some((Message::Rpc(outputs), pos)),
           // just continue
+          _ => {},
+        }
+        match helpers::to_notification_from_slice(&buf[0..pos]) {
+          Ok(notification) => return Some((Message::Notification(notification), pos)),
           _ => {},
         }
       }

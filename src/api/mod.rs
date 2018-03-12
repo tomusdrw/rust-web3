@@ -2,6 +2,7 @@
 
 mod eth;
 mod eth_filter;
+mod eth_subscribe;
 mod net;
 mod personal;
 mod web3;
@@ -14,7 +15,7 @@ pub use self::web3::Web3 as Web3Api;
 
 use std::time::Duration;
 use futures::{IntoFuture};
-use {confirm, Transport, Error};
+use {confirm, DuplexTransport, Transport, Error};
 use types::{U256, Bytes, TransactionRequest};
 
 /// Common API for all namespaces
@@ -110,3 +111,9 @@ impl<T: Transport> Web3<T> {
 
 }
 
+impl<T: DuplexTransport> Web3<T> {
+  /// Access subscribe methods from `eth` namespace
+  pub fn eth_subscribe(&self) -> eth_subscribe::EthSubscribe<T> {
+    self.api()
+  }
+}
