@@ -41,7 +41,7 @@ For more see [examples folder](./examples).
 ## Transports
 - [x] HTTP transport
 - [x] IPC transport
-- [ ] WebSockets transport
+- [x] WebSockets transport
 
 ## Types
 - [x] Types for `U256,H256,Address(H160)`
@@ -55,6 +55,7 @@ For more see [examples folder](./examples).
 ## APIs
 - [x] Eth: `eth_*`
 - [x] Eth filters: `eth_*`
+- [x] Eth pubsub: `eth_*`
 - [x] `net_*`
 - [x] `web3_*`
 - [x] `personal_*`
