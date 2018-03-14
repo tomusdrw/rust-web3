@@ -9,7 +9,7 @@ use helpers::{self, CallResult};
 use rpc;
 use serde;
 use serde_json;
-use types::{Address, BlockHeader, Filter, H256, Log};
+use types::{BlockHeader, Filter, H256, Log};
 use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
