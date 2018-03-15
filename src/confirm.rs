@@ -1,6 +1,7 @@
 //! Easy to use utilities for confirmations.
 
 use std::time::Duration;
+
 use futures::{IntoFuture, Future, Stream, Poll};
 use futures::stream::Skip;
 use api::{Eth, EthFilter, Namespace, CreateFilter, FilterStream};
@@ -195,6 +196,7 @@ impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
 }
 
 enum SendTransactionWithConfirmationState<T: Transport> {
+  Error(Option<Error>),
   SendTransaction(CallResult<H256, T::Out>),
   WaitForConfirmations(H256, Confirmations<T, TransactionReceiptBlockNumberCheck<T>, TransactionReceiptBlockNumber<T>>),
   GetTransactionReceipt(CallResult<Option<TransactionReceipt>, T::Out>),
@@ -217,12 +219,22 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
       confirmations,
     }
   }
+
   fn raw(transport: T, tx: Bytes, poll_interval: Duration, confirmations: usize) -> Self {
     SendTransactionWithConfirmation {
       state: SendTransactionWithConfirmationState::SendTransaction(Eth::new(&transport).send_raw_transaction(tx)),
       transport,
       poll_interval,
       confirmations,
+    }
+  }
+
+  pub(crate) fn from_err<E: Into<Error>>(transport: T, err: E) -> Self {
+    SendTransactionWithConfirmation {
+      state: SendTransactionWithConfirmationState::Error(Some(err.into())),
+      transport,
+      poll_interval: Duration::from_secs(1),
+      confirmations: 1,
     }
   }
 }
@@ -234,6 +246,9 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
     loop {
       let next_state = match self.state {
+        SendTransactionWithConfirmationState::Error(ref mut error) => {
+          return Err(error.take().expect("Error is initialized initially; future polled only once; qed"));
+        },
         SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
           let hash = try_ready!(future.poll());
           let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
