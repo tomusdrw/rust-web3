@@ -1,4 +1,4 @@
-use types::{H160, H256, U256, Index, Log, Bytes};
+use types::{H160, H256, U128, U256, Index, Log, Bytes};
 
 /// Description of a Transaction, pending or in the chain.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
@@ -57,6 +57,8 @@ pub struct Receipt {
   pub contract_address: Option<H160>,
   /// Logs generated within this transaction.
   pub logs: Vec<Log>,
+  /// Status: either 1 (success) or 0 (failure).
+  pub status: Option<U128>,
 }
 
 #[cfg(test)]
@@ -70,5 +72,24 @@ mod tests {
 
     let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
 
+  }
+
+  #[test]
+  fn should_deserialize_receipt_with_status() {
+    let receipt_str = r#"{
+        "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+        "blockNumber": "0x38",
+        "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "cumulativeGasUsed": "0x927c0",
+        "gasUsed": "0x927c0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "root": null,
+        "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+        "transactionIndex": "0x0",
+        "status": "0x1"
+    }"#;
+
+    let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
   }
 }

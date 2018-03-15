@@ -315,6 +315,7 @@ mod tests {
       gas_used: 0.into(),
       contract_address: None,
       logs: vec![],
+      status: Some(1.into()),
     };
 
     let poll_interval = Duration::from_secs(0);
