@@ -306,7 +306,7 @@ mod tests {
   extern crate tokio_core;
   extern crate tokio_uds;
 
-  use std::io::{Read, Write};
+  use std::io::{self, Read, Write};
   use super::Ipc;
   use futures::{self, Future};
   use rpc;
@@ -331,7 +331,7 @@ mod tests {
         fn poll(&mut self) -> futures::Poll<(), ()> {
           let mut data = [0; 2048];
           // Read request
-          let read = self.server.read(&mut data).unwrap();
+          let read = try_nb!(self.server.read(&mut data));
           let request = String::from_utf8(data[0..read].to_vec()).unwrap();
           assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
 
@@ -373,7 +373,7 @@ mod tests {
         fn poll(&mut self) -> futures::Poll<(), ()> {
           let mut data = [0; 2048];
           // Read request
-          let read = self.server.read(&mut data).unwrap();
+          let read = try_nb!(self.server.read(&mut data));
           let request = String::from_utf8(data[0..read].to_vec()).unwrap();
           assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":2}"#);
 
