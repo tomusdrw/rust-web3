@@ -114,22 +114,30 @@ impl<T: Transport> Contract<T> {
   {
     let poll_interval = time::Duration::from_secs(1);
 
-    let fn_data = self.abi.function(func.into())
+    self.abi.function(func.into())
         .and_then(|function| function.encode_input(&params.into_tokens()))
-        .unwrap();
+        .map(|fn_data| {
+          let transaction_request = TransactionRequest {
+            from: from,
+            to: Some(self.address.clone()),
+            gas: options.gas,
+            gas_price: options.gas_price,
+            value: options.value,
+            nonce: options.nonce,
+            data: Some(Bytes(fn_data)),
+            condition: options.condition,
+          };
 
-    let transaction_request = TransactionRequest {
-        from: from,
-        to: Some(self.address.clone()),
-        gas: options.gas,
-        gas_price: options.gas_price,
-        value: options.value,
-        nonce: options.nonce,
-        data: Some(Bytes(fn_data)),
-        condition: options.condition,
-    };
-
-    confirm::send_transaction_with_confirmation(self.eth.transport().clone(), transaction_request, poll_interval, confirmations)
+          confirm::send_transaction_with_confirmation(self.eth.transport().clone(), transaction_request, poll_interval, confirmations)
+        })
+        .unwrap_or_else(|e| {
+          // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
+          // `contract::Error` instead of more generic `Error`.
+          confirm::SendTransactionWithConfirmation::from_err(
+            self.eth.transport().clone(),
+            ::error::ErrorKind::Decoder(format!("{:?}", e))
+          )
+        })
   }
 
   /// Estimate gas required for this function call.
