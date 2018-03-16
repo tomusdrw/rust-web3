@@ -5,6 +5,7 @@ extern crate websocket;
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
 
+use api::{SubscriptionId};
 use futures::{self, Future, Sink, Stream};
 use futures::sync::{mpsc, oneshot};
 use helpers;
@@ -42,7 +43,7 @@ pub struct WebSocket {
   id: Arc<atomic::AtomicUsize>,
   url: Url,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-  subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>>,
+  subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>,
   write_sender: mpsc::UnboundedSender<OwnedMessage>,
 }
 
@@ -59,9 +60,8 @@ impl WebSocket {
     trace!("Connecting to: {:?}", url);
 
     let url: Url = url.parse()?;
-    let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Arc::new(Mutex::new(BTreeMap::new()));
-    let subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>> =
-      Arc::new(Mutex::new(BTreeMap::new()));
+    let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
+    let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
     let (write_sender, write_receiver) = mpsc::unbounded();
 
     let ws_future = {
@@ -91,13 +91,16 @@ impl WebSocket {
                     let result = params.get("result");
 
                     if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
-                      if let Some(stream) = subscriptions_.lock().get(id) {
+                      let id: SubscriptionId = id.clone().into();
+                      if let Some(stream) = subscriptions_.lock().get(&id) {
                         return stream.unbounded_send(result.clone()).map_err(|_| {
                           ErrorKind::Transport("Error sending notification".into()).into()
                         });
                       } else {
                         warn!("Got notification for unknown subscription (id: {:?})", id);
                       }
+                    } else {
+                      error!("Got unsupported notification (id: {:?})", id);
                     }
                   }
 
@@ -216,13 +219,15 @@ impl BatchTransport for WebSocket {
 impl DuplexTransport for WebSocket {
   type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
 
-  fn subscribe(&self, id: &str) -> Self::NotificationStream {
+  fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
     let (tx, rx) = mpsc::unbounded();
-    self.subscriptions.lock().insert(id.to_owned(), tx);
+    if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
+        warn!("Replacing already-registered subscription with id {:?}", id)
+    }
     Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
   }
 
-  fn unsubscribe(&self, id: &str) {
+  fn unsubscribe(&self, id: &SubscriptionId) {
     self.subscriptions.lock().remove(id);
   }
 }

@@ -9,6 +9,7 @@ use std::sync::{atomic, Arc};
 
 use self::tokio_uds::UnixStream;
 
+use api::{SubscriptionId};
 use futures::sync::{oneshot, mpsc};
 use futures::{self, Stream, Future};
 use helpers;
@@ -46,7 +47,7 @@ pub type IpcTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 pub struct Ipc {
   id: Arc<atomic::AtomicUsize>,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-  subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>>,
+  subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>,
   write_sender: mpsc::UnboundedSender<Vec<u8>>,
 }
 
@@ -75,8 +76,8 @@ impl Ipc {
   fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
     let (read, write) = stream.split();
     let (write_sender, write_receiver) = mpsc::unbounded();
-    let pending = Arc::new(Mutex::new(BTreeMap::new()));
-    let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
+    let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
+    let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
 
     let r = ReadStream {
       read,
@@ -164,13 +165,15 @@ impl BatchTransport for Ipc {
 impl DuplexTransport for Ipc {
   type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
 
-  fn subscribe(&self, id: &str) -> Self::NotificationStream {
+  fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
     let (tx, rx) = mpsc::unbounded();
-    self.subscriptions.lock().insert(id.to_owned(), tx);
+    if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
+        warn!("Replacing already-registered subscription with id {:?}", id)
+    }
     Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
   }
 
-  fn unsubscribe(&self, id: &str) {
+  fn unsubscribe(&self, id: &SubscriptionId) {
     self.subscriptions.lock().remove(id);
   }
 }
@@ -233,7 +236,7 @@ impl Future for WriteStream {
 struct ReadStream {
   read: ReadHalf<UnixStream>,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-  subscriptions: Arc<Mutex<BTreeMap<String, Subscription>>>,
+  subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>,
   buffer: Vec<u8>,
   current_pos: usize,
 }
@@ -315,13 +318,16 @@ impl ReadStream {
           let result = params.get("result");
 
           if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
-            if let Some(stream) = self.subscriptions.lock().get(id) {
+            let id: SubscriptionId = id.clone().into();
+            if let Some(stream) = self.subscriptions.lock().get(&id) {
               if let Err(e) = stream.unbounded_send(result.clone()) {
                 error!("Error sending notification (id: {:?}): {:?}", id, e);
               }
             } else {
               warn!("Got notification for unknown subscription (id: {:?})", id);
             }
+          } else {
+            error!("Got unsupported notification (id: {:?})", id);
           }
         }
       },

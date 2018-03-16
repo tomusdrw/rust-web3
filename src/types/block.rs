@@ -1,7 +1,7 @@
 use serde::{Serialize, Serializer};
 use types::{Bytes, U128, U256, H256, H160, H2048};
 
-/// The block type returned from RPC calls.
+/// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct BlockHeader {
   /// Hash of the block
