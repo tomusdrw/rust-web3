@@ -14,10 +14,11 @@ matrix:
   - rust: nightly
 
 before_script:
-  - rustup component add rustfmt-preview
+  - rustup toolchain install stable
+  - rustup component add rustfmt-preview --toolchain=stable
 
 script:
-  - cargo fmt --all -- --write-mode=diff
+  - cargo +stable fmt --all -- --write-mode=diff
   - cargo build
   - cargo test
 
