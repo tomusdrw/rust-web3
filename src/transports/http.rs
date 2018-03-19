@@ -2,6 +2,11 @@
 
 extern crate hyper;
 
+#[cfg(feature = "tls")]
+extern crate hyper_tls;
+#[cfg(feature = "tls")]
+extern crate native_tls;
+
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
@@ -24,6 +29,13 @@ impl From<hyper::Error> for Error {
 
 impl From<hyper::error::UriError> for Error {
   fn from(err: hyper::error::UriError) -> Self {
+    ErrorKind::Transport(format!("{:?}", err)).into()
+  }
+}
+
+#[cfg(feature = "tls")]
+impl From<native_tls::Error> for Error {
+  fn from(err: native_tls::Error) -> Self {
     ErrorKind::Transport(format!("{:?}", err)).into()
   }
 }
@@ -67,6 +79,13 @@ impl Http {
   /// Create new HTTP transport with given URL and existing event loop handle.
   pub fn with_event_loop(url: &str, handle: &reactor::Handle, max_parallel: usize) -> Result<Self> {
     let (write_sender, write_receiver) = mpsc::unbounded();
+
+    #[cfg(feature = "tls")]
+    let client = hyper::Client::configure()
+      .connector(hyper_tls::HttpsConnector::new(4, handle)?)
+      .build(handle);
+
+    #[cfg(not(feature = "tls"))]
     let client = hyper::Client::new(handle);
 
     handle.spawn(write_receiver
