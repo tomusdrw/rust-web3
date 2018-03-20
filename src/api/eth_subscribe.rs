@@ -1,6 +1,5 @@
 //! `Eth` namespace, subscriptions
 
-use std::fmt;
 use std::marker::PhantomData;
 
 use api::Namespace;
@@ -44,6 +43,7 @@ impl From<String> for SubscriptionId {
 /// Stream of notifications from a subscription
 /// Given a type deserializable from rpc::Value and a subscription id, yields items of that type as
 /// notifications are delivered.
+#[derive(Debug)]
 pub struct SubscriptionStream<T: DuplexTransport, I> {
   transport: T,
   id: SubscriptionId,
@@ -68,7 +68,7 @@ impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
   }
 
   /// Unsubscribe from the event represented by this stream
-  pub fn unsubscribe(&self) -> CallResult<bool, T::Out> {
+  pub fn unsubscribe(self) -> CallResult<bool, T::Out> {
     let &SubscriptionId(ref id) = &self.id;
     let id = helpers::serialize(&id);
     CallResult::new(self.transport.execute("eth_unsubscribe", vec![id]))
@@ -92,12 +92,6 @@ where
       Ok(Async::NotReady) => Ok(Async::NotReady),
       Err(e) => Err(e),
     }
-  }
-}
-
-impl<T: DuplexTransport, I> fmt::Debug for SubscriptionStream<T, I> {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{:?}", self.id())
   }
 }
 
@@ -160,12 +154,14 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     SubscriptionResult::new(self.transport().clone(), id_future)
   }
 
+  /// Create a pending transactions subscription
   pub fn subscribe_new_pending_transactions(&self) -> SubscriptionResult<T, H256> {
     let subscription = helpers::serialize(&&"newPendingTransactions");
     let id_future = CallResult::new(self.transport.execute("eth_subscribe", vec![subscription]));
     SubscriptionResult::new(self.transport().clone(), id_future)
   }
 
+  /// Create a sync status subscription
   pub fn subscribe_syncing(&self) -> SubscriptionResult<T, rpc::Value> {
     let subscription = helpers::serialize(&&"syncing");
     let id_future = CallResult::new(self.transport.execute("eth_subscribe", vec![subscription]));

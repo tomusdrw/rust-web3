@@ -7,7 +7,7 @@ fn main() {
     let web3 = web3::Web3::new(ws.clone());
     let mut sub = web3.eth_subscribe().subscribe_new_heads().wait().unwrap();
 
-    println!("Got subscription id: {:?}", &sub);
+    println!("Got subscription id: {:?}", sub.id());
 
     (&mut sub)
         .take(5)
