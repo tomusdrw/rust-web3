@@ -10,7 +10,7 @@ mod transaction_request;
 mod uint;
 mod work;
 
-pub use self::block::{Block, BlockId, BlockNumber};
+pub use self::block::{Block, BlockHeader, BlockId, BlockNumber};
 pub use self::bytes::Bytes;
 pub use self::log::{Log, Filter, FilterBuilder};
 pub use self::sync_state::{SyncState,SyncInfo};

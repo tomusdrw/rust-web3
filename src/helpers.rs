@@ -9,8 +9,8 @@ use serde_json;
 use {Error, ErrorKind};
 
 /// Value-decoder future.
-/// Takes any type which is deserializable from rpc::Value,
-/// a future which yields that type, and
+/// Takes any type which is deserializable from rpc::Value and a future which yields that
+/// type, and yields the deserialized value
 #[derive(Debug)]
 pub struct CallResult<T, F> {
   inner: F,
@@ -62,6 +62,12 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
   serde_json::from_slice(response)
+    .map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
+}
+
+/// Parse bytes slice into JSON-RPC notification.
+pub fn to_notification_from_slice(notification: &[u8]) -> Result<rpc::Notification, Error> {
+  serde_json::from_slice(notification)
     .map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
 }
 

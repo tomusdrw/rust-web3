@@ -1,6 +1,49 @@
 use serde::{Serialize, Serializer};
 use types::{Bytes, U128, U256, H256, H160, H2048};
 
+/// The block header type returned from RPC calls.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct BlockHeader {
+  /// Hash of the block
+  pub hash: Option<H256>,
+  /// Hash of the parent
+  #[serde(rename="parentHash")]
+  pub parent_hash: H256,
+  /// Hash of the uncles
+  #[serde(rename="sha3Uncles")]
+  pub uncles_hash: H256,
+  /// Miner/author's address.
+  #[serde(rename="miner")]
+  pub author: H160,
+  /// State root hash
+  #[serde(rename="stateRoot")]
+  pub state_root: H256,
+  /// Transactions root hash
+  #[serde(rename="transactionsRoot")]
+  pub transactions_root: H256,
+  /// Transactions receipts root hash
+  #[serde(rename="receiptsRoot")]
+  pub receipts_root: H256,
+  /// Block number. None if pending.
+  pub number: Option<U128>,
+  /// Gas Used
+  #[serde(rename="gasUsed")]
+  pub gas_used: U256,
+  /// Gas Limit
+  #[serde(rename="gasLimit")]
+  pub gas_limit: U256,
+  /// Extra data
+  #[serde(rename="extraData")]
+  pub extra_data: Bytes,
+  /// Logs bloom
+  #[serde(rename="logsBloom")]
+  pub logs_bloom: H2048,
+  /// Timestamp
+  pub timestamp: U256,
+  /// Difficulty
+  pub difficulty: U256,
+}
+
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
 #[derive(Debug, Clone, PartialEq, Deserialize)]

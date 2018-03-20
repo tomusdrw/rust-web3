@@ -5,8 +5,9 @@ extern crate websocket;
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
 
-use futures::sync::{mpsc, oneshot};
+use api::{SubscriptionId};
 use futures::{self, Future, Sink, Stream};
+use futures::sync::{mpsc, oneshot};
 use helpers;
 use parking_lot::Mutex;
 use rpc;
@@ -15,7 +16,7 @@ use self::websocket::url::Url;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
-use {BatchTransport, Error, ErrorKind, RequestId, Transport};
+use {BatchTransport, DuplexTransport, Error, ErrorKind, RequestId, Transport};
 
 impl From<websocket::WebSocketError> for Error {
   fn from(err: websocket::WebSocketError) -> Self {
@@ -31,6 +32,8 @@ impl From<websocket::client::ParseError> for Error {
 
 type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
 
+type Subscription = mpsc::UnboundedSender<rpc::Value>;
+
 /// A future representing pending WebSocket request, resolves to a response.
 pub type WsTask<F> = Response<F, Vec<Result<rpc::Value>>>;
 
@@ -40,6 +43,7 @@ pub struct WebSocket {
   id: Arc<atomic::AtomicUsize>,
   url: Url,
   pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
+  subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>,
   write_sender: mpsc::UnboundedSender<OwnedMessage>,
 }
 
@@ -56,11 +60,13 @@ impl WebSocket {
     trace!("Connecting to: {:?}", url);
 
     let url: Url = url.parse()?;
+    let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
+    let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
     let (write_sender, write_receiver) = mpsc::unbounded();
-    let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Arc::new(Mutex::new(BTreeMap::new()));
 
     let ws_future = {
       let pending_ = pending.clone();
+      let subscriptions_ = subscriptions.clone();
       let write_sender_ = write_sender.clone();
 
       ClientBuilder::from_url(&url)
@@ -68,50 +74,70 @@ impl WebSocket {
         .from_err::<Error>()
         .map(|(duplex, _)| duplex.split())
         .and_then(move |(sink, stream)| {
-          let reader = stream
-            .for_each(move |message| {
-              trace!("Message received: {:?}", message);
+          let reader = stream.from_err::<Error>().for_each(move |message| {
+            trace!("Message received: {:?}", message);
 
-              match message {
-                OwnedMessage::Close(e) => write_sender_
-                  .unbounded_send(OwnedMessage::Close(e))
-                  .map_err(|_| websocket::WebSocketError::NoDataAvailable),
-                OwnedMessage::Ping(d) => write_sender_
-                  .unbounded_send(OwnedMessage::Pong(d))
-                  .map_err(|_| websocket::WebSocketError::NoDataAvailable),
-                OwnedMessage::Text(t) => {
-                  let response = helpers::to_response_from_slice(t.as_bytes());
-                  let outputs = match response {
-                    Ok(rpc::Response::Single(output)) => vec![output],
-                    Ok(rpc::Response::Batch(outputs)) => outputs,
-                    _ => vec![],
-                  };
+            match message {
+              OwnedMessage::Close(e) => write_sender_
+                .unbounded_send(OwnedMessage::Close(e))
+                .map_err(|_| ErrorKind::Transport("Error sending close message".into()).into()),
+              OwnedMessage::Ping(d) => write_sender_
+                .unbounded_send(OwnedMessage::Pong(d))
+                .map_err(|_| ErrorKind::Transport("Error sending pong message".into()).into()),
+              OwnedMessage::Text(t) => {
+                if let Ok(notification) = helpers::to_notification_from_slice(t.as_bytes()) {
+                  if let Some(rpc::Params::Map(params)) = notification.params {
+                    let id = params.get("subscription");
+                    let result = params.get("result");
 
-                  let id = match outputs.get(0) {
-                    Some(&rpc::Output::Success(ref success)) => success.id.clone(),
-                    Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
-                    None => rpc::Id::Num(0),
-                  };
-
-                  if let rpc::Id::Num(num) = id {
-                    if let Some(request) = pending_.lock().remove(&(num as usize)) {
-                      trace!("Responding to (id: {:?}) with {:?}", num, outputs);
-                      if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-                        warn!("Sending a response to deallocated channel: {:?}", err);
+                    if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
+                      let id: SubscriptionId = id.clone().into();
+                      if let Some(stream) = subscriptions_.lock().get(&id) {
+                        return stream.unbounded_send(result.clone()).map_err(|_| {
+                          ErrorKind::Transport("Error sending notification".into()).into()
+                        });
+                      } else {
+                        warn!("Got notification for unknown subscription (id: {:?})", id);
                       }
                     } else {
-                      warn!("Got response for unknown request (id: {:?})", num);
+                      error!("Got unsupported notification (id: {:?})", id);
                     }
-                  } else {
-                    warn!("Got unsupported response (id: {:?})", id);
                   }
 
-                  Ok(())
+                  return Ok(());
                 }
-                _ => Ok(()),
+
+                let response = helpers::to_response_from_slice(t.as_bytes());
+                let outputs = match response {
+                  Ok(rpc::Response::Single(output)) => vec![output],
+                  Ok(rpc::Response::Batch(outputs)) => outputs,
+                  _ => vec![],
+                };
+
+                let id = match outputs.get(0) {
+                  Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+                  Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+                  None => rpc::Id::Num(0),
+                };
+
+                if let rpc::Id::Num(num) = id {
+                  if let Some(request) = pending_.lock().remove(&(num as usize)) {
+                    trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+                    if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
+                      warn!("Sending a response to deallocated channel: {:?}", err);
+                    }
+                  } else {
+                    warn!("Got response for unknown request (id: {:?})", num);
+                  }
+                } else {
+                  warn!("Got unsupported response (id: {:?})", id);
+                }
+
+                Ok(())
               }
-            })
-            .from_err();
+              _ => Ok(()),
+            }
+          });
 
           let writer = sink
             .sink_from_err()
@@ -129,8 +155,9 @@ impl WebSocket {
     Ok(Self {
       id: Arc::new(atomic::AtomicUsize::new(1)),
       url: url,
-      write_sender,
       pending,
+      subscriptions,
+      write_sender,
     })
   }
 
@@ -146,7 +173,7 @@ impl WebSocket {
     let result = self
       .write_sender
       .unbounded_send(OwnedMessage::Text(request))
-      .map_err(|_| websocket::WebSocketError::NoDataAvailable.into());
+      .map_err(|_| ErrorKind::Transport("Error sending request".into()).into());
 
     Response::new(id, result, rx, extract)
   }
@@ -189,6 +216,22 @@ impl BatchTransport for WebSocket {
   }
 }
 
+impl DuplexTransport for WebSocket {
+  type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
+
+  fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
+    let (tx, rx) = mpsc::unbounded();
+    if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
+        warn!("Replacing already-registered subscription with id {:?}", id)
+    }
+    Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
+  }
+
+  fn unsubscribe(&self, id: &SubscriptionId) {
+    self.subscriptions.lock().remove(id);
+  }
+}
+
 #[cfg(test)]
 mod tests {
   extern crate tokio_core;
@@ -216,7 +259,7 @@ mod tests {
         .map_err(|InvalidConnection { error, .. }| error)
         .for_each(move |(upgrade, addr)| {
           trace!("Got a connection from {}", addr);
-          let f = upgrade.use_protocol("web3.rs").accept().and_then(|(s, _)| {
+          let f = upgrade.accept().and_then(|(s, _)| {
             let (sink, stream) = s.split();
 
             stream
