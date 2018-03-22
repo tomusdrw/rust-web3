@@ -1,4 +1,4 @@
-use types::{H160, H256, U128, U256, Index, Log, Bytes};
+use types::{H160, H256, U64, U256, Index, Log, Bytes};
 
 /// Description of a Transaction, pending or in the chain.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
@@ -58,7 +58,7 @@ pub struct Receipt {
   /// Logs generated within this transaction.
   pub logs: Vec<Log>,
   /// Status: either 1 (success) or 0 (failure).
-  pub status: Option<U128>,
+  pub status: Option<U64>,
 }
 
 #[cfg(test)]
