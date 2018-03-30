@@ -2,328 +2,349 @@
 
 use api::Namespace;
 use helpers::{self, CallResult};
-use types::{
-  Address, Block, BlockId, BlockNumber, Bytes, CallRequest,
-  H64, H256, H520, Index,
-  Transaction, TransactionId, TransactionReceipt, TransactionRequest,
-  U256, Work, SyncState,
-};
-use {Transport};
+use types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, H256, H520, H64, Index, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, U256, Work};
+use Transport;
 
 /// `Eth` namespace
 #[derive(Debug, Clone)]
 pub struct Eth<T> {
-  transport: T,
+    transport: T,
 }
 
 impl<T: Transport> Namespace<T> for Eth<T> {
-  fn new(transport: T) -> Self where Self: Sized {
-    Eth {
-      transport,
+    fn new(transport: T) -> Self
+    where
+        Self: Sized,
+    {
+        Eth { transport }
     }
-  }
 
-  fn transport(&self) -> &T {
-    &self.transport
-  }
+    fn transport(&self) -> &T {
+        &self.transport
+    }
 }
 
 impl<T: Transport> Eth<T> {
-  /// Get list of available accounts.
-  pub fn accounts(&self) -> CallResult<Vec<Address>, T::Out> {
-    CallResult::new(self.transport.execute("eth_accounts", vec![]))
-  }
+    /// Get list of available accounts.
+    pub fn accounts(&self) -> CallResult<Vec<Address>, T::Out> {
+        CallResult::new(self.transport.execute("eth_accounts", vec![]))
+    }
 
-  /// Get current block number
-  pub fn block_number(&self) -> CallResult<U256, T::Out> {
-    CallResult::new(self.transport.execute("eth_blockNumber", vec![]))
-  }
+    /// Get current block number
+    pub fn block_number(&self) -> CallResult<U256, T::Out> {
+        CallResult::new(self.transport.execute("eth_blockNumber", vec![]))
+    }
 
-  /// Call a constant method of contract without changing the state of the blockchain.
-  pub fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
-    let req = helpers::serialize(&req);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Call a constant method of contract without changing the state of the blockchain.
+    pub fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
+        let req = helpers::serialize(&req);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    CallResult::new(self.transport.execute("eth_call", vec![req, block]))
-  }
+        CallResult::new(self.transport.execute("eth_call", vec![req, block]))
+    }
 
-  /// Get coinbase address
-  pub fn coinbase(&self) -> CallResult<Address, T::Out> {
-    CallResult::new(self.transport.execute("eth_coinbase", vec![]))
-  }
+    /// Get coinbase address
+    pub fn coinbase(&self) -> CallResult<Address, T::Out> {
+        CallResult::new(self.transport.execute("eth_coinbase", vec![]))
+    }
 
-  /// Compile LLL
-  pub fn compile_lll(&self, code: String) -> CallResult<Bytes, T::Out> {
-    let code = helpers::serialize(&code);
-    CallResult::new(self.transport.execute("eth_compileLLL", vec![code]))
-  }
+    /// Compile LLL
+    pub fn compile_lll(&self, code: String) -> CallResult<Bytes, T::Out> {
+        let code = helpers::serialize(&code);
+        CallResult::new(self.transport.execute("eth_compileLLL", vec![code]))
+    }
 
-  /// Compile Solidity
-  pub fn compile_solidity(&self, code: String) -> CallResult<Bytes, T::Out> {
-    let code = helpers::serialize(&code);
-    CallResult::new(self.transport.execute("eth_compileSolidity", vec![code]))
-  }
+    /// Compile Solidity
+    pub fn compile_solidity(&self, code: String) -> CallResult<Bytes, T::Out> {
+        let code = helpers::serialize(&code);
+        CallResult::new(self.transport.execute("eth_compileSolidity", vec![code]))
+    }
 
-  /// Compile Serpent
-  pub fn compile_serpent(&self, code: String) -> CallResult<Bytes, T::Out> {
-    let code = helpers::serialize(&code);
-    CallResult::new(self.transport.execute("eth_compileSerpent", vec![code]))
-  }
+    /// Compile Serpent
+    pub fn compile_serpent(&self, code: String) -> CallResult<Bytes, T::Out> {
+        let code = helpers::serialize(&code);
+        CallResult::new(self.transport.execute("eth_compileSerpent", vec![code]))
+    }
 
-  /// Call a contract without changing the state of the blockchain to estimate gas usage.
-  pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
-    let req = helpers::serialize(&req);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Call a contract without changing the state of the blockchain to estimate gas usage.
+    pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+        let req = helpers::serialize(&req);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    CallResult::new(self.transport.execute("eth_estimateGas", vec![req, block]))
-  }
+        CallResult::new(self.transport.execute("eth_estimateGas", vec![req, block]))
+    }
 
-  /// Get current recommended gas price
-  pub fn gas_price(&self) -> CallResult<U256, T::Out> {
-    CallResult::new(self.transport.execute("eth_gasPrice", vec![]))
-  }
+    /// Get current recommended gas price
+    pub fn gas_price(&self) -> CallResult<U256, T::Out> {
+        CallResult::new(self.transport.execute("eth_gasPrice", vec![]))
+    }
 
-  /// Get balance of given address
-  pub fn balance(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
-    let address = helpers::serialize(&address);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Get balance of given address
+    pub fn balance(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+        let address = helpers::serialize(&address);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-    CallResult::new(self.transport.execute("eth_getBalance", vec![address, block]))
-  }
+        CallResult::new(
+            self.transport
+                .execute("eth_getBalance", vec![address, block]),
+        )
+    }
 
-  /// Get block details with transaction hashes.
-  pub fn block(&self, block: BlockId) -> CallResult<Block<H256>, T::Out> {
-    let include_txs = helpers::serialize(&false);
+    /// Get block details with transaction hashes.
+    pub fn block(&self, block: BlockId) -> CallResult<Block<H256>, T::Out> {
+        let include_txs = helpers::serialize(&false);
 
-    let result = match block {
-      BlockId::Hash(hash) => {
+        let result = match block {
+            BlockId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getBlockByHash", vec![hash, include_txs])
+            }
+            BlockId::Number(num) => {
+                let num = helpers::serialize(&num);
+                self.transport
+                    .execute("eth_getBlockByNumber", vec![num, include_txs])
+            }
+        };
+
+        CallResult::new(result)
+    }
+
+    /// Get block details with full transaction objects.
+    pub fn block_with_txs(&self, block: BlockId) -> CallResult<Block<Transaction>, T::Out> {
+        let include_txs = helpers::serialize(&true);
+
+        let result = match block {
+            BlockId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getBlockByHash", vec![hash, include_txs])
+            }
+            BlockId::Number(num) => {
+                let num = helpers::serialize(&num);
+                self.transport
+                    .execute("eth_getBlockByNumber", vec![num, include_txs])
+            }
+        };
+
+        CallResult::new(result)
+    }
+
+    /// Get number of transactions in block
+    pub fn block_transaction_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
+        let result = match block {
+            BlockId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getBlockTransactionCountByHash", vec![hash])
+            }
+            BlockId::Number(num) => {
+                let num = helpers::serialize(&num);
+                self.transport
+                    .execute("eth_getBlockTransactionCountByNumber", vec![num])
+            }
+        };
+
+        CallResult::new(result)
+    }
+
+    /// Get code under given address
+    pub fn code(&self, address: Address, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
+        let address = helpers::serialize(&address);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+        CallResult::new(self.transport.execute("eth_getCode", vec![address, block]))
+    }
+
+    /// Get supported compilers
+    pub fn compilers(&self) -> CallResult<Vec<String>, T::Out> {
+        CallResult::new(self.transport.execute("eth_getCompilers", vec![]))
+    }
+
+    /// Get storage entry
+    pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallResult<H256, T::Out> {
+        let address = helpers::serialize(&address);
+        let idx = helpers::serialize(&idx);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+        CallResult::new(
+            self.transport
+                .execute("eth_getStorageAt", vec![address, idx, block]),
+        )
+    }
+
+    /// Get nonce
+    pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+        let address = helpers::serialize(&address);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+        CallResult::new(
+            self.transport
+                .execute("eth_getTransactionCount", vec![address, block]),
+        )
+    }
+
+    /// Get transaction
+    pub fn transaction(&self, id: TransactionId) -> CallResult<Option<Transaction>, T::Out> {
+        let result = match id {
+            TransactionId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getTransactionByHash", vec![hash])
+            }
+            TransactionId::Block(BlockId::Hash(hash), index) => {
+                let hash = helpers::serialize(&hash);
+                let idx = helpers::serialize(&index);
+                self.transport
+                    .execute("eth_getTransactionByBlockHashAndIndex", vec![hash, idx])
+            }
+            TransactionId::Block(BlockId::Number(number), index) => {
+                let number = helpers::serialize(&number);
+                let idx = helpers::serialize(&index);
+                self.transport
+                    .execute("eth_getTransactionByBlockNumberAndIndex", vec![number, idx])
+            }
+        };
+
+        CallResult::new(result)
+    }
+
+    /// Get transaction receipt
+    pub fn transaction_receipt(&self, hash: H256) -> CallResult<Option<TransactionReceipt>, T::Out> {
         let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getBlockByHash", vec![hash, include_txs])
-      },
-      BlockId::Number(num) => {
-        let num = helpers::serialize(&num);
-        self.transport.execute("eth_getBlockByNumber", vec![num, include_txs])
-      },
-    };
 
-    CallResult::new(result)
-  }
+        CallResult::new(
+            self.transport
+                .execute("eth_getTransactionReceipt", vec![hash]),
+        )
+    }
 
-  /// Get block details with full transaction objects.
-  pub fn block_with_txs(&self, block: BlockId) -> CallResult<Block<Transaction>, T::Out> {
-    let include_txs = helpers::serialize(&true);
+    /// Get uncle by block ID and uncle index -- transactions only has hashes.
+    pub fn uncle(&self, block: BlockId, index: Index) -> CallResult<Option<Block<H256>>, T::Out> {
+        let index = helpers::serialize(&index);
 
-    let result = match block {
-      BlockId::Hash(hash) => {
-        let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getBlockByHash", vec![hash, include_txs])
-      },
-      BlockId::Number(num) => {
-        let num = helpers::serialize(&num);
-        self.transport.execute("eth_getBlockByNumber", vec![num, include_txs])
-      },
-    };
+        let result = match block {
+            BlockId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getUncleByBlockHashAndIndex", vec![hash, index])
+            }
+            BlockId::Number(num) => {
+                let num = helpers::serialize(&num);
+                self.transport
+                    .execute("eth_getUncleByBlockNumberAndIndex", vec![num, index])
+            }
+        };
 
-    CallResult::new(result)
-  }
+        CallResult::new(result)
+    }
 
+    /// Get uncle count in block
+    pub fn uncle_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
+        let result = match block {
+            BlockId::Hash(hash) => {
+                let hash = helpers::serialize(&hash);
+                self.transport
+                    .execute("eth_getUncleCountByBlockHash", vec![hash])
+            }
+            BlockId::Number(num) => {
+                let num = helpers::serialize(&num);
+                self.transport
+                    .execute("eth_getUncleCountByBlockNumber", vec![num])
+            }
+        };
 
-  /// Get number of transactions in block
-  pub fn block_transaction_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
-    let result = match block {
-      BlockId::Hash(hash) => {
-        let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getBlockTransactionCountByHash", vec![hash])
-      },
-      BlockId::Number(num) => {
-        let num = helpers::serialize(&num);
-        self.transport.execute("eth_getBlockTransactionCountByNumber", vec![num])
-      },
-    };
+        CallResult::new(result)
+    }
 
-    CallResult::new(result)
-  }
+    /// Get work package
+    pub fn work(&self) -> CallResult<Work, T::Out> {
+        CallResult::new(self.transport.execute("eth_getWork", vec![]))
+    }
 
-  /// Get code under given address
-  pub fn code(&self, address: Address, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
-    let address = helpers::serialize(&address);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Get hash rate
+    pub fn hashrate(&self) -> CallResult<U256, T::Out> {
+        CallResult::new(self.transport.execute("eth_hashrate", vec![]))
+    }
 
-    CallResult::new(self.transport.execute("eth_getCode", vec![address, block]))
-  }
+    /// Get mining status
+    pub fn mining(&self) -> CallResult<bool, T::Out> {
+        CallResult::new(self.transport.execute("eth_mining", vec![]))
+    }
 
-  /// Get supported compilers
-  pub fn compilers(&self) -> CallResult<Vec<String>, T::Out> {
-    CallResult::new(self.transport.execute("eth_getCompilers", vec![]))
-  }
+    /// Start new block filter
+    pub fn new_block_filter(&self) -> CallResult<U256, T::Out> {
+        CallResult::new(self.transport.execute("eth_newBlockFilter", vec![]))
+    }
 
-  /// Get storage entry
-  pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallResult<H256, T::Out> {
-    let address = helpers::serialize(&address);
-    let idx = helpers::serialize(&idx);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Start new pending transaction filter
+    pub fn new_pending_transaction_filter(&self) -> CallResult<U256, T::Out> {
+        CallResult::new(
+            self.transport
+                .execute("eth_newPendingTransactionFilter", vec![]),
+        )
+    }
 
-    CallResult::new(self.transport.execute("eth_getStorageAt", vec![address, idx, block]))
-  }
+    /// Start new pending transaction filter
+    pub fn protocol_version(&self) -> CallResult<String, T::Out> {
+        CallResult::new(self.transport.execute("eth_protocolVersion", vec![]))
+    }
 
-  /// Get nonce
-  pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
-    let address = helpers::serialize(&address);
-    let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    /// Sends a rlp-encoded signed transaction
+    pub fn send_raw_transaction(&self, rlp: Bytes) -> CallResult<H256, T::Out> {
+        let rlp = helpers::serialize(&rlp);
+        CallResult::new(self.transport.execute("eth_sendRawTransaction", vec![rlp]))
+    }
 
-    CallResult::new(self.transport.execute("eth_getTransactionCount", vec![address, block]))
-  }
+    /// Sends a transaction transaction
+    pub fn send_transaction(&self, tx: TransactionRequest) -> CallResult<H256, T::Out> {
+        let tx = helpers::serialize(&tx);
+        CallResult::new(self.transport.execute("eth_sendTransaction", vec![tx]))
+    }
 
-  /// Get transaction
-  pub fn transaction(&self, id: TransactionId) -> CallResult<Option<Transaction>, T::Out> {
-    let result = match id {
-      TransactionId::Hash(hash) => {
-        let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getTransactionByHash", vec![hash])
-      },
-      TransactionId::Block(BlockId::Hash(hash), index) => {
-        let hash = helpers::serialize(&hash);
-        let idx = helpers::serialize(&index);
-        self.transport.execute("eth_getTransactionByBlockHashAndIndex", vec![hash, idx])
-      },
-      TransactionId::Block(BlockId::Number(number), index) => {
-        let number = helpers::serialize(&number);
-        let idx = helpers::serialize(&index);
-        self.transport.execute("eth_getTransactionByBlockNumberAndIndex", vec![number, idx])
-      },
-    };
+    /// Signs a hash of given data
+    pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H520, T::Out> {
+        let address = helpers::serialize(&address);
+        let data = helpers::serialize(&data);
+        CallResult::new(self.transport.execute("eth_sign", vec![address, data]))
+    }
 
-    CallResult::new(result)
-  }
+    /// Submit hashrate of external miner
+    pub fn submit_hashrate(&self, rate: U256, id: H256) -> CallResult<bool, T::Out> {
+        let rate = helpers::serialize(&rate);
+        let id = helpers::serialize(&id);
+        CallResult::new(self.transport.execute("eth_submitHashrate", vec![rate, id]))
+    }
 
-  /// Get transaction receipt
-  pub fn transaction_receipt(&self, hash: H256) -> CallResult<Option<TransactionReceipt>, T::Out> {
-    let hash = helpers::serialize(&hash);
+    /// Submit work of external miner
+    pub fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> CallResult<bool, T::Out> {
+        let nonce = helpers::serialize(&nonce);
+        let pow_hash = helpers::serialize(&pow_hash);
+        let mix_hash = helpers::serialize(&mix_hash);
+        CallResult::new(
+            self.transport
+                .execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]),
+        )
+    }
 
-    CallResult::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
-  }
-
-  /// Get uncle by block ID and uncle index -- transactions only has hashes.
-  pub fn uncle(&self, block: BlockId, index: Index) -> CallResult<Option<Block<H256>>, T::Out> {
-    let index = helpers::serialize(&index);
-
-    let result = match block {
-      BlockId::Hash(hash) => {
-        let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getUncleByBlockHashAndIndex", vec![hash, index])
-      },
-      BlockId::Number(num) => {
-        let num = helpers::serialize(&num);
-        self.transport.execute("eth_getUncleByBlockNumberAndIndex", vec![num, index])
-      },
-    };
-
-    CallResult::new(result)
-  }
-
-  /// Get uncle count in block
-  pub fn uncle_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
-    let result = match block {
-      BlockId::Hash(hash) => {
-        let hash = helpers::serialize(&hash);
-        self.transport.execute("eth_getUncleCountByBlockHash", vec![hash])
-      },
-      BlockId::Number(num) => {
-        let num = helpers::serialize(&num);
-        self.transport.execute("eth_getUncleCountByBlockNumber", vec![num])
-      },
-    };
-
-    CallResult::new(result)
-  }
-
-  /// Get work package
-  pub fn work(&self) -> CallResult<Work, T::Out> {
-    CallResult::new(self.transport.execute("eth_getWork", vec![]))
-  }
-
-  /// Get hash rate
-  pub fn hashrate(&self) -> CallResult<U256, T::Out> {
-    CallResult::new(self.transport.execute("eth_hashrate", vec![]))
-  }
-
-  /// Get mining status
-  pub fn mining(&self) -> CallResult<bool, T::Out> {
-    CallResult::new(self.transport.execute("eth_mining", vec![]))
-  }
-
-  /// Start new block filter
-  pub fn new_block_filter(&self) -> CallResult<U256, T::Out> {
-    CallResult::new(self.transport.execute("eth_newBlockFilter", vec![]))
-  }
-
-  /// Start new pending transaction filter
-  pub fn new_pending_transaction_filter(&self) -> CallResult<U256, T::Out> {
-    CallResult::new(self.transport.execute("eth_newPendingTransactionFilter", vec![]))
-  }
-
-  /// Start new pending transaction filter
-  pub fn protocol_version(&self) -> CallResult<String, T::Out> {
-    CallResult::new(self.transport.execute("eth_protocolVersion", vec![]))
-  }
-
-  /// Sends a rlp-encoded signed transaction
-  pub fn send_raw_transaction(&self, rlp: Bytes) -> CallResult<H256, T::Out> {
-    let rlp = helpers::serialize(&rlp);
-    CallResult::new(self.transport.execute("eth_sendRawTransaction", vec![rlp]))
-  }
-
-  /// Sends a transaction transaction
-  pub fn send_transaction(&self, tx: TransactionRequest) -> CallResult<H256, T::Out> {
-    let tx = helpers::serialize(&tx);
-    CallResult::new(self.transport.execute("eth_sendTransaction", vec![tx]))
-  }
-
-  /// Signs a hash of given data
-  pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H520, T::Out> {
-    let address = helpers::serialize(&address);
-    let data = helpers::serialize(&data);
-    CallResult::new(self.transport.execute("eth_sign", vec![address, data]))
-  }
-
-  /// Submit hashrate of external miner
-  pub fn submit_hashrate(&self, rate: U256, id: H256) -> CallResult<bool, T::Out> {
-    let rate = helpers::serialize(&rate);
-    let id = helpers::serialize(&id);
-    CallResult::new(self.transport.execute("eth_submitHashrate", vec![rate, id]))
-  }
-
-  /// Submit work of external miner
-  pub fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> CallResult<bool, T::Out> {
-    let nonce = helpers::serialize(&nonce);
-    let pow_hash = helpers::serialize(&pow_hash);
-    let mix_hash = helpers::serialize(&mix_hash);
-    CallResult::new(self.transport.execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]))
-  }
-
-  /// Get syncing status
-  pub fn syncing(&self) -> CallResult<SyncState, T::Out> {
-    CallResult::new(self.transport.execute("eth_syncing", vec![]))
-  }
+    /// Get syncing status
+    pub fn syncing(&self) -> CallResult<SyncState, T::Out> {
+        CallResult::new(self.transport.execute("eth_syncing", vec![]))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-  use futures::Future;
+    use futures::Future;
 
-  use api::Namespace;
-  use types::{
-    Block, BlockId, BlockNumber, Bytes,
-    CallRequest, H256, Transaction, TransactionId,
-    TransactionReceipt, TransactionRequest,
-    Work, SyncState, SyncInfo,
-  };
-  use rpc::Value;
+    use api::Namespace;
+    use types::{Block, BlockId, BlockNumber, Bytes, CallRequest, H256, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work};
+    use rpc::Value;
 
-  use super::Eth;
+    use super::Eth;
 
-  // taken from RPC docs.
-  const EXAMPLE_BLOCK: &'static str = r#"{
+    // taken from RPC docs.
+    const EXAMPLE_BLOCK: &'static str = r#"{
     "number": "0x1b4",
     "hash": "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
     "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
@@ -349,8 +370,8 @@ mod tests {
     "uncles": []
   }"#;
 
-  // taken from RPC docs.
-  const EXAMPLE_TX: &'static str = r#"{
+    // taken from RPC docs.
+    const EXAMPLE_TX: &'static str = r#"{
     "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
     "nonce": "0x0",
     "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
@@ -364,8 +385,8 @@ mod tests {
     "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
   }"#;
 
-  // taken from RPC docs.
-  const EXAMPLE_RECEIPT: &'static str = r#"{
+    // taken from RPC docs.
+    const EXAMPLE_RECEIPT: &'static str = r#"{
     "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
     "index": "0x1",
     "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
@@ -378,17 +399,17 @@ mod tests {
     "logs": []
   }"#;
 
-  rpc_test! (
+    rpc_test! (
     Eth:accounts => "eth_accounts";
     Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![0x123.into()]
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block_number => "eth_blockNumber";
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:call, CallRequest {
       from: None, to: 0x123.into(),
       gas: None, gas_price: None,
@@ -399,27 +420,27 @@ mod tests {
     Value::String("0x010203".into()) => Bytes(vec![1, 2, 3])
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:coinbase => "eth_coinbase";
     Value::String("0x0000000000000000000000000000000000000123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:compile_lll, "code" => "eth_compileLLL", vec![r#""code""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:compile_solidity, "code" => "eth_compileSolidity", vec![r#""code""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:compile_serpent, "code" => "eth_compileSerpent", vec![r#""code""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:estimate_gas, CallRequest {
       from: None, to: 0x123.into(),
       gas: None, gas_price: None,
@@ -430,19 +451,19 @@ mod tests {
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:gas_price => "eth_gasPrice";
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:balance, 0x123, None
     =>
     "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block:block_by_hash, BlockId::Hash(0x123.into())
     =>
     "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"false"#];
@@ -450,7 +471,7 @@ mod tests {
     => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block, BlockNumber::Pending
     =>
     "eth_getBlockByNumber", vec![r#""pending""#, r#"false"#];
@@ -458,7 +479,7 @@ mod tests {
     => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block_with_txs, BlockNumber::Pending
     =>
     "eth_getBlockByNumber", vec![r#""pending""#, r#"true"#];
@@ -466,33 +487,33 @@ mod tests {
     => ::serde_json::from_str::<Block<Transaction>>(EXAMPLE_BLOCK).unwrap()
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(0x123.into())
     =>
     "eth_getBlockTransactionCountByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into()) => Some(0x123.into())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:block_transaction_count, BlockNumber::Pending
     =>
     "eth_getBlockTransactionCountByNumber", vec![r#""pending""#];
     Value::Null => None
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:code, 0x123, Some(BlockNumber::Pending)
     =>
     "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:compilers => "eth_getCompilers";
     Value::Array(vec![]) => vec![]
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:storage, 0x123, 0x456, None
     =>
     "eth_getStorageAt", vec![
@@ -503,14 +524,14 @@ mod tests {
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:transaction_count, 0x123, None
     =>
     "eth_getTransactionCount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:transaction:tx_by_hash, TransactionId::Hash(0x123.into())
     =>
     "eth_getTransactionByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
@@ -518,7 +539,7 @@ mod tests {
     => Some(::serde_json::from_str::<Transaction>(EXAMPLE_TX).unwrap())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
       BlockId::Hash(0x123.into()),
       5.into()
@@ -528,7 +549,7 @@ mod tests {
     Value::Null => None
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:transaction:tx_by_block_no_and_index, TransactionId::Block(
       BlockNumber::Pending.into(),
       5.into()
@@ -539,7 +560,7 @@ mod tests {
     => Some(::serde_json::from_str::<Transaction>(EXAMPLE_TX).unwrap())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:transaction_receipt, 0x123
     =>
     "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
@@ -547,7 +568,7 @@ mod tests {
     => Some(::serde_json::from_str::<TransactionReceipt>(EXAMPLE_RECEIPT).unwrap())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), 5
     =>
     "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
@@ -555,28 +576,28 @@ mod tests {
     => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:uncle:uncle_by_no, BlockNumber::Earliest, 5
     =>
     "eth_getUncleByBlockNumberAndIndex", vec![r#""earliest""#, r#""0x5""#];
     Value::Null => None
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(0x123.into())
     =>
     "eth_getUncleCountByBlockHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into())=> Some(0x123.into())
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:uncle_count:uncle_count_by_no, BlockNumber::Earliest
     =>
     "eth_getUncleCountByBlockNumber", vec![r#""earliest""#];
     Value::Null => None
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:work:work_3 => "eth_getWork";
     Value::Array(vec![
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
@@ -590,7 +611,7 @@ mod tests {
     }
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:work:work_4 => "eth_getWork";
     Value::Array(vec![
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
@@ -605,38 +626,38 @@ mod tests {
     }
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:hashrate => "eth_hashrate";
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:mining => "eth_mining";
     Value::Bool(true) => true
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:new_block_filter => "eth_newBlockFilter";
     Value::String("0x123".into()) => 0x123
   );
-  rpc_test! (
+    rpc_test! (
     Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter";
     Value::String("0x123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:protocol_version => "eth_protocolVersion";
     Value::String("0x123".into()) => "0x123"
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sendRawTransaction", vec![r#""0x01020304""#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:send_transaction, TransactionRequest {
       from: 0x123.into(), to: Some(0x123.into()),
       gas: None, gas_price: Some(0x1.into()),
@@ -648,34 +669,34 @@ mod tests {
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:submit_hashrate, 0x123, 0x456
     =>
     "eth_submitHashrate", vec![r#""0x123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#];
     Value::Bool(true) => true
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:submit_work, 0x123, 0x456, 0x789
     =>
     "eth_submitWork", vec![r#""0x0000000000000123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#, r#""0x0000000000000000000000000000000000000000000000000000000000000789""#];
     Value::Bool(true) => true
   );
 
-  rpc_test! (
+    rpc_test! (
     Eth:syncing:syncing => "eth_syncing";
     json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
   );
 
-  rpc_test! {
-    Eth:syncing:not_syncing => "eth_syncing";
-    Value::Bool(false) => SyncState::NotSyncing
-  }
+    rpc_test! {
+      Eth:syncing:not_syncing => "eth_syncing";
+      Value::Bool(false) => SyncState::NotSyncing
+    }
 }
