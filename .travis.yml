@@ -13,7 +13,12 @@ matrix:
   - rust: beta
   - rust: nightly
 
+before_script:
+  - rustup toolchain install stable
+  - rustup component add rustfmt-preview --toolchain=stable
+
 script:
+  - cargo +stable fmt --all -- --write-mode=diff
   - cargo build
   - cargo test
 

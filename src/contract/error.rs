@@ -21,18 +21,18 @@ error_chain! {
 
 /// Contract deployment error.
 pub mod deploy {
-  use types::H256;
+    use types::H256;
 
-  error_chain! {
-    links {
-      Api(::Error, ::ErrorKind);
-    }
+    error_chain! {
+      links {
+        Api(::Error, ::ErrorKind);
+      }
 
-    errors {
-      ContractDeploymentFailure(hash: H256) {
-        description("Contract deployment failed")
-        display("Failure during deployment. Tx hash: {:?}", hash),
+      errors {
+        ContractDeploymentFailure(hash: H256) {
+          description("Contract deployment failed")
+          display("Failure during deployment. Tx hash: {:?}", hash),
+        }
       }
     }
-  }
 }
