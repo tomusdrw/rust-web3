@@ -5,10 +5,9 @@ use std::marker::PhantomData;
 use api::Namespace;
 use futures::{Async, Future, Poll, Stream};
 use helpers::{self, CallResult};
-use rpc;
 use serde;
 use serde_json;
-use types::{BlockHeader, Filter, H256, Log};
+use types::{BlockHeader, Filter, H256, Log, SyncState};
 use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
@@ -165,7 +164,7 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     }
 
     /// Create a sync status subscription
-    pub fn subscribe_syncing(&self) -> SubscriptionResult<T, rpc::Value> {
+    pub fn subscribe_syncing(&self) -> SubscriptionResult<T, SyncState> {
         let subscription = helpers::serialize(&&"syncing");
         let id_future = CallResult::new(self.transport.execute("eth_subscribe", vec![subscription]));
         SubscriptionResult::new(self.transport().clone(), id_future)
