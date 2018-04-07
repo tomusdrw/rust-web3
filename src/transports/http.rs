@@ -153,7 +153,8 @@ impl Http {
         }
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut().set(hyper::header::Authorization(basic_auth.clone()));
+            req.headers_mut()
+                .set(hyper::header::Authorization(basic_auth.clone()));
         }
         req.set_body(request);
 
