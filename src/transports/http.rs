@@ -1,6 +1,7 @@
 //! HTTP Transport
 
 extern crate hyper;
+extern crate url;
 
 #[cfg(feature = "tls")]
 extern crate hyper_tls;
@@ -19,6 +20,7 @@ use serde_json;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
+use self::url::Url;
 use {BatchTransport, Error, ErrorKind, RequestId, Transport};
 
 impl From<hyper::Error> for Error {
@@ -53,6 +55,7 @@ pub type FetchTask<F> = Response<F, hyper::Chunk>;
 pub struct Http {
     id: Arc<AtomicUsize>,
     url: hyper::Uri,
+    basic_auth: Option<hyper::header::Basic>,
     write_sender: mpsc::UnboundedSender<(hyper::client::Request, Pending)>,
 }
 
@@ -109,9 +112,24 @@ impl Http {
                 }),
         );
 
+        let basic_auth = {
+            let url = Url::parse(url)?;
+            let user = url.username();
+
+            if user.len() > 0 {
+                Some(hyper::header::Basic {
+                    username: user.into(),
+                    password: url.password().map(Into::into),
+                })
+            } else {
+                None
+            }
+        };
+
         Ok(Http {
             id: Default::default(),
             url: url.parse()?,
+            basic_auth,
             write_sender,
         })
     }
@@ -132,6 +150,11 @@ impl Http {
         if len < MAX_SINGLE_CHUNK {
             req.headers_mut()
                 .set(hyper::header::ContentLength(len as u64));
+        }
+        // Send basic auth header
+        if let Some(ref basic_auth) = self.basic_auth {
+            req.headers_mut()
+                .set(hyper::header::Authorization(basic_auth.clone()));
         }
         req.set_body(request);
 
