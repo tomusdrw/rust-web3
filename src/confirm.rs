@@ -257,17 +257,22 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
                     let hash = try_ready!(future.poll());
-                    let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
-                    let eth = Eth::new(self.transport.clone());
-                    let eth_filter = EthFilter::new(self.transport.clone());
-                    let wait = wait_for_confirmations(
-                        eth,
-                        eth_filter,
-                        self.poll_interval,
-                        self.confirmations,
-                        confirmation_check,
-                    );
-                    SendTransactionWithConfirmationState::WaitForConfirmations(hash, wait)
+                    if self.confirmations > 0 {
+                        let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
+                        let eth = Eth::new(self.transport.clone());
+                        let eth_filter = EthFilter::new(self.transport.clone());
+                        let wait = wait_for_confirmations(
+                            eth,
+                            eth_filter,
+                            self.poll_interval,
+                            self.confirmations,
+                            confirmation_check,
+                        );
+                        SendTransactionWithConfirmationState::WaitForConfirmations(hash, wait)
+                    } else {
+                        let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
+                        SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
+                    }
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
                     let _confirmed = try_ready!(Future::poll(future));
