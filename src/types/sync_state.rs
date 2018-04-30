@@ -1,4 +1,4 @@
-use serde::de::{Deserialize, DeserializeOwned, Deserializer, Error};
+use serde::de::{Deserialize, Deserializer, Error};
 use serde::ser::{Serialize, Serializer};
 use types::U256;
 
@@ -26,44 +26,41 @@ pub enum SyncState {
     NotSyncing,
 }
 
-// `eth_subscribe(syncing)` returns a SyncInfo object with a different format
-fn deserialize_subscription<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-where
-    T: DeserializeOwned,
-    D: Deserializer<'de>,
-{
-    use serde_json::Value;
-    use std::collections::BTreeMap;
+// Sync info from subscription has a different key format
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SubscriptionSyncInfo {
+    /// The block at which import began.
+    pub starting_block: U256,
 
-    let map = BTreeMap::<String, Value>::deserialize(deserializer)?;
-    let renamed = map.into_iter()
-        .map(|(k, v)| {
-            let mut cs = k.chars();
-            let nk = match cs.next() {
-                None => String::new(),
-                Some(c) => c.to_lowercase().collect::<String>() + cs.as_str(),
-            };
-            let nv = Value::String(format!("0x{:x}", v.as_u64().unwrap_or(0u64)));
+    /// The highest currently synced block.
+    pub current_block: U256,
 
-            (nk, nv)
-        })
-        .collect();
-    T::deserialize(Value::Object(renamed)).map_err(Error::custom)
+    /// The estimated highest block.
+    pub highest_block: U256,
+}
+
+impl From<SubscriptionSyncInfo> for SyncInfo {
+    fn from(s: SubscriptionSyncInfo) -> Self {
+        Self {
+            starting_block: s.starting_block,
+            current_block: s.current_block,
+            highest_block: s.highest_block,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct SubscriptionSyncInfo {
+struct SubscriptionSyncState {
     pub syncing: bool,
-
-    #[serde(deserialize_with = "deserialize_subscription")]
-    pub status: Option<SyncInfo>,
+    pub status: Option<SubscriptionSyncInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum SyncStateVariants {
-    Subscription(SubscriptionSyncInfo),
     Rpc(SyncInfo),
+    Subscription(SubscriptionSyncState),
     Boolean(bool),
 }
 
@@ -77,18 +74,16 @@ impl<'de> Deserialize<'de> for SyncState {
     {
         let v: SyncStateVariants = Deserialize::deserialize(deserializer)?;
         match v {
-            SyncStateVariants::Subscription(info) => {
-                if !info.syncing {
-                    Ok(SyncState::NotSyncing)
-                } else if let Some(status) = info.status {
-                    Ok(SyncState::Syncing(status))
-                } else {
-                    Err(D::Error::custom("syncing is `true` but no status reported"))
-                }
-            }
             SyncStateVariants::Rpc(info) => Ok(SyncState::Syncing(info)),
-            SyncStateVariants::Boolean(boolian) => {
-                if !boolian {
+            SyncStateVariants::Subscription(state) => match state.status {
+                None if !state.syncing => Ok(SyncState::NotSyncing),
+                Some(ref info) if state.syncing => Ok(SyncState::Syncing(info.clone().into())),
+                _ => Err(D::Error::custom(
+                    "expected object or `syncing = false`, got `syncing = true`",
+                )),
+            },
+            SyncStateVariants::Boolean(boolean) => {
+                if !boolean {
                     Ok(SyncState::NotSyncing)
                 } else {
                     Err(D::Error::custom("expected object or `false`, got `true`"))
@@ -107,5 +102,112 @@ impl Serialize for SyncState {
             SyncState::Syncing(ref info) => info.serialize(serializer),
             SyncState::NotSyncing => false.serialize(serializer),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SyncInfo, SyncState};
+
+    use serde_json;
+
+    #[test]
+    fn should_deserialize_rpc_sync_info() {
+        let sync_state = r#"{
+          "currentBlock": "0x42",
+          "highestBlock": "0x9001",
+          "knownStates": "0x1337",
+          "pulledStates": "0x13",
+          "startingBlock": "0x0"
+        }"#;
+
+        let value: SyncState = serde_json::from_str(sync_state).unwrap();
+
+        assert_eq!(
+            value,
+            SyncState::Syncing(SyncInfo {
+                starting_block: 0x0.into(),
+                current_block: 0x42.into(),
+                highest_block: 0x9001.into(),
+            })
+        );
+    }
+
+    #[test]
+    fn should_deserialize_subscription_sync_info() {
+        let sync_state = r#"{
+          "syncing": true,
+          "status": {
+            "CurrentBlock": "0x42",
+            "HighestBlock": "0x9001",
+            "KnownStates": "0x1337",
+            "PulledStates": "0x13",
+            "StartingBlock": "0x0"
+          }
+        }"#;
+
+        let value: SyncState = serde_json::from_str(sync_state).unwrap();
+
+        assert_eq!(
+            value,
+            SyncState::Syncing(SyncInfo {
+                starting_block: 0x0.into(),
+                current_block: 0x42.into(),
+                highest_block: 0x9001.into(),
+            })
+        );
+    }
+
+    #[test]
+    fn should_deserialize_boolean_not_syncing() {
+        let sync_state = r#"false"#;
+        let value: SyncState = serde_json::from_str(sync_state).unwrap();
+
+        assert_eq!(value, SyncState::NotSyncing);
+    }
+
+    #[test]
+    fn should_deserialize_subscription_not_syncing() {
+        let sync_state = r#"{
+          "syncing": false
+        }"#;
+
+        let value: SyncState = serde_json::from_str(sync_state).unwrap();
+
+        assert_eq!(value, SyncState::NotSyncing);
+    }
+
+    #[test]
+    fn should_not_deserialize_invalid_boolean_syncing() {
+        let sync_state = r#"true"#;
+        let res: Result<SyncState, _> = serde_json::from_str(sync_state);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn should_not_deserialize_invalid_subscription_syncing() {
+        let sync_state = r#"{
+          "syncing": true
+        }"#;
+
+        let res: Result<SyncState, _> = serde_json::from_str(sync_state);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn should_not_deserialize_invalid_subscription_not_syncing() {
+        let sync_state = r#"{
+          "syncing": false,
+          "status": {
+            "CurrentBlock": "0x42",
+            "HighestBlock": "0x9001",
+            "KnownStates": "0x1337",
+            "PulledStates": "0x13",
+            "StartingBlock": "0x0"
+          }
+        }"#;
+
+        let res: Result<SyncState, _> = serde_json::from_str(sync_state);
+        assert!(res.is_err());
     }
 }
