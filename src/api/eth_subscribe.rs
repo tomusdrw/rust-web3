@@ -8,7 +8,7 @@ use helpers::{self, CallResult};
 use rpc;
 use serde;
 use serde_json;
-use types::{Address, BlockHeader, H256, Log};
+use types::{BlockHeader, Filter, H256, Log};
 use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
@@ -147,32 +147,12 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     }
 
     /// Create a logs subscription
-    pub fn subscribe_logs(&self, addresses: Option<Vec<Address>>, topics: Option<Vec<H256>>) -> SubscriptionResult<T, Log> {
-        #[derive(Serialize)]
-        #[serde(untagged)]
-        enum AddressVariants {
-            None,
-            Address(Address),
-            Addresses(Vec<Address>),
-        }
-
-        #[derive(Serialize)]
-        struct SubscribeLogParameters {
-            address: AddressVariants,
-            topics: Option<Vec<H256>>,
-        }
-
+    pub fn subscribe_logs(&self, filter: Filter) -> SubscriptionResult<T, Log> {
         let subscription = helpers::serialize(&&"logs");
-        let address = match addresses {
-            None => AddressVariants::None,
-            Some(ref v) if v.is_empty() => AddressVariants::None,
-            Some(ref v) if v.len() == 1 => AddressVariants::Address(v[0]),
-            Some(ref v) => AddressVariants::Addresses(v.clone()),
-        };
-        let params = helpers::serialize(&SubscribeLogParameters { address, topics });
+        let filter = helpers::serialize(&filter);
         let id_future = CallResult::new(
             self.transport
-                .execute("eth_subscribe", vec![subscription, params]),
+                .execute("eth_subscribe", vec![subscription, filter]),
         );
         SubscriptionResult::new(self.transport().clone(), id_future)
     }

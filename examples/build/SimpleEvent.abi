@@ -1,0 +1,1 @@
+[{"constant":false,"inputs":[],"name":"hello","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"Hello","type":"event"}]

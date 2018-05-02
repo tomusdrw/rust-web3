@@ -276,12 +276,7 @@ mod tests {
         };
 
         // then
-        transport.assert_request(
-            "eth_newFilter",
-            &[
-                r#"{"address":null,"fromBlock":null,"limit":10,"toBlock":null,"topics":null}"#.into(),
-            ],
-        );
+        transport.assert_request("eth_newFilter", &[r#"{"limit":10}"#.into()]);
         transport.assert_no_more_requests();
     }
 
@@ -322,7 +317,7 @@ mod tests {
         transport.assert_request(
             "eth_newFilter",
             &[
-                r#"{"address":null,"fromBlock":null,"limit":null,"toBlock":null,"topics":[null,["0x0000000000000000000000000000000000000000000000000000000000000002"],null,null]}"#.into(),
+                r#"{"topics":[null,"0x0000000000000000000000000000000000000000000000000000000000000002"]}"#.into(),
             ],
         );
         transport.assert_request("eth_getFilterLogs", &[r#""0x123""#.into()]);
@@ -364,7 +359,7 @@ mod tests {
         transport.assert_request(
             "eth_newFilter",
             &[
-                r#"{"address":["0x0000000000000000000000000000000000000002"],"fromBlock":null,"limit":null,"toBlock":null,"topics":null}"#.into(),
+                r#"{"address":"0x0000000000000000000000000000000000000002"}"#.into(),
             ],
         );
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
