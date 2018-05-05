@@ -1,3 +1,4 @@
+use serde::{Serialize, Serializer};
 use types::{BlockNumber, Bytes, H160, H256, U256};
 
 /// A log produced by a transaction.
@@ -53,20 +54,42 @@ impl Log {
     }
 }
 
+#[derive(Default, Debug, PartialEq, Clone)]
+struct ValueOrArray<T>(Vec<T>);
+
+impl<T> Serialize for ValueOrArray<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0.len() {
+            0 => serializer.serialize_none(),
+            1 => Serialize::serialize(&self.0[0], serializer),
+            _ => Serialize::serialize(&self.0, serializer),
+        }
+    }
+}
+
 /// Filter
 #[derive(Default, Debug, PartialEq, Clone, Serialize)]
 pub struct Filter {
     /// From Block
-    #[serde(rename = "fromBlock")]
+    #[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
     from_block: Option<BlockNumber>,
     /// To Block
-    #[serde(rename = "toBlock")]
+    #[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
     to_block: Option<BlockNumber>,
     /// Address
-    address: Option<Vec<H160>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    address: Option<ValueOrArray<H160>>,
     /// Topics
-    topics: Option<Vec<Option<Vec<H256>>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    topics: Option<Vec<Option<ValueOrArray<H256>>>>,
     /// Limit
+    #[serde(skip_serializing_if = "Option::is_none")]
     limit: Option<usize>,
 }
 
@@ -91,13 +114,21 @@ impl FilterBuilder {
 
     /// Single address
     pub fn address(mut self, address: Vec<H160>) -> Self {
-        self.filter.address = Some(address);
+        self.filter.address = Some(ValueOrArray(address));
         self
     }
 
     /// Topics
     pub fn topics(mut self, topic1: Option<Vec<H256>>, topic2: Option<Vec<H256>>, topic3: Option<Vec<H256>>, topic4: Option<Vec<H256>>) -> Self {
-        self.filter.topics = Some(vec![topic1, topic2, topic3, topic4]);
+        let mut topics = vec![topic1, topic2, topic3, topic4]
+            .into_iter()
+            .rev()
+            .skip_while(Option::is_none)
+            .map(|option| option.map(ValueOrArray))
+            .collect::<Vec<_>>();
+        topics.reverse();
+
+        self.filter.topics = Some(topics);
         self
     }
 
