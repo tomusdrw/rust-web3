@@ -33,9 +33,7 @@ impl EventLoopHandle {
                 Ok((http, event_loop))
             };
 
-            let send = move |result| {
-                tx.send(result).expect("Receiving end is always waiting.");
-            };
+            let send = move |result| { tx.send(result).expect("Receiving end is always waiting."); };
 
             let res = run();
             match res {
@@ -50,18 +48,17 @@ impl EventLoopHandle {
             }
         });
 
-        rx.recv()
-            .expect("Thread is always spawned.")
-            .map(|(http, remote)| {
-                (
-                    EventLoopHandle {
-                        thread: Some(eloop),
-                        remote,
-                        done,
-                    },
-                    http,
-                )
-            })
+        rx.recv().expect("Thread is always spawned.").map(|(http,
+          remote)| {
+            (
+                EventLoopHandle {
+                    thread: Some(eloop),
+                    remote,
+                    done,
+                },
+                http,
+            )
+        })
     }
 
     /// Returns event loop remote.
@@ -75,7 +72,9 @@ impl Drop for EventLoopHandle {
         self.done.store(true, atomic::Ordering::Relaxed);
         self.thread
             .take()
-            .expect("We never touch thread except for drop; drop happens only once; qed")
+            .expect(
+                "We never touch thread except for drop; drop happens only once; qed",
+            )
             .join()
             .expect("Thread should shut down cleanly.");
     }
@@ -127,10 +126,9 @@ where
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
                     trace!("[{}] Checking response.", self.id);
-                    let result = try_ready!(
-                        rx.poll()
-                            .map_err(|_| Error::from(ErrorKind::Io(::std::io::ErrorKind::TimedOut.into())))
-                    );
+                    let result = try_ready!(rx.poll().map_err(|_| {
+                        Error::from(ErrorKind::Io(::std::io::ErrorKind::TimedOut.into()))
+                    }));
                     trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Async::Ready);
                 }

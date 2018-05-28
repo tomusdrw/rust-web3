@@ -1,1 +1,3 @@
-max_width = 600
+max_width = 1000
+indent_style = "Visual"
+combine_control_expr = false

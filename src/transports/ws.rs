@@ -52,7 +52,9 @@ impl WebSocket {
     /// NOTE: Dropping event loop handle will stop the transport layer!
     pub fn new(url: &str) -> Result<(EventLoopHandle, Self)> {
         let url = url.to_owned();
-        EventLoopHandle::spawn(move |handle| Self::with_event_loop(&url, &handle).map_err(Into::into))
+        EventLoopHandle::spawn(move |handle| {
+            Self::with_event_loop(&url, &handle).map_err(Into::into)
+        })
     }
 
     /// Create new WebSocket transport within existing Event Loop.
@@ -78,12 +80,20 @@ impl WebSocket {
                         trace!("Message received: {:?}", message);
 
                         match message {
-                            OwnedMessage::Close(e) => write_sender_
-                                .unbounded_send(OwnedMessage::Close(e))
-                                .map_err(|_| ErrorKind::Transport("Error sending close message".into()).into()),
-                            OwnedMessage::Ping(d) => write_sender_
-                                .unbounded_send(OwnedMessage::Pong(d))
-                                .map_err(|_| ErrorKind::Transport("Error sending pong message".into()).into()),
+                            OwnedMessage::Close(e) => {
+                                write_sender_
+                                    .unbounded_send(OwnedMessage::Close(e))
+                                    .map_err(|_| {
+                                        ErrorKind::Transport("Error sending close message".into()).into()
+                                    })
+                            }
+                            OwnedMessage::Ping(d) => {
+                                write_sender_
+                                    .unbounded_send(OwnedMessage::Pong(d))
+                                    .map_err(|_| {
+                                        ErrorKind::Transport("Error sending pong message".into()).into()
+                                    })
+                            }
                             OwnedMessage::Text(t) => {
                                 if let Ok(notification) = helpers::to_notification_from_slice(t.as_bytes()) {
                                     if let Some(rpc::Params::Map(params)) = notification.params {
@@ -93,9 +103,9 @@ impl WebSocket {
                                         if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
                                             let id: SubscriptionId = id.clone().into();
                                             if let Some(stream) = subscriptions_.lock().get(&id) {
-                                                return stream
-                                                    .unbounded_send(result.clone())
-                                                    .map_err(|_| ErrorKind::Transport("Error sending notification".into()).into());
+                                                return stream.unbounded_send(result.clone()).map_err(|_| {
+                                                    ErrorKind::Transport("Error sending notification".into()).into()
+                                                });
                                             } else {
                                                 warn!("Got notification for unknown subscription (id: {:?})", id);
                                             }
@@ -140,7 +150,9 @@ impl WebSocket {
                     });
 
                     let writer = sink.sink_from_err()
-                        .send_all(write_receiver.map_err(|_| websocket::WebSocketError::NoDataAvailable))
+                        .send_all(write_receiver.map_err(
+                            |_| websocket::WebSocketError::NoDataAvailable,
+                        ))
                         .map(|_| ());
 
                     reader.join(writer)
@@ -171,7 +183,9 @@ impl WebSocket {
 
         let result = self.write_sender
             .unbounded_send(OwnedMessage::Text(request))
-            .map_err(|_| ErrorKind::Transport("Error sending request".into()).into());
+            .map_err(|_| {
+                ErrorKind::Transport("Error sending request".into()).into()
+            });
 
         Response::new(id, result, rx, extract)
     }
@@ -188,14 +202,14 @@ impl Transport for WebSocket {
     }
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-        self.send_request(
-            id,
-            rpc::Request::Single(request),
-            |response| match response.into_iter().next() {
+        self.send_request(id, rpc::Request::Single(request), |response| {
+            match response.into_iter().next() {
                 Some(res) => res,
-                None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
-            },
-        )
+                None => Err(
+                    ErrorKind::InvalidResponse("Expected single, got batch.".into()).into(),
+                ),
+            }
+        })
     }
 }
 
@@ -207,9 +221,9 @@ impl BatchTransport for WebSocket {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(
+            || (0, None),
+        );
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
         self.send_request(id, rpc::Request::Batch(requests), Ok)
     }

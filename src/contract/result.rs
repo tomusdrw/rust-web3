@@ -28,9 +28,7 @@ pub struct CallResult<T, F> {
 
 impl<T, F> From<::helpers::CallResult<T, F>> for CallResult<T, F> {
     fn from(inner: ::helpers::CallResult<T, F>) -> Self {
-        CallResult {
-            inner: ResultType::Simple(inner),
-        }
+        CallResult { inner: ResultType::Simple(inner) }
     }
 }
 
@@ -39,9 +37,7 @@ where
     E: Into<contract::Error>,
 {
     fn from(e: E) -> Self {
-        CallResult {
-            inner: ResultType::Constant(Err(e.into())),
-        }
+        CallResult { inner: ResultType::Constant(Err(e.into())) }
     }
 }
 
@@ -58,18 +54,14 @@ where
     E: Into<contract::Error>,
 {
     fn from(e: E) -> Self {
-        QueryResult {
-            inner: ResultType::Constant(Err(e.into())),
-        }
+        QueryResult { inner: ResultType::Constant(Err(e.into())) }
     }
 }
 
 impl<T, F> QueryResult<T, F> {
     /// Create a new `QueryResult` wrapping the inner future.
     pub fn new(inner: helpers::CallResult<Bytes, F>, function: ethabi::Function) -> Self {
-        QueryResult {
-            inner: ResultType::Decodable(inner, function),
-        }
+        QueryResult { inner: ResultType::Decodable(inner, function) }
     }
 }
 

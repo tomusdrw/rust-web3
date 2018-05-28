@@ -63,13 +63,15 @@ where
                     let _ = try_ready!(self.filter_stream.poll());
                     WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
-                    Some(confirmation_block_number) => {
-                        let future = self.eth.block_number();
-                        WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => {
+                    match try_ready!(future.poll()) {
+                        Some(confirmation_block_number) => {
+                            let future = self.eth.block_number();
+                            WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+                        }
+                        None => WaitForConfirmationsState::WaitForNextBlock,
                     }
-                    None => WaitForConfirmationsState::WaitForNextBlock,
-                },
+                }
                 WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
                     let block_number = try_ready!(block_number_future.poll()).low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
@@ -133,13 +135,13 @@ where
                     let future = WaitForConfirmations {
                         eth: create.eth.take().expect("future polled after ready; qed"),
                         state: WaitForConfirmationsState::WaitForNextBlock,
-                        filter_stream: filter
-                            .stream(create.poll_interval)
-                            .skip(create.confirmations as u64),
-                        confirmation_check: create
-                            .confirmation_check
-                            .take()
-                            .expect("future polled after ready; qed"),
+                        filter_stream: filter.stream(create.poll_interval).skip(
+                            create.confirmations as
+                                u64,
+                        ),
+                        confirmation_check: create.confirmation_check.take().expect(
+                            "future polled after ready; qed",
+                        ),
                         confirmations: create.confirmations,
                     };
                     ConfirmationsState::Wait(future)
@@ -190,19 +192,14 @@ impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
     type Check = TransactionReceiptBlockNumber<T>;
 
     fn check(&self) -> Self::Check {
-        TransactionReceiptBlockNumber {
-            future: self.eth.transaction_receipt(self.hash.clone()),
-        }
+        TransactionReceiptBlockNumber { future: self.eth.transaction_receipt(self.hash.clone()) }
     }
 }
 
 enum SendTransactionWithConfirmationState<T: Transport> {
     Error(Option<Error>),
     SendTransaction(CallResult<H256, T::Out>),
-    WaitForConfirmations(
-        H256,
-        Confirmations<T, TransactionReceiptBlockNumberCheck<T>, TransactionReceiptBlockNumber<T>>,
-    ),
+    WaitForConfirmations(H256, Confirmations<T, TransactionReceiptBlockNumberCheck<T>, TransactionReceiptBlockNumber<T>>),
     GetTransactionReceipt(CallResult<Option<TransactionReceipt>, T::Out>),
 }
 
@@ -251,9 +248,9 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
         loop {
             let next_state = match self.state {
                 SendTransactionWithConfirmationState::Error(ref mut error) => {
-                    return Err(error
-                        .take()
-                        .expect("Error is initialized initially; future polled only once; qed"));
+                    return Err(error.take().expect(
+                        "Error is initialized initially; future polled only once; qed",
+                    ));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
                     let hash = try_ready!(future.poll());
@@ -347,19 +344,31 @@ mod tests {
         ));
         transport.add_response(Value::String("0x123".into()));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()
+            ),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()
+            ),
         ]));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()
+            ),
         ]));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()
+            ),
         ]));
         transport.add_response(Value::Null);
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000460"#.into()),
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000461"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000460"#.into()
+            ),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000461"#.into()
+            ),
         ]));
         transport.add_response(Value::Null);
         transport.add_response(json!(transaction_receipt));
