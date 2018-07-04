@@ -103,7 +103,7 @@ pub mod tests {
     pub struct TestTransport {
         asserted: usize,
         requests: Rc<RefCell<Vec<(String, Vec<rpc::Value>)>>>,
-        response: Rc<RefCell<VecDeque<rpc::Value>>>,
+        responses: Rc<RefCell<VecDeque<rpc::Value>>>,
     }
 
     impl Transport for TestTransport {
@@ -116,7 +116,7 @@ pub mod tests {
         }
 
         fn send(&self, id: RequestId, request: rpc::Call) -> Result<rpc::Value> {
-            match self.response.borrow_mut().pop_front() {
+            match self.responses.borrow_mut().pop_front() {
                 Some(response) => Box::new(futures::finished(response)),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
@@ -128,11 +128,11 @@ pub mod tests {
 
     impl TestTransport {
         pub fn set_response(&mut self, value: rpc::Value) {
-            *self.response.borrow_mut() = vec![value].into();
+            *self.responses.borrow_mut() = vec![value].into();
         }
 
         pub fn add_response(&mut self, value: rpc::Value) {
-            self.response.borrow_mut().push_back(value);
+            self.responses.borrow_mut().push_back(value);
         }
 
         pub fn assert_request(&mut self, method: &str, params: &[String]) {
