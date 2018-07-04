@@ -2,7 +2,7 @@
 
 use api::Namespace;
 use helpers::{self, CallResult};
-use types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, H256, H520, H64, Index, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, U256, Work};
+use types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, H256, H520, H64, Index, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, U256, Work, Filter, Log};
 use Transport;
 
 /// `Eth` namespace
@@ -88,6 +88,12 @@ impl<T: Transport> Eth<T> {
             self.transport
                 .execute("eth_getBalance", vec![address, block]),
         )
+    }
+
+    /// Get all logs matching a given filter object
+    pub fn logs(&self, filter: Filter) -> CallResult<Vec<Log>,T::Out> {
+        let filter = helpers::serialize(&filter);
+        CallResult::new(self.transport.execute("eth_getLogs",vec![filter]))
     }
 
     /// Get block details with transaction hashes.
@@ -338,7 +344,7 @@ mod tests {
     use futures::Future;
 
     use api::Namespace;
-    use types::{Block, BlockId, BlockNumber, Bytes, CallRequest, H256, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work};
+    use types::{Block, BlockId, BlockNumber, Bytes, CallRequest, H256, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, FilterBuilder, Log};
     use rpc::Value;
 
     use super::Eth;
@@ -368,6 +374,20 @@ mod tests {
     "timestamp": "0x54e34e8e",
     "transactions": [],
     "uncles": []
+  }"#;
+
+    // taken from RPC docs, but with leading `00` added to `blockHash`
+    // and `transactionHash` fields because RPC docs currently show 
+    // 31-byte values in both positions (must be 32 bytes).
+    const EXAMPLE_LOG: &'static str = r#"{
+    "logIndex": "0x1",
+    "blockNumber":"0x1b4",
+    "blockHash": "0x008216c5785ac562ff41e2dcfdf5785ac562ff41e2dcfdf829c5a142f1fccd7d",
+    "transactionHash":  "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf",
+    "transactionIndex": "0x0",
+    "address": "0x16c5785ac562ff41e2dcfdf829c5a142f1fccd7d",
+    "data":"0x0000000000000000000000000000000000000000000000000000000000000000",
+    "topics": ["0x59ebeb90bc63057b6515673c3ecf9438e5058bca0f92585014eced636878c9a5"]
   }"#;
 
     // taken from RPC docs.
@@ -461,6 +481,12 @@ mod tests {
     =>
     "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
+  );
+
+    rpc_test! (
+    Eth:logs, FilterBuilder::default().build() => "eth_getLogs", vec!["{}"];
+    Value::Array(vec![::serde_json::from_str(EXAMPLE_LOG).unwrap()])
+    => vec![::serde_json::from_str::<Log>(EXAMPLE_LOG).unwrap()]
   );
 
     rpc_test! (
