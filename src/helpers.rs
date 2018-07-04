@@ -94,6 +94,7 @@ pub mod tests {
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::rc::Rc;
     use futures;
     use rpc;
     use {ErrorKind, RequestId, Result, Transport};
@@ -101,8 +102,8 @@ pub mod tests {
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
         asserted: usize,
-        requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
-        response: RefCell<VecDeque<rpc::Value>>,
+        requests: Rc<RefCell<Vec<(String, Vec<rpc::Value>)>>>,
+        response: Rc<RefCell<VecDeque<rpc::Value>>>,
     }
 
     impl Transport for TestTransport {
