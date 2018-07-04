@@ -1,7 +1,7 @@
 use types::{Bytes, H160, H256, Index, Log, U256, U64};
 
 /// Description of a Transaction, pending or in the chain.
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Transaction {
     /// Hash
     pub hash: H256,

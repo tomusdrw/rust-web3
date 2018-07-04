@@ -2,7 +2,7 @@ use serde::{Serialize, Serializer};
 use types::{Bytes, H160, H2048, H256, U128, U256};
 
 /// The block header type returned from RPC calls.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct BlockHeader {
     /// Hash of the block
     pub hash: Option<H256>,
@@ -46,7 +46,7 @@ pub struct BlockHeader {
 
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Block<TX> {
     /// Hash of the block
     pub hash: Option<H256>,
