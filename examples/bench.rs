@@ -67,7 +67,7 @@ fn main() {
     let (eloop, http) = web3::transports::Http::new("http://localhost:8545/").unwrap();
     bench("http", eloop, http, requests);
 
-    let (eloop, http) = web3::transports::Ipc::new("/home/tomusdrw/.local/share/io.parity.ethereum/jsonrpc.ipc").unwrap();
+    let (eloop, http) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
     bench(" ipc", eloop, http, requests);
 }
 
