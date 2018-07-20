@@ -73,6 +73,7 @@ impl EventLoopHandle {
 impl Drop for EventLoopHandle {
     fn drop(&mut self) {
         self.done.store(true, atomic::Ordering::Relaxed);
+        self.remote.spawn(|_| Ok(()));
         self.thread
             .take()
             .expect("We never touch thread except for drop; drop happens only once; qed")
