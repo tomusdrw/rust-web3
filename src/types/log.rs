@@ -1,5 +1,5 @@
-use serde::{Serialize, Serializer};
 use types::{BlockNumber, Bytes, H160, H256, U256};
+use serde::{Serialize, Serializer};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,25 +54,6 @@ impl Log {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Clone)]
-struct ValueOrArray<T>(Vec<T>);
-
-impl<T> Serialize for ValueOrArray<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self.0.len() {
-            0 => serializer.serialize_none(),
-            1 => Serialize::serialize(&self.0[0], serializer),
-            _ => Serialize::serialize(&self.0, serializer),
-        }
-    }
-}
-
 /// Filter
 #[derive(Default, Debug, PartialEq, Clone, Serialize)]
 pub struct Filter {
@@ -91,6 +72,25 @@ pub struct Filter {
     /// Limit
     #[serde(skip_serializing_if = "Option::is_none")]
     limit: Option<usize>,
+}
+
+#[derive(Default, Debug, PartialEq, Clone)]
+struct ValueOrArray<T>(Vec<T>);
+
+impl<T> Serialize for ValueOrArray<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0.len() {
+            0 => serializer.serialize_none(),
+            1 => Serialize::serialize(&self.0[0], serializer),
+            _ => Serialize::serialize(&self.0, serializer),
+        }
+    }
 }
 
 /// Filter Builder
