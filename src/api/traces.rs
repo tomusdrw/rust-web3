@@ -66,7 +66,7 @@ impl<T: Transport> Traces<T> {
     }
 
     /// Returns trace at the given position
-    pub fn get(&self, hash: H256, index: Vec<Index>) -> CallResult<Vec<Trace>, T::Out> {
+    pub fn get(&self, hash: H256, index: Vec<Index>) -> CallResult<Trace, T::Out> {
         let hash = helpers::serialize(&hash);
         let index = helpers::serialize(&index);
         CallResult::new(self.transport.execute("trace_get", vec![hash, index]))
@@ -113,7 +113,7 @@ mod tests  {
     }
     "#;
 
-    const EXAMPLE_TRACE: &'static str = r#"
+    const EXAMPLE_TRACE_ARR: &'static str = r#"
     [
         {
             "action": {
@@ -137,6 +137,30 @@ mod tests  {
             "type": "call"
         }
     ]
+    "#;
+
+    const EXAMPLE_TRACE: &'static str = r#"
+      {
+          "action": {
+              "callType": "call",
+              "from": "0xaa7b131dc60b80d3cf5e59b5a21a666aa039c951",
+              "gas": "0x0",
+              "input": "0x",
+              "to": "0xd40aba8166a212d6892125f079c33e6f5ca19814",
+              "value": "0x4768d7effc3fbe"
+          },
+          "blockHash": "0x7eb25504e4c202cf3d62fd585d3e238f592c780cca82dacb2ed3cb5b38883add",
+          "blockNumber": 3068185,
+          "result": {
+              "gasUsed": "0x0",
+              "output": "0x"
+          },
+          "subtraces": 0,
+          "traceAddress": [],
+          "transactionHash": "0x07da28d752aba3b9dd7060005e554719c6205c8a3aea358599fc9b245c52f1f6",
+          "transactionPosition": 0,
+          "type": "call"
+      }
     "#;
 
     rpc_test! (
@@ -179,14 +203,14 @@ mod tests  {
     Traces:block, BlockNumber::Latest
     =>
     "trace_block", vec![r#""latest""#];
-    ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
-    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE).unwrap()
+    ::serde_json::from_str(EXAMPLE_TRACE_ARR).unwrap()
+    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE_ARR).unwrap()
     );
 
     rpc_test!(
     Traces:filter, TraceFilterBuilder::default().build() => "trace_filter", vec!["{}"];
-    ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
-    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE).unwrap()
+    ::serde_json::from_str(EXAMPLE_TRACE_ARR).unwrap()
+    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE_ARR).unwrap()
     );
 
     rpc_test!(
@@ -194,14 +218,14 @@ mod tests  {
     =>
     "trace_get", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"["0x0"]"#];
     ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
-    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE).unwrap()
+    => ::serde_json::from_str::<Trace>(EXAMPLE_TRACE).unwrap()
     );
 
     rpc_test!(
     Traces:transaction, H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
     =>
     "trace_transaction", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
-    ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
-    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE).unwrap()
+    ::serde_json::from_str(EXAMPLE_TRACE_ARR).unwrap()
+    => ::serde_json::from_str::<Vec<Trace>>(EXAMPLE_TRACE_ARR).unwrap()
     );
 }
