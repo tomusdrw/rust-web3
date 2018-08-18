@@ -1,7 +1,7 @@
 //! `Net` namespace
 
 use api::Namespace;
-use helpers::CallResult;
+use helpers::CallFuture;
 use types::U256;
 
 use Transport;
@@ -27,18 +27,18 @@ impl<T: Transport> Namespace<T> for Net<T> {
 
 impl<T: Transport> Net<T> {
     /// Returns protocol version
-    pub fn version(&self) -> CallResult<String, T::Out> {
-        CallResult::new(self.transport.execute("net_version", vec![]))
+    pub fn version(&self) -> CallFuture<String, T::Out> {
+        CallFuture::new(self.transport.execute("net_version", vec![]))
     }
 
     /// Returns number of peers connected to node.
-    pub fn peer_count(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(self.transport.execute("net_peerCount", vec![]))
+    pub fn peer_count(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("net_peerCount", vec![]))
     }
 
     /// Whether the node is listening for network connections
-    pub fn is_listening(&self) -> CallResult<bool, T::Out> {
-        CallResult::new(self.transport.execute("net_listening", vec![]))
+    pub fn is_listening(&self) -> CallFuture<bool, T::Out> {
+        CallFuture::new(self.transport.execute("net_listening", vec![]))
     }
 }
 

@@ -12,8 +12,8 @@ use Error as ApiError;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
-    Decodable(helpers::CallResult<Bytes, F>, ethabi::Function),
-    Simple(helpers::CallResult<T, F>),
+    Decodable(helpers::CallFuture<Bytes, F>, ethabi::Function),
+    Simple(helpers::CallFuture<T, F>),
     Constant(Result<T, contract::Error>),
     Done,
 }
@@ -22,24 +22,24 @@ enum ResultType<T, F> {
 /// Takes any type which is deserializable from JSON,
 /// a function definition and a future which yields that type.
 #[derive(Debug)]
-pub struct CallResult<T, F> {
+pub struct CallFuture<T, F> {
     inner: ResultType<T, F>,
 }
 
-impl<T, F> From<::helpers::CallResult<T, F>> for CallResult<T, F> {
-    fn from(inner: ::helpers::CallResult<T, F>) -> Self {
-        CallResult {
+impl<T, F> From<::helpers::CallFuture<T, F>> for CallFuture<T, F> {
+    fn from(inner: ::helpers::CallFuture<T, F>) -> Self {
+        CallFuture {
             inner: ResultType::Simple(inner),
         }
     }
 }
 
-impl<T, F, E> From<E> for CallResult<T, F>
+impl<T, F, E> From<E> for CallFuture<T, F>
 where
     E: Into<contract::Error>,
 {
     fn from(e: E) -> Self {
-        CallResult {
+        CallFuture {
             inner: ResultType::Constant(Err(e.into())),
         }
     }
@@ -66,7 +66,7 @@ where
 
 impl<T, F> QueryResult<T, F> {
     /// Create a new `QueryResult` wrapping the inner future.
-    pub fn new(inner: helpers::CallResult<Bytes, F>, function: ethabi::Function) -> Self {
+    pub fn new(inner: helpers::CallFuture<Bytes, F>, function: ethabi::Function) -> Self {
         QueryResult {
             inner: ResultType::Decodable(inner, function),
         }
@@ -95,7 +95,7 @@ where
     }
 }
 
-impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F>
+impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
     F: Future<Item = rpc::Value, Error = ApiError>,
 {

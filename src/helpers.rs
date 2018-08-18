@@ -12,22 +12,22 @@ use {Error, ErrorKind};
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
 /// type, and yields the deserialized value
 #[derive(Debug)]
-pub struct CallResult<T, F> {
+pub struct CallFuture<T, F> {
     inner: F,
     _marker: PhantomData<T>,
 }
 
-impl<T, F> CallResult<T, F> {
-    /// Create a new CallResult wrapping the inner future.
+impl<T, F> CallFuture<T, F> {
+    /// Create a new CallFuture wrapping the inner future.
     pub fn new(inner: F) -> Self {
-        CallResult {
+        CallFuture {
             inner: inner,
             _marker: PhantomData,
         }
     }
 }
 
-impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F>
+impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
     F: Future<Item = rpc::Value, Error = Error>,
 {
