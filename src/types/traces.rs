@@ -19,7 +19,7 @@ pub enum TraceType {
     StateDiff,
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Ad-Hoc trace API type
 pub struct BlockTrace {
     /// Output Bytes
@@ -35,14 +35,14 @@ pub struct BlockTrace {
 }
 
 //---------------- State Diff ----------------
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Aux type for Diff::Changed.
 pub struct ChangedType<T> {
     from: T,
     to: T,
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Serde-friendly `Diff` shadow.
 pub enum Diff<T> {
     #[serde(rename="=")]
@@ -55,7 +55,7 @@ pub enum Diff<T> {
     Changed(ChangedType<T>),
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Serde-friendly `AccountDiff` shadow.
 pub struct AccountDiff {
     pub balance: Diff<U256>,
@@ -64,13 +64,13 @@ pub struct AccountDiff {
     pub storage: BTreeMap<H256, Diff<H256>>,
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Serde-friendly `StateDiff` shadow.
 pub struct StateDiff(BTreeMap<H160, AccountDiff>);
 
 // ------------------ Trace -------------
 /// Trace
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct TransactionTrace {
 	/// Trace address
 	trace_address: Vec<usize>,
@@ -214,7 +214,7 @@ impl<'de> Deserialize<'de> for TransactionTrace {
 
 
 // ---------------- VmTrace ------------------------------
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 /// A record of a full VM trace for a CALL/CREATE.
 pub struct VMTrace {
 	/// The code to be executed.
@@ -223,7 +223,7 @@ pub struct VMTrace {
 	pub ops: Vec<VMOperation>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 /// A record of the execution of a single VM operation.
 pub struct VMOperation {
 	/// The program counter.
@@ -237,7 +237,7 @@ pub struct VMOperation {
 	pub sub: Option<VMTrace>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 /// A record of an executed VM operation.
 pub struct VMExecutedOperation {
 	/// The total gas used.
@@ -253,7 +253,7 @@ pub struct VMExecutedOperation {
 	pub store: Option<StorageDiff>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 /// A diff of some chunk of memory.
 pub struct MemoryDiff {
 	/// Offset into memory the change begins.
@@ -263,7 +263,7 @@ pub struct MemoryDiff {
 }
 
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 /// A diff of some storage value.
 pub struct StorageDiff {
 	/// Which key in storage is changed.

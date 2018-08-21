@@ -29,7 +29,7 @@ pub struct TraceFilter {
 }
 
 /// Trace Filter Builder
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct TraceFilterBuilder {
     filter: TraceFilter,
 }
@@ -80,7 +80,7 @@ impl TraceFilterBuilder {
 
 // `LocalizedTrace` in Parity
 /// Trace-Filtering API trace type
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Trace {
     /// Action
     pub action: Action,
@@ -264,6 +264,7 @@ impl<'de> Deserialize<'de> for Trace {
                 let block_hash           = block_hash.ok_or_else(|| de::Error::missing_field("block_hash"))?;
                 Ok(Trace {action, result, trace_address, subtraces, transaction_position, transaction_hash, block_number, block_hash } )
             }
+
         }
 
         const FIELDS: &'static [&'static str] = &["action", "result", "error", "traceAddress", "subtraces",
@@ -274,7 +275,7 @@ impl<'de> Deserialize<'de> for Trace {
 }
 
 /// Response
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Res {
     /// Call
@@ -294,7 +295,7 @@ impl Default for Res {
 }
 
 /// Action
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Action {
     /// Call
     Call(Call),
@@ -307,7 +308,7 @@ pub enum Action {
 }
 
 /// Call Result
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct CallResult {
     /// Gas used
     #[serde(rename="gasUsed")]
@@ -317,7 +318,7 @@ pub struct CallResult {
 }
 
 /// Craete Result
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct CreateResult {
     /// Gas used
     #[serde(rename="gasUsed")]
@@ -329,7 +330,7 @@ pub struct CreateResult {
 }
 
 /// Call response
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Call {
     /// Sender
     pub from: H160,
@@ -347,7 +348,7 @@ pub struct Call {
 }
 
 /// Call type.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum CallType {
     /// None
     #[serde(rename="none")]
@@ -373,7 +374,7 @@ impl Default for CallType {
 }
 
 /// Create response
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Create {
     /// Sender
     pub from: H160,
@@ -386,7 +387,7 @@ pub struct Create {
 }
 
 /// Suicide
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Suicide {
     /// Address.
     pub address: H160,
@@ -398,7 +399,7 @@ pub struct Suicide {
 }
 
 /// Reward action
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Reward {
     /// Author's address.
     pub author: H160,
@@ -410,7 +411,7 @@ pub struct Reward {
 }
 
 /// Reward type.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum RewardType {
     /// Block
     #[serde(rename="block")]
