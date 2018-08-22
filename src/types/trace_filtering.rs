@@ -1,5 +1,5 @@
 //! Types for the Parity Transaction-Trace Filtering API
-use types::{BlockNumber, H160, H256, U256, Bytes};
+use types::{BlockNumber, H160, H256, U256, Bytes, Address};
 use serde_json::{self, value};
 use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use std::fmt;
@@ -16,10 +16,10 @@ pub struct TraceFilter {
     to_block: Option<BlockNumber>,
     /// From address
     #[serde(rename="fromAddress", skip_serializing_if = "Option::is_none")]
-    from_address: Option<Vec<H160>>,
+    from_address: Option<Vec<Address>>,
     /// To address
     #[serde(rename="toAddress", skip_serializing_if = "Option::is_none")]
-    to_address: Option<Vec<H160>>,
+    to_address: Option<Vec<Address>>,
     /// Output offset
     #[serde(skip_serializing_if = "Option::is_none")]
     after: Option<usize>,
@@ -326,16 +326,16 @@ pub struct CreateResult {
     /// Code
     pub code: Bytes,
     /// Assigned address
-    pub address: H160,
+    pub address: Address,
 }
 
 /// Call response
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Call {
     /// Sender
-    pub from: H160,
+    pub from: Address,
     /// Recipient
-    pub to: H160,
+    pub to: Address,
     /// Transfered Value
     pub value: U256,
     /// Gas
@@ -377,7 +377,7 @@ impl Default for CallType {
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Create {
     /// Sender
-    pub from: H160,
+    pub from: Address,
     /// Value
     pub value: U256,
     /// Gas
@@ -390,10 +390,10 @@ pub struct Create {
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct Suicide {
     /// Address.
-    pub address: H160,
+    pub address: Address,
     /// Refund address.
     #[serde(rename="refundAddress")]
-    pub refund_address: H160,
+    pub refund_address: Address,
     /// Balance.
     pub balance: U256,
 }
@@ -402,7 +402,7 @@ pub struct Suicide {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Reward {
     /// Author's address.
-    pub author: H160,
+    pub author: Address,
     /// Reward amount.
     pub value: U256,
     /// Reward type.

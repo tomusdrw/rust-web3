@@ -1,5 +1,5 @@
 //! Types for the Parity Ad-Hoc Trace API
-use types::{H160, H256, U256, Bytes, Action, Res};
+use types::{H160, H256, U256, Bytes, Action, Res, Address};
 use std::fmt;
 use std::collections::BTreeMap;
 use serde_json::{self, value};
@@ -73,7 +73,7 @@ pub struct StateDiff(BTreeMap<H160, AccountDiff>);
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct TransactionTrace {
 	/// Trace address
-	trace_address: Vec<usize>,
+	trace_address: Vec<Address>,
 	/// Subtraces
 	subtraces: usize,
 	/// Action
@@ -87,7 +87,7 @@ macro_rules! de_value {
         serde_json::from_value($action).map_err(|e| de::Error::custom(e.to_string()))
     })
 }
-// a pretty standard custom deserialize, except it deserializes 'error' and 'result' of JSON 
+// a pretty standard custom deserialize, except it deserializes 'error' and 'result' of JSON
 // into the result enum, as well as deserializes `Action` based upon `type` field of the JSON.
 impl<'de> Deserialize<'de> for TransactionTrace {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
@@ -109,7 +109,7 @@ impl<'de> Deserialize<'de> for TransactionTrace {
         // need custom impl, because Result can either be in `result` field or `error` field of JSON
         struct TraceVisitor;
         impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error> 
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
                 where
                     D: Deserializer<'de>,
             {
