@@ -18,7 +18,7 @@ before_script:
   - rustup component add rustfmt-preview --toolchain=stable
 
 script:
-  - cargo +stable fmt --all -- --write-mode=diff
+  # - cargo +stable fmt --all -- --write-mode=diff
   - cargo build
   - cargo test
 
