@@ -50,27 +50,26 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = try_ready!(
-                        self.interval
-                            .poll()
-                            .map_err(|_| Error::from(ErrorKind::Unreachable))
-                    );
+                    let _ready = try_ready!(self.interval.poll().map_err(
+                        |_| Error::from(ErrorKind::Unreachable),
+                    ));
                     let id = helpers::serialize(&self.base.id);
-                    let future = CallResult::new(
-                        self.base
-                            .transport
-                            .execute("eth_getFilterChanges", vec![id]),
-                    );
+                    let future = CallResult::new(self.base.transport.execute(
+                        "eth_getFilterChanges",
+                        vec![id],
+                    ));
                     FilterStreamState::GetFilterChanges(future)
                 }
                 FilterStreamState::GetFilterChanges(ref mut future) => {
                     let items = try_ready!(future.poll()).unwrap_or_default();
                     FilterStreamState::NextItem(items.into_iter())
                 }
-                FilterStreamState::NextItem(ref mut iter) => match iter.next() {
-                    Some(item) => return Ok(Some(item).into()),
-                    None => FilterStreamState::WaitForInterval,
-                },
+                FilterStreamState::NextItem(ref mut iter) => {
+                    match iter.next() {
+                        Some(item) => return Ok(Some(item).into()),
+                        None => FilterStreamState::WaitForInterval,
+                    }
+                }
             };
             self.state = next_state;
         }
@@ -202,9 +201,9 @@ where
         let id = try_ready!(self.future.poll());
         let result = BaseFilter {
             id,
-            transport: self.transport
-                .take()
-                .expect("future polled after ready; qed"),
+            transport: self.transport.take().expect(
+                "future polled after ready; qed",
+            ),
             item: PhantomData,
         };
         Ok(result.into())
@@ -390,7 +389,9 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()
+            ),
         ]));
         let result = {
             let eth = EthFilter::new(&transport);
@@ -414,14 +415,22 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()
+            ),
         ]));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()),
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()
+            ),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()
+            ),
         ]));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()
+            ),
         ]));
         let result = {
             let eth = EthFilter::new(&transport);
@@ -470,7 +479,9 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
         transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
+            Value::String(
+                r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()
+            ),
         ]));
         let result = {
             let eth = EthFilter::new(&transport);

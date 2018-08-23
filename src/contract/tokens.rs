@@ -16,17 +16,13 @@ pub trait Detokenize {
 impl<T: Tokenizable> Detokenize for T {
     fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
         if tokens.len() != 1 {
-            bail!(ErrorKind::InvalidOutputType(format!(
-                "Expected single element, got a list: {:?}",
-                tokens
-            )));
+            bail!(ErrorKind::InvalidOutputType(
+                format!("Expected single element, got a list: {:?}", tokens),
+            ));
         }
-        Self::from_token(
-            tokens
-                .drain(..)
-                .next()
-                .expect("At least one element in vector; qed"),
-        )
+        Self::from_token(tokens.drain(..).next().expect(
+            "At least one element in vector; qed",
+        ))
     }
 }
 
@@ -141,7 +137,9 @@ impl Tokenizable for String {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::String(s) => Ok(s),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `String`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `String`, got {:?}", other)).into(),
+            ),
         }
     }
 
@@ -155,10 +153,9 @@ impl Tokenizable for H256 {
         match token {
             Token::FixedBytes(mut s) => {
                 if s.len() != 32 {
-                    bail!(ErrorKind::InvalidOutputType(format!(
-                        "Expected `H256`, got {:?}",
-                        s
-                    )));
+                    bail!(ErrorKind::InvalidOutputType(
+                        format!("Expected `H256`, got {:?}", s),
+                    ));
                 }
                 let mut data = [0; 32];
                 for (idx, val) in s.drain(..).enumerate() {
@@ -166,7 +163,9 @@ impl Tokenizable for H256 {
                 }
                 Ok(data.into())
             }
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into(),
+            ),
         }
     }
 
@@ -179,7 +178,9 @@ impl Tokenizable for Address {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::Address(data) => Ok(data),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into(),
+            ),
         }
     }
 
@@ -211,8 +212,11 @@ uint_tokenizable!(U128, "U128");
 impl Tokenizable for u64 {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
-            Token::Int(data) | Token::Uint(data) => Ok(data.low_u64()),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `u64`, got {:?}", other)).into()),
+            Token::Int(data) |
+            Token::Uint(data) => Ok(data.low_u64()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `u64`, got {:?}", other)).into(),
+            ),
         }
     }
 
@@ -225,7 +229,9 @@ impl Tokenizable for bool {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::Bool(data) => Ok(data),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `bool`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `bool`, got {:?}", other)).into(),
+            ),
         }
     }
     fn into_token(self) -> Token {
@@ -238,7 +244,9 @@ impl Tokenizable for Vec<u8> {
         match token {
             Token::Bytes(data) => Ok(data),
             Token::FixedBytes(data) => Ok(data),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `bytes`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `bytes`, got {:?}", other)).into(),
+            ),
         }
     }
     fn into_token(self) -> Token {
@@ -249,8 +257,11 @@ impl Tokenizable for Vec<u8> {
 impl<T: Tokenizable> Tokenizable for Vec<T> {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
-            Token::FixedArray(tokens) | Token::Array(tokens) => tokens.into_iter().map(Tokenizable::from_token).collect(),
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `Array`, got {:?}", other)).into()),
+            Token::FixedArray(tokens) |
+            Token::Array(tokens) => tokens.into_iter().map(Tokenizable::from_token).collect(),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `Array`, got {:?}", other)).into(),
+            ),
         }
     }
 

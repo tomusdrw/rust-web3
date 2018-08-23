@@ -36,9 +36,11 @@ where
 
     fn poll(&mut self) -> Poll<T, Error> {
         match self.inner.poll() {
-            Ok(Async::Ready(x)) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
+            Ok(Async::Ready(x)) => {
+                serde_json::from_value(x).map(Async::Ready).map_err(
+                    Into::into,
+                )
+            }
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }

@@ -35,10 +35,10 @@ impl<T: Transport> Personal<T> {
     /// Returns the address of created account.
     pub fn new_account(&self, password: &str) -> CallResult<Address, T::Out> {
         let password = helpers::serialize(&password);
-        CallResult::new(
-            self.transport
-                .execute("personal_newAccount", vec![password]),
-        )
+        CallResult::new(self.transport.execute(
+            "personal_newAccount",
+            vec![password],
+        ))
     }
 
     /// Unlocks the account with given password for some period of time (or single transaction).
@@ -47,10 +47,10 @@ impl<T: Transport> Personal<T> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
         let duration = helpers::serialize(&duration);
-        CallResult::new(
-            self.transport
-                .execute("personal_unlockAccount", vec![address, password, duration]),
-        )
+        CallResult::new(self.transport.execute(
+            "personal_unlockAccount",
+            vec![address, password, duration],
+        ))
     }
 
     /// Sends a transaction from locked account.
@@ -58,10 +58,10 @@ impl<T: Transport> Personal<T> {
     pub fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> CallResult<H256, T::Out> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallResult::new(
-            self.transport
-                .execute("personal_sendTransaction", vec![transaction, password]),
-        )
+        CallResult::new(self.transport.execute(
+            "personal_sendTransaction",
+            vec![transaction, password],
+        ))
     }
 }
 

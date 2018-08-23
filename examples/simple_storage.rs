@@ -27,9 +27,7 @@ fn main() {
         .unwrap()
         .confirmations(0)
         .poll_interval(time::Duration::from_secs(10))
-        .options(Options::with(|opt| {
-            opt.gas = Some(3_000_000.into())
-        }))
+        .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
         .execute(bytecode, (), accounts[0])
         .unwrap()
         .wait()

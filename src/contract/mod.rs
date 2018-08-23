@@ -184,9 +184,9 @@ impl<T: Transport> Contract<T> {
         self.abi
             .function(func.into())
             .and_then(|function| {
-                function
-                    .encode_input(&params.into_tokens())
-                    .map(|call| (call, function))
+                function.encode_input(&params.into_tokens()).map(|call| {
+                    (call, function)
+                })
             })
             .map(|(call, function)| {
                 let result = self.eth.call(
@@ -226,7 +226,8 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String(
-            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into(),
+            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000"
+                .into(),
         ));
 
         let result: String = {
@@ -256,7 +257,8 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String(
-            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into(),
+            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000"
+                .into(),
         ));
 
         let result: String = {
@@ -268,9 +270,7 @@ mod tests {
                     "name",
                     (),
                     Address::from(5),
-                    Options::with(|options| {
-                        options.gas_price = Some(10_000_000.into());
-                    }),
+                    Options::with(|options| { options.gas_price = Some(10_000_000.into()); }),
                     BlockNumber::Latest,
                 )
                 .wait()
@@ -349,7 +349,8 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String(
-            "0x0000000000000000000000000000000000000000000000000000000000000020".into(),
+            "0x0000000000000000000000000000000000000000000000000000000000000020"
+                .into(),
         ));
 
         let result: U256 = {

@@ -19,9 +19,7 @@ fn main() {
     let contract = Contract::deploy(web3.eth(), include_bytes!("../src/contract/res/token.json"))
         .unwrap()
         .confirmations(4)
-        .options(Options::with(|opt| {
-            opt.value = Some(5.into())
-        }))
+        .options(Options::with(|opt| opt.value = Some(5.into())))
         .execute(
             bytecode,
             (

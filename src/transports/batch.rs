@@ -70,10 +70,7 @@ where
 
 enum BatchState<T> {
     SendingBatch(T, Vec<RequestId>),
-    Resolving(
-        future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>,
-        Result<Vec<Result<rpc::Value>>>,
-    ),
+    Resolving(future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>, Result<Vec<Result<rpc::Value>>>),
     Done,
 }
 
@@ -140,11 +137,9 @@ impl Future for SingleResult {
     type Error = RpcError;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(
-            self.0
-                .poll()
-                .map_err(|_| RpcError::from(ErrorKind::Internal))
-        );
+        let res = try_ready!(self.0.poll().map_err(
+            |_| RpcError::from(ErrorKind::Internal),
+        ));
         res.map(futures::Async::Ready)
     }
 }

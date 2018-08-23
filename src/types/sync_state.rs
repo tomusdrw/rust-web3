@@ -75,13 +75,15 @@ impl<'de> Deserialize<'de> for SyncState {
         let v: SyncStateVariants = Deserialize::deserialize(deserializer)?;
         match v {
             SyncStateVariants::Rpc(info) => Ok(SyncState::Syncing(info)),
-            SyncStateVariants::Subscription(state) => match state.status {
-                None if !state.syncing => Ok(SyncState::NotSyncing),
-                Some(ref info) if state.syncing => Ok(SyncState::Syncing(info.clone().into())),
-                _ => Err(D::Error::custom(
-                    "expected object or `syncing = false`, got `syncing = true`",
-                )),
-            },
+            SyncStateVariants::Subscription(state) => {
+                match state.status {
+                    None if !state.syncing => Ok(SyncState::NotSyncing),
+                    Some(ref info) if state.syncing => Ok(SyncState::Syncing(info.clone().into())),
+                    _ => Err(D::Error::custom(
+                        "expected object or `syncing = false`, got `syncing = true`",
+                    )),
+                }
+            }
             SyncStateVariants::Boolean(boolean) => {
                 if !boolean {
                     Ok(SyncState::NotSyncing)

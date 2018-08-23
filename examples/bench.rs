@@ -47,7 +47,10 @@ impl Ticker {
 
         println!(
             "[{}] {} reqs/s ({} reqs in {} ms)",
-            self.id, result, reqs, elapsed
+            self.id,
+            result,
+            reqs,
+            elapsed
         );
 
         self.reqs.store(0, atomic::Ordering::Release);
