@@ -3,12 +3,15 @@
 #![warn(missing_docs)]
 
 extern crate arrayvec;
+extern crate rlp;
 extern crate ethabi;
 extern crate ethereum_types;
 extern crate jsonrpc_core as rpc;
 extern crate parking_lot;
 extern crate rustc_hex;
+extern crate secp256k1;
 extern crate serde;
+extern crate tiny_keccak;
 extern crate tokio_timer;
 
 #[cfg_attr(test, macro_use)]
