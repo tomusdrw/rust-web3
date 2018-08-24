@@ -1,5 +1,6 @@
 //! IPC Transport for *nix
 
+#[cfg(unix)]
 extern crate tokio_uds;
 
 use std::collections::BTreeMap;
@@ -7,6 +8,7 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::sync::{atomic, Arc};
 
+#[cfg(unix)]
 use self::tokio_uds::UnixStream;
 
 use api::SubscriptionId;
@@ -54,6 +56,8 @@ pub struct Ipc {
 impl Ipc {
     /// Create new IPC transport with separate event loop.
     /// NOTE: Dropping event loop handle will stop the transport layer!
+    ///
+    /// IPC is only available on Unix. On other systems, this always returns an error.
     pub fn new<P>(path: P) -> Result<(EventLoopHandle, Self)>
     where
         P: AsRef<Path>,
@@ -63,6 +67,9 @@ impl Ipc {
     }
 
     /// Create new IPC transport within existing Event Loop.
+    ///
+    /// IPC is only available on Unix. On other systems, this always returns an error.
+    #[cfg(unix)]
     pub fn with_event_loop<P>(path: P, handle: &reactor::Handle) -> Result<Self>
     where
         P: AsRef<Path>,
@@ -73,6 +80,7 @@ impl Ipc {
     }
 
     /// Creates new IPC transport from existing `UnixStream` and `Handle`
+    #[cfg(unix)]
     fn with_stream(stream: UnixStream, handle: &reactor::Handle) -> Result<Self> {
         let (read, write) = stream.split();
         let (write_sender, write_receiver) = mpsc::unbounded();
@@ -102,6 +110,11 @@ impl Ipc {
             pending,
             subscriptions,
         })
+    }
+
+    #[cfg(not(unix))]
+    pub fn with_event_loop<P>(_path: P, _handle: &reactor::Handle) -> Result<Self> {
+        return Err(ErrorKind::Transport("IPC transport is only supported on Unix".into()).into());
     }
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> IpcTask<F>
@@ -182,12 +195,14 @@ enum WriteState {
 
 /// Writing part of the IPC transport
 /// Awaits new requests using `mpsc::UnboundedReceiver` and writes them to the socket.
+#[cfg(unix)]
 struct WriteStream {
     write: WriteHalf<UnixStream>,
     incoming: mpsc::UnboundedReceiver<Vec<u8>>,
     state: WriteState,
 }
 
+#[cfg(unix)]
 impl Future for WriteStream {
     type Item = ();
     type Error = ();
@@ -231,8 +246,10 @@ impl Future for WriteStream {
         }
     }
 }
+
 /// Reading part of the IPC transport.
 /// Reads data on the socket and tries to dispatch it to awaiting requests.
+#[cfg(unix)]
 struct ReadStream {
     read: ReadHalf<UnixStream>,
     pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
@@ -241,6 +258,7 @@ struct ReadStream {
     current_pos: usize,
 }
 
+#[cfg(unix)]
 impl Future for ReadStream {
     type Item = ();
     type Error = ();
@@ -289,6 +307,7 @@ enum Message {
     Notification(rpc::Notification),
 }
 
+#[cfg(unix)]
 impl ReadStream {
     fn respond(&self, response: Message) {
         match response {
@@ -357,7 +376,7 @@ impl ReadStream {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     extern crate tokio_core;
     extern crate tokio_uds;
