@@ -12,9 +12,9 @@ readme = "README.md"
 
 [dependencies]
 arrayvec = "0.4"
-error-chain = "0.11"
+error-chain = "0.12"
 ethabi = "5.1"
-ethereum-types = "0.3"
+ethereum-types = "0.4"
 futures = "0.1"
 jsonrpc-core = "8.0.1"
 log = "0.4"
