@@ -1,4 +1,4 @@
-pub use ethereum_types::{Bloom as H2048, H1024, H128, H160, H256, H512, H520, H64, U128, U256, U64};
+pub use ethereum_types::{Bloom as H2048, H128, H160, H256, H512, H520, H64, U128, U256, U64};
 
 #[cfg(test)]
 mod tests {
@@ -43,10 +43,10 @@ mod tests {
         let d = U256::from(10000);
 
         // Debug
-        assert_eq!(&format!("{:?}", a), "0xa00010f00");
-        assert_eq!(&format!("{:?}", b), "0x3ff");
-        assert_eq!(&format!("{:?}", c), "0x0");
-        assert_eq!(&format!("{:?}", d), "0x2710");
+        assert_eq!(&format!("{:?}", a), "42949742336");
+        assert_eq!(&format!("{:?}", b), "1023");
+        assert_eq!(&format!("{:?}", c), "0");
+        assert_eq!(&format!("{:?}", d), "10000");
 
         // Display
         assert_eq!(&format!("{}", a), "42949742336");
@@ -59,6 +59,12 @@ mod tests {
         assert_eq!(&format!("{:x}", b), "3ff");
         assert_eq!(&format!("{:x}", c), "0");
         assert_eq!(&format!("{:x}", d), "2710");
+
+        // Prefixed Lowerhex
+        assert_eq!(&format!("{:#x}", a), "0xa00010f00");
+        assert_eq!(&format!("{:#x}", b), "0x3ff");
+        assert_eq!(&format!("{:#x}", c), "0x0");
+        assert_eq!(&format!("{:#x}", d), "0x2710");
     }
 
     #[test]

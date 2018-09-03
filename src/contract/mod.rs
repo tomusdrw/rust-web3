@@ -320,7 +320,7 @@ mod tests {
     fn should_estimate_gas_usage() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String(format!("{:?}", U256::from(5))));
+        transport.set_response(rpc::Value::String(format!("{:#x}", U256::from(5))));
 
         let result = {
             let token = contract(&transport);
