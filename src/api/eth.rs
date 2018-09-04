@@ -97,7 +97,7 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get block details with transaction hashes.
-    pub fn block(&self, block: BlockId) -> CallResult<Block<H256>, T::Out> {
+    pub fn block(&self, block: BlockId) -> CallResult<Option<Block<H256>>, T::Out> {
         let include_txs = helpers::serialize(&false);
 
         let result = match block {
@@ -117,7 +117,7 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get block details with full transaction objects.
-    pub fn block_with_txs(&self, block: BlockId) -> CallResult<Block<Transaction>, T::Out> {
+    pub fn block_with_txs(&self, block: BlockId) -> CallResult<Option<Block<Transaction>>, T::Out> {
         let include_txs = helpers::serialize(&true);
 
         let result = match block {
@@ -494,7 +494,7 @@ mod tests {
     =>
     "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"false"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
+    => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
   );
 
     rpc_test! (
@@ -502,7 +502,7 @@ mod tests {
     =>
     "eth_getBlockByNumber", vec![r#""pending""#, r#"false"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => ::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap()
+    => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
   );
 
     rpc_test! (
@@ -510,7 +510,7 @@ mod tests {
     =>
     "eth_getBlockByNumber", vec![r#""pending""#, r#"true"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-    => ::serde_json::from_str::<Block<Transaction>>(EXAMPLE_BLOCK).unwrap()
+    => Some(::serde_json::from_str::<Block<Transaction>>(EXAMPLE_BLOCK).unwrap())
   );
 
     rpc_test! (
