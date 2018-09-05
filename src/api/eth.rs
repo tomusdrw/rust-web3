@@ -1,7 +1,7 @@
 //! `Eth` namespace
 
 use api::Namespace;
-use helpers::{self, CallResult};
+use helpers::{self, CallFuture};
 use types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, H256, H520, H64, Index, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, U256, Work, Filter, Log};
 use Transport;
 
@@ -26,78 +26,78 @@ impl<T: Transport> Namespace<T> for Eth<T> {
 
 impl<T: Transport> Eth<T> {
     /// Get list of available accounts.
-    pub fn accounts(&self) -> CallResult<Vec<Address>, T::Out> {
-        CallResult::new(self.transport.execute("eth_accounts", vec![]))
+    pub fn accounts(&self) -> CallFuture<Vec<Address>, T::Out> {
+        CallFuture::new(self.transport.execute("eth_accounts", vec![]))
     }
 
     /// Get current block number
-    pub fn block_number(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(self.transport.execute("eth_blockNumber", vec![]))
+    pub fn block_number(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("eth_blockNumber", vec![]))
     }
 
     /// Call a constant method of contract without changing the state of the blockchain.
-    pub fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
+    pub fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<Bytes, T::Out> {
         let req = helpers::serialize(&req);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(self.transport.execute("eth_call", vec![req, block]))
+        CallFuture::new(self.transport.execute("eth_call", vec![req, block]))
     }
 
     /// Get coinbase address
-    pub fn coinbase(&self) -> CallResult<Address, T::Out> {
-        CallResult::new(self.transport.execute("eth_coinbase", vec![]))
+    pub fn coinbase(&self) -> CallFuture<Address, T::Out> {
+        CallFuture::new(self.transport.execute("eth_coinbase", vec![]))
     }
 
     /// Compile LLL
-    pub fn compile_lll(&self, code: String) -> CallResult<Bytes, T::Out> {
+    pub fn compile_lll(&self, code: String) -> CallFuture<Bytes, T::Out> {
         let code = helpers::serialize(&code);
-        CallResult::new(self.transport.execute("eth_compileLLL", vec![code]))
+        CallFuture::new(self.transport.execute("eth_compileLLL", vec![code]))
     }
 
     /// Compile Solidity
-    pub fn compile_solidity(&self, code: String) -> CallResult<Bytes, T::Out> {
+    pub fn compile_solidity(&self, code: String) -> CallFuture<Bytes, T::Out> {
         let code = helpers::serialize(&code);
-        CallResult::new(self.transport.execute("eth_compileSolidity", vec![code]))
+        CallFuture::new(self.transport.execute("eth_compileSolidity", vec![code]))
     }
 
     /// Compile Serpent
-    pub fn compile_serpent(&self, code: String) -> CallResult<Bytes, T::Out> {
+    pub fn compile_serpent(&self, code: String) -> CallFuture<Bytes, T::Out> {
         let code = helpers::serialize(&code);
-        CallResult::new(self.transport.execute("eth_compileSerpent", vec![code]))
+        CallFuture::new(self.transport.execute("eth_compileSerpent", vec![code]))
     }
 
     /// Call a contract without changing the state of the blockchain to estimate gas usage.
-    pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+    pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let req = helpers::serialize(&req);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(self.transport.execute("eth_estimateGas", vec![req, block]))
+        CallFuture::new(self.transport.execute("eth_estimateGas", vec![req, block]))
     }
 
     /// Get current recommended gas price
-    pub fn gas_price(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(self.transport.execute("eth_gasPrice", vec![]))
+    pub fn gas_price(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("eth_gasPrice", vec![]))
     }
 
     /// Get balance of given address
-    pub fn balance(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+    pub fn balance(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let address = helpers::serialize(&address);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("eth_getBalance", vec![address, block]),
         )
     }
 
     /// Get all logs matching a given filter object
-    pub fn logs(&self, filter: Filter) -> CallResult<Vec<Log>,T::Out> {
+    pub fn logs(&self, filter: Filter) -> CallFuture<Vec<Log>,T::Out> {
         let filter = helpers::serialize(&filter);
-        CallResult::new(self.transport.execute("eth_getLogs",vec![filter]))
+        CallFuture::new(self.transport.execute("eth_getLogs",vec![filter]))
     }
 
     /// Get block details with transaction hashes.
-    pub fn block(&self, block: BlockId) -> CallResult<Option<Block<H256>>, T::Out> {
+    pub fn block(&self, block: BlockId) -> CallFuture<Option<Block<H256>>, T::Out> {
         let include_txs = helpers::serialize(&false);
 
         let result = match block {
@@ -113,11 +113,11 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get block details with full transaction objects.
-    pub fn block_with_txs(&self, block: BlockId) -> CallResult<Option<Block<Transaction>>, T::Out> {
+    pub fn block_with_txs(&self, block: BlockId) -> CallFuture<Option<Block<Transaction>>, T::Out> {
         let include_txs = helpers::serialize(&true);
 
         let result = match block {
@@ -133,11 +133,11 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get number of transactions in block
-    pub fn block_transaction_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
+    pub fn block_transaction_count(&self, block: BlockId) -> CallFuture<Option<U256>, T::Out> {
         let result = match block {
             BlockId::Hash(hash) => {
                 let hash = helpers::serialize(&hash);
@@ -151,47 +151,47 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get code under given address
-    pub fn code(&self, address: Address, block: Option<BlockNumber>) -> CallResult<Bytes, T::Out> {
+    pub fn code(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<Bytes, T::Out> {
         let address = helpers::serialize(&address);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(self.transport.execute("eth_getCode", vec![address, block]))
+        CallFuture::new(self.transport.execute("eth_getCode", vec![address, block]))
     }
 
     /// Get supported compilers
-    pub fn compilers(&self) -> CallResult<Vec<String>, T::Out> {
-        CallResult::new(self.transport.execute("eth_getCompilers", vec![]))
+    pub fn compilers(&self) -> CallFuture<Vec<String>, T::Out> {
+        CallFuture::new(self.transport.execute("eth_getCompilers", vec![]))
     }
 
     /// Get storage entry
-    pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallResult<H256, T::Out> {
+    pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallFuture<H256, T::Out> {
         let address = helpers::serialize(&address);
         let idx = helpers::serialize(&idx);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("eth_getStorageAt", vec![address, idx, block]),
         )
     }
 
     /// Get nonce
-    pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallResult<U256, T::Out> {
+    pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let address = helpers::serialize(&address);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("eth_getTransactionCount", vec![address, block]),
         )
     }
 
     /// Get transaction
-    pub fn transaction(&self, id: TransactionId) -> CallResult<Option<Transaction>, T::Out> {
+    pub fn transaction(&self, id: TransactionId) -> CallFuture<Option<Transaction>, T::Out> {
         let result = match id {
             TransactionId::Hash(hash) => {
                 let hash = helpers::serialize(&hash);
@@ -212,21 +212,21 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get transaction receipt
-    pub fn transaction_receipt(&self, hash: H256) -> CallResult<Option<TransactionReceipt>, T::Out> {
+    pub fn transaction_receipt(&self, hash: H256) -> CallFuture<Option<TransactionReceipt>, T::Out> {
         let hash = helpers::serialize(&hash);
 
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("eth_getTransactionReceipt", vec![hash]),
         )
     }
 
     /// Get uncle by block ID and uncle index -- transactions only has hashes.
-    pub fn uncle(&self, block: BlockId, index: Index) -> CallResult<Option<Block<H256>>, T::Out> {
+    pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<Block<H256>>, T::Out> {
         let index = helpers::serialize(&index);
 
         let result = match block {
@@ -242,11 +242,11 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get uncle count in block
-    pub fn uncle_count(&self, block: BlockId) -> CallResult<Option<U256>, T::Out> {
+    pub fn uncle_count(&self, block: BlockId) -> CallFuture<Option<U256>, T::Out> {
         let result = match block {
             BlockId::Hash(hash) => {
                 let hash = helpers::serialize(&hash);
@@ -260,82 +260,82 @@ impl<T: Transport> Eth<T> {
             }
         };
 
-        CallResult::new(result)
+        CallFuture::new(result)
     }
 
     /// Get work package
-    pub fn work(&self) -> CallResult<Work, T::Out> {
-        CallResult::new(self.transport.execute("eth_getWork", vec![]))
+    pub fn work(&self) -> CallFuture<Work, T::Out> {
+        CallFuture::new(self.transport.execute("eth_getWork", vec![]))
     }
 
     /// Get hash rate
-    pub fn hashrate(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(self.transport.execute("eth_hashrate", vec![]))
+    pub fn hashrate(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("eth_hashrate", vec![]))
     }
 
     /// Get mining status
-    pub fn mining(&self) -> CallResult<bool, T::Out> {
-        CallResult::new(self.transport.execute("eth_mining", vec![]))
+    pub fn mining(&self) -> CallFuture<bool, T::Out> {
+        CallFuture::new(self.transport.execute("eth_mining", vec![]))
     }
 
     /// Start new block filter
-    pub fn new_block_filter(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(self.transport.execute("eth_newBlockFilter", vec![]))
+    pub fn new_block_filter(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("eth_newBlockFilter", vec![]))
     }
 
     /// Start new pending transaction filter
-    pub fn new_pending_transaction_filter(&self) -> CallResult<U256, T::Out> {
-        CallResult::new(
+    pub fn new_pending_transaction_filter(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(
             self.transport
                 .execute("eth_newPendingTransactionFilter", vec![]),
         )
     }
 
     /// Start new pending transaction filter
-    pub fn protocol_version(&self) -> CallResult<String, T::Out> {
-        CallResult::new(self.transport.execute("eth_protocolVersion", vec![]))
+    pub fn protocol_version(&self) -> CallFuture<String, T::Out> {
+        CallFuture::new(self.transport.execute("eth_protocolVersion", vec![]))
     }
 
     /// Sends a rlp-encoded signed transaction
-    pub fn send_raw_transaction(&self, rlp: Bytes) -> CallResult<H256, T::Out> {
+    pub fn send_raw_transaction(&self, rlp: Bytes) -> CallFuture<H256, T::Out> {
         let rlp = helpers::serialize(&rlp);
-        CallResult::new(self.transport.execute("eth_sendRawTransaction", vec![rlp]))
+        CallFuture::new(self.transport.execute("eth_sendRawTransaction", vec![rlp]))
     }
 
     /// Sends a transaction transaction
-    pub fn send_transaction(&self, tx: TransactionRequest) -> CallResult<H256, T::Out> {
+    pub fn send_transaction(&self, tx: TransactionRequest) -> CallFuture<H256, T::Out> {
         let tx = helpers::serialize(&tx);
-        CallResult::new(self.transport.execute("eth_sendTransaction", vec![tx]))
+        CallFuture::new(self.transport.execute("eth_sendTransaction", vec![tx]))
     }
 
     /// Signs a hash of given data
-    pub fn sign(&self, address: Address, data: Bytes) -> CallResult<H520, T::Out> {
+    pub fn sign(&self, address: Address, data: Bytes) -> CallFuture<H520, T::Out> {
         let address = helpers::serialize(&address);
         let data = helpers::serialize(&data);
-        CallResult::new(self.transport.execute("eth_sign", vec![address, data]))
+        CallFuture::new(self.transport.execute("eth_sign", vec![address, data]))
     }
 
     /// Submit hashrate of external miner
-    pub fn submit_hashrate(&self, rate: U256, id: H256) -> CallResult<bool, T::Out> {
+    pub fn submit_hashrate(&self, rate: U256, id: H256) -> CallFuture<bool, T::Out> {
         let rate = helpers::serialize(&rate);
         let id = helpers::serialize(&id);
-        CallResult::new(self.transport.execute("eth_submitHashrate", vec![rate, id]))
+        CallFuture::new(self.transport.execute("eth_submitHashrate", vec![rate, id]))
     }
 
     /// Submit work of external miner
-    pub fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> CallResult<bool, T::Out> {
+    pub fn submit_work(&self, nonce: H64, pow_hash: H256, mix_hash: H256) -> CallFuture<bool, T::Out> {
         let nonce = helpers::serialize(&nonce);
         let pow_hash = helpers::serialize(&pow_hash);
         let mix_hash = helpers::serialize(&mix_hash);
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]),
         )
     }
 
     /// Get syncing status
-    pub fn syncing(&self) -> CallResult<SyncState, T::Out> {
-        CallResult::new(self.transport.execute("eth_syncing", vec![]))
+    pub fn syncing(&self) -> CallFuture<SyncState, T::Out> {
+        CallFuture::new(self.transport.execute("eth_syncing", vec![]))
     }
 }
 
