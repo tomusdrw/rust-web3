@@ -35,6 +35,13 @@ impl From<hyper::error::UriError> for Error {
     }
 }
 
+#[cfg(all(feature = "http", not(feature = "ws")))]
+impl From<self::url::ParseError> for Error {
+    fn from(err: self::url::ParseError) -> Self {
+        ErrorKind::Transport(format!("{:?}", err)).into()
+    }
+}
+
 #[cfg(feature = "tls")]
 impl From<native_tls::Error> for Error {
     fn from(err: native_tls::Error) -> Self {
