@@ -1,3 +1,4 @@
+use ethabi;
 use serde::{Serialize, Serializer};
 use types::{BlockNumber, Bytes, H160, H256, U256};
 
@@ -132,6 +133,16 @@ impl FilterBuilder {
         self
     }
 
+    /// Sets the topics according to the given `ethabi` topic filter
+    pub fn topic_filter(self, topic_filter: ethabi::TopicFilter) -> Self {
+        self.topics(
+            topic_to_option(topic_filter.topic0),
+            topic_to_option(topic_filter.topic1),
+            topic_to_option(topic_filter.topic2),
+            topic_to_option(topic_filter.topic3),
+        )
+    }
+
     /// Limit the result
     pub fn limit(mut self, limit: usize) -> Self {
         self.filter.limit = Some(limit);
@@ -144,9 +155,19 @@ impl FilterBuilder {
     }
 }
 
+/// Converts a `Topic` to an equivalent `Option<Vec<T>>`, suitable for `FilterBuilder::topics`
+fn topic_to_option<T>(topic: ethabi::Topic<T>) -> Option<Vec<T>> {
+    match topic {
+        ethabi::Topic::Any => None,
+        ethabi::Topic::OneOf(v) => Some(v),
+        ethabi::Topic::This(t) => Some(vec![t]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use types::log::{Bytes, Log};
+    use ethabi;
+    use types::log::{Bytes, Log, FilterBuilder};
 
     #[test]
     fn is_removed_removed_true() {
@@ -236,5 +257,22 @@ mod tests {
             removed: None,
         };
         assert_eq!(false, log.is_removed());
+    }
+
+    #[test]
+    fn does_topic_filter_set_topics_correctly() {
+        let topic_filter = ethabi::TopicFilter {
+            topic0: ethabi::Topic::This(3.into()),
+            topic1: ethabi::Topic::OneOf(vec![5.into(), 8.into()]),
+            topic2: ethabi::Topic::This(13.into()),
+            topic3: ethabi::Topic::Any,
+        };
+        let filter0 = FilterBuilder::default()
+            .topic_filter(topic_filter)
+            .build();
+        let filter1 = FilterBuilder::default()
+            .topics(Some(vec![3.into()]), Some(vec![5.into(), 8.into()]), Some(vec![13.into()]), None)
+            .build();
+        assert_eq!(filter0, filter1);
     }
 }
