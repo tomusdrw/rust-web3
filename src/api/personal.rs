@@ -1,7 +1,7 @@
 //! `Personal` namespace
 
 use api::Namespace;
-use helpers::{self, CallResult};
+use helpers::{self, CallFuture};
 use types::{Address, H256, TransactionRequest};
 
 use Transport;
@@ -27,15 +27,15 @@ impl<T: Transport> Namespace<T> for Personal<T> {
 
 impl<T: Transport> Personal<T> {
     /// Returns a list of available accounts.
-    pub fn list_accounts(&self) -> CallResult<Vec<Address>, T::Out> {
-        CallResult::new(self.transport.execute("personal_listAccounts", vec![]))
+    pub fn list_accounts(&self) -> CallFuture<Vec<Address>, T::Out> {
+        CallFuture::new(self.transport.execute("personal_listAccounts", vec![]))
     }
 
     /// Creates a new account and protects it with given password.
     /// Returns the address of created account.
-    pub fn new_account(&self, password: &str) -> CallResult<Address, T::Out> {
+    pub fn new_account(&self, password: &str) -> CallFuture<Address, T::Out> {
         let password = helpers::serialize(&password);
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("personal_newAccount", vec![password]),
         )
@@ -43,11 +43,11 @@ impl<T: Transport> Personal<T> {
 
     /// Unlocks the account with given password for some period of time (or single transaction).
     /// Returns `true` if the call was successful.
-    pub fn unlock_account(&self, address: Address, password: &str, duration: Option<u16>) -> CallResult<bool, T::Out> {
+    pub fn unlock_account(&self, address: Address, password: &str, duration: Option<u16>) -> CallFuture<bool, T::Out> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
         let duration = helpers::serialize(&duration);
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("personal_unlockAccount", vec![address, password, duration]),
         )
@@ -55,10 +55,10 @@ impl<T: Transport> Personal<T> {
 
     /// Sends a transaction from locked account.
     /// Returns transaction hash.
-    pub fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> CallResult<H256, T::Out> {
+    pub fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<H256, T::Out> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallResult::new(
+        CallFuture::new(
             self.transport
                 .execute("personal_sendTransaction", vec![transaction, password]),
         )

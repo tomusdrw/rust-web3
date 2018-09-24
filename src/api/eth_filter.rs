@@ -8,7 +8,7 @@ use tokio_timer::{Interval, Timer};
 use futures::{Future, Poll, Stream};
 
 use api::Namespace;
-use helpers::{self, CallResult};
+use helpers::{self, CallFuture};
 use types::{Filter, H256, Log};
 use {rpc, Error, ErrorKind, Transport};
 
@@ -38,7 +38,7 @@ impl<T: Transport, I> FilterStream<T, I> {
 #[derive(Debug)]
 enum FilterStreamState<I, O> {
     WaitForInterval,
-    GetFilterChanges(CallResult<Option<Vec<I>>, O>),
+    GetFilterChanges(CallFuture<Option<Vec<I>>, O>),
     NextItem(vec::IntoIter<I>),
 }
 
@@ -56,7 +56,7 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
                             .map_err(|_| Error::from(ErrorKind::Unreachable))
                     );
                     let id = helpers::serialize(&self.base.id);
-                    let future = CallResult::new(
+                    let future = CallFuture::new(
                         self.base
                             .transport
                             .execute("eth_getFilterChanges", vec![id]),
@@ -136,9 +136,9 @@ pub struct BaseFilter<T: Transport, I> {
 impl<T: Transport, I> BaseFilter<T, I> {
     /// Polls this filter for changes.
     /// Will return logs that happened after previous poll.
-    pub fn poll(&self) -> CallResult<Option<Vec<I>>, T::Out> {
+    pub fn poll(&self) -> CallFuture<Option<Vec<I>>, T::Out> {
         let id = helpers::serialize(&self.id);
-        CallResult::new(self.transport.execute("eth_getFilterChanges", vec![id]))
+        CallFuture::new(self.transport.execute("eth_getFilterChanges", vec![id]))
     }
 
     /// Returns the stream of items which automatically polls the server
@@ -147,16 +147,16 @@ impl<T: Transport, I> BaseFilter<T, I> {
     }
 
     /// Uninstalls the filter
-    pub fn uninstall(self) -> CallResult<bool, T::Out>
+    pub fn uninstall(self) -> CallFuture<bool, T::Out>
     where
         Self: Sized,
     {
         self.uninstall_internal()
     }
 
-    fn uninstall_internal(&self) -> CallResult<bool, T::Out> {
+    fn uninstall_internal(&self) -> CallFuture<bool, T::Out> {
         let id = helpers::serialize(&self.id);
-        CallResult::new(self.transport.execute("eth_uninstallFilter", vec![id]))
+        CallFuture::new(self.transport.execute("eth_uninstallFilter", vec![id]))
     }
 
     /// Borrows the transport.
@@ -167,15 +167,15 @@ impl<T: Transport, I> BaseFilter<T, I> {
 
 impl<T: Transport> BaseFilter<T, Log> {
     /// Returns future with all logs matching given filter
-    pub fn logs(&self) -> CallResult<Vec<Log>, T::Out> {
+    pub fn logs(&self) -> CallFuture<Vec<Log>, T::Out> {
         let id = helpers::serialize(&self.id);
-        CallResult::new(self.transport.execute("eth_getFilterLogs", vec![id]))
+        CallFuture::new(self.transport.execute("eth_getFilterLogs", vec![id]))
     }
 }
 
 /// Should be used to create new filter future
 fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
-    let future = CallResult::new(t.execute(F::constructor(), arg));
+    let future = CallFuture::new(t.execute(F::constructor(), arg));
     CreateFilter {
         transport: Some(t),
         item: PhantomData,
@@ -188,7 +188,7 @@ fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -
 pub struct CreateFilter<T: Transport, I> {
     transport: Option<T>,
     item: PhantomData<I>,
-    future: CallResult<String, T::Out>,
+    future: CallFuture<String, T::Out>,
 }
 
 impl<T, I> Future for CreateFilter<T, I>

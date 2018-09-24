@@ -1,7 +1,7 @@
 //! `Web3` namespace
 
 use api::Namespace;
-use helpers::{self, CallResult};
+use helpers::{self, CallFuture};
 use types::{Bytes, H256};
 
 use Transport;
@@ -27,14 +27,14 @@ impl<T: Transport> Namespace<T> for Web3<T> {
 
 impl<T: Transport> Web3<T> {
     /// Returns client version
-    pub fn client_version(&self) -> CallResult<String, T::Out> {
-        CallResult::new(self.transport.execute("web3_clientVersion", vec![]))
+    pub fn client_version(&self) -> CallFuture<String, T::Out> {
+        CallFuture::new(self.transport.execute("web3_clientVersion", vec![]))
     }
 
     /// Returns sha3 of the given data
-    pub fn sha3(&self, bytes: Bytes) -> CallResult<H256, T::Out> {
+    pub fn sha3(&self, bytes: Bytes) -> CallFuture<H256, T::Out> {
         let bytes = helpers::serialize(&bytes);
-        CallResult::new(self.transport.execute("web3_sha3", vec![bytes]))
+        CallFuture::new(self.transport.execute("web3_sha3", vec![bytes]))
     }
 }
 

@@ -14,7 +14,7 @@ mod result;
 pub mod deploy;
 pub mod tokens;
 
-pub use contract::result::{CallResult, QueryResult};
+pub use contract::result::{CallFuture, QueryResult};
 pub use contract::error::{Error, ErrorKind};
 
 /// Contract Call/Query Options
@@ -84,7 +84,7 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function
-    pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallResult<H256, T::Out>
+    pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<H256, T::Out>
     where
         P: Tokenize,
     {
@@ -148,7 +148,7 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Estimate gas required for this function call.
-    pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallResult<U256, T::Out>
+    pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<U256, T::Out>
     where
         P: Tokenize,
     {
@@ -320,7 +320,7 @@ mod tests {
     fn should_estimate_gas_usage() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String(format!("{:?}", U256::from(5))));
+        transport.set_response(rpc::Value::String(format!("{:#x}", U256::from(5))));
 
         let result = {
             let token = contract(&transport);
