@@ -46,5 +46,6 @@ http = ["hyper", "tokio-core"]
 ipc = ["tokio-uds", "tokio-core", "tokio-io"]
 ws = ["tokio-core", "websocket"]
 tls = ["hyper-tls", "native-tls"]
+account-zero = []
 
 [workspace]
