@@ -1,6 +1,6 @@
-use types::{Bytes, H160, H256, Index, Log, U256, U64};
-use serde::{de, export::fmt, Deserializer};
-use serde_json;
+#[cfg(feature = "account-zero")]
+use serde::Deserializer;
+use types::{Bytes, Index, Log, H160, H256, U256, U64};
 
 /// Description of a Transaction, pending or in the chain.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
@@ -21,7 +21,7 @@ pub struct Transaction {
     /// Sender
     pub from: H160,
     /// Recipient (None when contract creation)
-    #[serde(deserialize_with = "deserialize_to")]
+    #[cfg_attr(feature = "account-zero", serde(deserialize_with = "deserialize_to"))]
     pub to: Option<H160>,
     /// Transfered value
     pub value: U256,
@@ -64,11 +64,14 @@ pub struct Receipt {
     pub status: Option<U64>,
 }
 
-
+#[cfg(feature = "account-zero")]
 fn deserialize_to<'de, D>(deserializer: D) -> Result<Option<H160>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
+    use serde::{de, export::fmt};
+    use serde_json;
+
     struct Visitor;
 
     impl<'de> de::Visitor<'de> for Visitor {
@@ -79,28 +82,26 @@ fn deserialize_to<'de, D>(deserializer: D) -> Result<Option<H160>, D::Error>
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Option<H160>, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
             match value {
-                "0x0" | "0x0000000000000000000000000000000000000000" =>
-                    Ok(None),
+                "0x0" => Ok(None),
                 value => {
                     let result = serde_json::from_str(&format!("{:?}", value)).map_err(E::custom)?;
                     Ok(Some(result))
-                },
+                }
             }
         }
     }
     deserializer.deserialize_str(Visitor)
 }
 
-
 #[cfg(test)]
 mod tests {
-    use serde_json;
     use super::Receipt;
     use super::Transaction;
+    use serde_json;
 
     #[test]
     fn test_deserialize_receipt() {
@@ -149,6 +150,7 @@ mod tests {
         let _transaction: Transaction = serde_json::from_str(transaction_str).unwrap();
     }
 
+    #[cfg(feature = "account-zero")]
     #[test]
     fn should_deserialize_transaction_with_to_address_zero() {
         let transaction_str = r#"{
@@ -158,7 +160,7 @@ mod tests {
                 "blockNumber": "0x01",
                 "transactionIndex": "0x00",
                 "from": "0x147ba99ef89c152f8004e91999fee87bda6cbc3e",
-                "to": "0x0000000000000000000000000000000000000000",
+                "to": "0x0",
                 "value": "0x8ac7230489e80000",
                 "gas": "0x0170c0",
                 "gasPrice": "0x77359400",
