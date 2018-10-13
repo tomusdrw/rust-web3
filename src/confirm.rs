@@ -171,7 +171,7 @@ impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let receipt = try_ready!(self.future.poll());
-        Ok(receipt.map(|receipt| receipt.block_number).into())
+        Ok(receipt.and_then(|receipt| receipt.block_number).into())
     }
 }
 
@@ -332,8 +332,8 @@ mod tests {
         let transaction_receipt = TransactionReceipt {
             transaction_hash: 0.into(),
             transaction_index: 0.into(),
-            block_hash: 0.into(),
-            block_number: 2.into(),
+            block_hash: Some(0.into()),
+            block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),
             gas_used: 0.into(),
             contract_address: None,
