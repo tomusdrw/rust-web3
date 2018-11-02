@@ -4,7 +4,7 @@ use serde::de::{Error, Visitor};
 use rustc_hex::{FromHex, ToHex};
 
 /// Raw bytes wrapper
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Bytes(pub Vec<u8>);
 
 impl<T: Into<Vec<u8>>> From<T> for Bytes {
