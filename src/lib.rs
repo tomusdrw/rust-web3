@@ -10,6 +10,7 @@ extern crate parking_lot;
 extern crate rustc_hex;
 extern crate serde;
 extern crate tokio_timer;
+extern crate base64;
 
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;
