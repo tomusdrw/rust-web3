@@ -14,9 +14,11 @@ use std::sync::atomic::{self, AtomicUsize};
 
 use futures::sync::{mpsc, oneshot};
 use futures::{self, future, Future, Stream};
+use self::hyper::header::HeaderValue;
 use helpers;
 use rpc;
 use serde_json;
+use base64;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
@@ -29,9 +31,15 @@ impl From<hyper::Error> for Error {
     }
 }
 
-impl From<hyper::error::UriError> for Error {
-    fn from(err: hyper::error::UriError) -> Self {
+impl From<hyper::http::uri::InvalidUri> for Error {
+    fn from(err: hyper::http::uri::InvalidUri) -> Self {
         ErrorKind::Transport(format!("{:?}", err)).into()
+    }
+}
+
+impl From<hyper::header::InvalidHeaderValue> for Error {
+    fn from(err: hyper::header::InvalidHeaderValue) -> Self {
+        ErrorKind::Transport(format!("{}", err)).into()
     }
 }
 
@@ -62,8 +70,8 @@ pub type FetchTask<F> = Response<F, hyper::Chunk>;
 pub struct Http {
     id: Arc<AtomicUsize>,
     url: hyper::Uri,
-    basic_auth: Option<hyper::header::Basic>,
-    write_sender: mpsc::UnboundedSender<(hyper::client::Request, Pending)>,
+    basic_auth: Option<HeaderValue>,
+    write_sender: mpsc::UnboundedSender<(hyper::Request<hyper::Body>, Pending)>,
 }
 
 impl Http {
@@ -86,12 +94,11 @@ impl Http {
         let (write_sender, write_receiver) = mpsc::unbounded();
 
         #[cfg(feature = "tls")]
-        let client = hyper::Client::configure()
-            .connector(hyper_tls::HttpsConnector::new(4, handle)?)
-            .build(handle);
+        let client = hyper::Client::builder()
+          .build::<_, hyper::Body>(hyper_tls::HttpsConnector::new(4)?);
 
         #[cfg(not(feature = "tls"))]
-        let client = hyper::Client::new(handle);
+        let client = hyper::Client::new();
 
         handle.spawn(
             write_receiver
@@ -107,7 +114,7 @@ impl Http {
                         Ok(ref res) if !res.status().is_success() => A(future::err(
                             ErrorKind::Transport(format!("Unexpected response status code: {}", res.status())).into(),
                         )),
-                        Ok(res) => B(res.body().concat2().map_err(Into::into)),
+                        Ok(res) => B(res.into_body().concat2().map_err(Into::into)),
                         Err(err) => A(future::err(err.into())),
                     };
                     future.then(move |result| {
@@ -119,15 +126,17 @@ impl Http {
                 }),
         );
 
+
         let basic_auth = {
             let url = Url::parse(url)?;
             let user = url.username();
 
             if user.len() > 0 {
-                Some(hyper::header::Basic {
-                    username: user.into(),
-                    password: url.password().map(Into::into),
-                })
+                let auth = match url.password() {
+                    Some(pass) => format!("{}:{}", user, pass),
+                    None => format!("{}:", user)
+                };
+                Some(HeaderValue::from_str(&format!("Basic {}", base64::encode(&auth)))?)
             } else {
                 None
             }
@@ -147,24 +156,21 @@ impl Http {
     {
         let request = helpers::to_string(&request);
         debug!("[{}] Sending: {} to {}", id, request, self.url);
-
-        let mut req = hyper::client::Request::new(hyper::Method::Post, self.url.clone());
-        req.headers_mut().set(hyper::header::ContentType::json());
-        req.headers_mut()
-            .set(hyper::header::UserAgent::new("web3.rs"));
         let len = request.len();
+        let mut req = hyper::Request::new(hyper::Body::from(request));
+        *req.method_mut() = hyper::Method::POST;
+        *req.uri_mut() = self.url.clone();
+        req.headers_mut().insert(hyper::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        req.headers_mut().insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
+
         // Don't send chunked request
         if len < MAX_SINGLE_CHUNK {
-            req.headers_mut()
-                .set(hyper::header::ContentLength(len as u64));
+            req.headers_mut().insert(hyper::header::CONTENT_LENGTH, len.into());
         }
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut()
-                .set(hyper::header::Authorization(basic_auth.clone()));
+            req.headers_mut().insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
-        req.set_body(request);
-
         let (tx, rx) = futures::oneshot();
         let result = self.write_sender
             .unbounded_send((req, tx))
