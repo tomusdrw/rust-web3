@@ -167,10 +167,10 @@ impl Http {
         if len < MAX_SINGLE_CHUNK {
             req.headers_mut().insert(hyper::header::CONTENT_LENGTH, len.into());
         }
+        // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
             req.headers_mut().insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
-        // Send basic auth header
         let (tx, rx) = futures::oneshot();
         let result = self.write_sender
             .unbounded_send((req, tx))
