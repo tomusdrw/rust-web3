@@ -1,9 +1,7 @@
 //! Types for the Parity Ad-Hoc Trace API
 use types::{H160, H256, U256, Bytes, Action, Res, Address};
-use std::fmt;
 use std::collections::BTreeMap;
-use serde_json::{self, value};
-use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 /// Description of the type of trace to make
@@ -70,9 +68,10 @@ pub struct StateDiff(BTreeMap<H160, AccountDiff>);
 
 // ------------------ Trace -------------
 /// Trace
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub struct TransactionTrace {
 	/// Trace address
+    #[serde(rename = "traceAddress")]
 	trace_address: Vec<Address>,
 	/// Subtraces
 	subtraces: usize,
@@ -81,137 +80,6 @@ pub struct TransactionTrace {
 	/// Result
 	result: Option<Res>,
 }
-
-macro_rules! de_value {
-    ($action: ident) => ({
-        serde_json::from_value($action).map_err(|e| de::Error::custom(e.to_string()))
-    })
-}
-// a pretty standard custom deserialize, except it deserializes 'error' and 'result' of JSON
-// into the result enum, as well as deserializes `Action` based upon `type` field of the JSON.
-impl<'de> Deserialize<'de> for TransactionTrace {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        #[derive(Debug, Deserialize)]
-        #[serde(rename_all = "lowercase")]
-        enum TxType { Call, Create, Suicide, Reward };
-
-        enum Field {
-            // #[serde(rename = "trace_address")]
-            TraceAddress,
-            Subtraces,
-            Action,
-            // #[serde(rename = "result")]
-            Result,
-            // #[serde(rename = "transaction_type")]
-            TransactionType
-        };
-
-        // need custom impl, because Result can either be in `result` field or `error` field of JSON
-        struct TraceVisitor;
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
-                where
-                    D: Deserializer<'de>,
-            {
-                struct FieldVisitor;
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                        formatter.write_str("`trace_address`, `subtraces`, `action`, or `result`")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
-                        where
-                            E: de::Error,
-                    {
-                        match value {
-                            "traceAddress" => Ok(Field::TraceAddress),
-                            "subtraces" => Ok(Field::Subtraces),
-                            "action" => Ok(Field::Action),
-                            "type" => Ok(Field::TransactionType),
-                            "error" => Ok(Field::Result),
-                            "result" => Ok(Field::Result),
-                            _ => Err(de::Error::unknown_field(value, FIELDS))
-                        }
-                    }
-                }
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        impl<'de> Visitor<'de> for TraceVisitor {
-            type Value = TransactionTrace;
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("Ad-Hoc Trace struct")
-            }
-
-            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-                where
-                    M: MapAccess<'de>
-            {
-                let mut trace_address = None;
-                let mut subtraces = None;
-                let mut action: Option<value::Value> = None;
-                let mut result = None;
-                let mut tx_type: Option<TxType> = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::TraceAddress => {
-                            if trace_address.is_some() {
-                                return Err(de::Error::duplicate_field("trace_address"));
-                            }
-                            trace_address = Some(map.next_value()?); // Vec<usize>
-                        },
-                        Field::Subtraces => {
-                            if subtraces.is_some() {
-                                return Err(de::Error::duplicate_field("subtraces"));
-                            }
-                            subtraces = Some(map.next_value()?); // usize
-                        },
-                        Field::Action => {
-                            if action.is_some() {
-                                return Err(de::Error::duplicate_field("action"));
-                            }
-                            action = Some(map.next_value()?); // serde_json `Value`
-                        },
-                        Field::Result => {
-                            if result.is_some() {
-                                return Err(de::Error::duplicate_field("trace_result"));
-                            }
-                            result = Some(map.next_value()?); // Res
-                        },
-                        Field::TransactionType => {
-                            if tx_type.is_some() {
-                                return  Err(de::Error::duplicate_field("transaction_type"));
-                            }
-                            tx_type = Some(map.next_value()?); // TxType
-                        },
-                    }
-                }
-
-                let tx_type = tx_type.ok_or_else(|| de::Error::missing_field("transaction_type"))?;
-                let action = action.ok_or_else(|| de::Error::missing_field("action"))?;
-                let action: Action = match tx_type {
-                    TxType::Call    => Action::Call(de_value!(action)?),
-                    TxType::Create  => Action::Create(de_value!(action)?),
-                    TxType::Suicide => Action::Suicide(de_value!(action)?),
-                    TxType::Reward  => Action::Reward(de_value!(action)?)
-                };
-                let result = result.ok_or_else(|| de::Error::missing_field("result"))?;
-                let trace_address = trace_address.ok_or_else(|| de::Error::missing_field("trace_address"))?;
-                let subtraces = subtraces.ok_or_else(|| de::Error::missing_field("subtraces"))?;
-
-                Ok( TransactionTrace { trace_address, subtraces, action, result } )
-            }
-        }
-
-        const FIELDS: &'static [&'static str] = &["subtraces", "trace_address", "action", "type", "error", "result" ];
-        deserializer.deserialize_struct("Trace", FIELDS, TraceVisitor)
-    }
-}
-
-
 
 // ---------------- VmTrace ------------------------------
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
@@ -271,8 +139,6 @@ pub struct StorageDiff {
 	/// What the value has been changed to.
 	pub val: U256,
 }
-
-
 
 #[cfg(test)]
 mod tests {
