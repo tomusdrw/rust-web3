@@ -60,7 +60,17 @@ impl_output!(2, A, B,);
 impl_output!(3, A, B, C,);
 impl_output!(4, A, B, C, D,);
 impl_output!(5, A, B, C, D, E,);
-
+impl_output!(6, A, B, C, D, E, F,);
+impl_output!(7, A, B, C, D, E, F, G,);
+impl_output!(8, A, B, C, D, E, F, G, H,);
+impl_output!(9, A, B, C, D, E, F, G, H, I,);
+impl_output!(10, A, B, C, D, E, F, G, H, I, J,);
+impl_output!(11, A, B, C, D, E, F, G, H, I, J, K,);
+impl_output!(12, A, B, C, D, E, F, G, H, I, J, K, L,);
+impl_output!(13, A, B, C, D, E, F, G, H, I, J, K, L, M,);
+impl_output!(14, A, B, C, D, E, F, G, H, I, J, K, L, M, N,);
+impl_output!(15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O,);
+impl_output!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P,);
 /// Tokens conversion trait
 pub trait Tokenize {
     /// Convert to list of tokens
