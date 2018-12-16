@@ -8,6 +8,7 @@ use {Error, ErrorKind, RequestId};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
+#[derive(Debug)]
 pub struct EventLoopHandle {
     thread: Option<thread::JoinHandle<()>>,
     remote: reactor::Remote,

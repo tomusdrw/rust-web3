@@ -125,7 +125,7 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Base filter handle.
 /// Uninstall filter on drop.
 /// Allows to poll the filter.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BaseFilter<T: Transport, I> {
     // TODO [ToDr] Workaround for ganache returning 0x03 instead of 0x3
     id: String,
