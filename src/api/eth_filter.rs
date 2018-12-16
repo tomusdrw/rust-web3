@@ -125,13 +125,24 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Base filter handle.
 /// Uninstall filter on drop.
 /// Allows to poll the filter.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BaseFilter<T: Transport, I> {
     // TODO [ToDr] Workaround for ganache returning 0x03 instead of 0x3
     id: String,
     transport: T,
     item: PhantomData<I>,
 }
+
+impl<T: Transport, I> Clone for BaseFilter<T, I> {
+  fn clone(&self) -> Self {
+     BaseFilter {
+       id: self.id.clone(),
+       transport: self.transport.clone(),
+       item: PhantomData::default(),
+     }
+  }
+}
+
 
 impl<T: Transport, I> BaseFilter<T, I> {
     /// Polls this filter for changes.

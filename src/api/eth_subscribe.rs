@@ -42,7 +42,7 @@ impl From<String> for SubscriptionId {
 /// Stream of notifications from a subscription
 /// Given a type deserializable from rpc::Value and a subscription id, yields items of that type as
 /// notifications are delivered.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SubscriptionStream<T: DuplexTransport, I> {
     transport: T,
     id: SubscriptionId,
