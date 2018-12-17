@@ -133,6 +133,17 @@ pub struct BaseFilter<T: Transport, I> {
     item: PhantomData<I>,
 }
 
+impl<T: Transport, I> Clone for BaseFilter<T, I> {
+  fn clone(&self) -> Self {
+     BaseFilter {
+       id: self.id.clone(),
+       transport: self.transport.clone(),
+       item: PhantomData::default(),
+     }
+  }
+}
+
+
 impl<T: Transport, I> BaseFilter<T, I> {
     /// Polls this filter for changes.
     /// Will return logs that happened after previous poll.

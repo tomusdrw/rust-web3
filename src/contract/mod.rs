@@ -45,7 +45,7 @@ impl Options {
 }
 
 /// Ethereum Contract Interface
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Contract<T: Transport> {
     address: Address,
     eth: Eth<T>,
