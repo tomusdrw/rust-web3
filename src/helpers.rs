@@ -12,22 +12,22 @@ use {Error, ErrorKind};
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
 /// type, and yields the deserialized value
 #[derive(Debug)]
-pub struct CallResult<T, F> {
+pub struct CallFuture<T, F> {
     inner: F,
     _marker: PhantomData<T>,
 }
 
-impl<T, F> CallResult<T, F> {
-    /// Create a new CallResult wrapping the inner future.
+impl<T, F> CallFuture<T, F> {
+    /// Create a new CallFuture wrapping the inner future.
     pub fn new(inner: F) -> Self {
-        CallResult {
+        CallFuture {
             inner: inner,
             _marker: PhantomData,
         }
     }
 }
 
-impl<T: serde::de::DeserializeOwned, F> Future for CallResult<T, F>
+impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
     F: Future<Item = rpc::Value, Error = Error>,
 {
@@ -94,6 +94,7 @@ pub mod tests {
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::rc::Rc;
     use futures;
     use rpc;
     use {ErrorKind, RequestId, Result, Transport};
@@ -101,8 +102,8 @@ pub mod tests {
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
         asserted: usize,
-        requests: RefCell<Vec<(String, Vec<rpc::Value>)>>,
-        response: RefCell<VecDeque<rpc::Value>>,
+        requests: Rc<RefCell<Vec<(String, Vec<rpc::Value>)>>>,
+        responses: Rc<RefCell<VecDeque<rpc::Value>>>,
     }
 
     impl Transport for TestTransport {
@@ -115,7 +116,7 @@ pub mod tests {
         }
 
         fn send(&self, id: RequestId, request: rpc::Call) -> Result<rpc::Value> {
-            match self.response.borrow_mut().pop_front() {
+            match self.responses.borrow_mut().pop_front() {
                 Some(response) => Box::new(futures::finished(response)),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
@@ -127,11 +128,11 @@ pub mod tests {
 
     impl TestTransport {
         pub fn set_response(&mut self, value: rpc::Value) {
-            *self.response.borrow_mut() = vec![value].into();
+            *self.responses.borrow_mut() = vec![value].into();
         }
 
         pub fn add_response(&mut self, value: rpc::Value) {
-            self.response.borrow_mut().push_back(value);
+            self.responses.borrow_mut().push_back(value);
         }
 
         pub fn assert_request(&mut self, method: &str, params: &[String]) {

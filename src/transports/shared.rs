@@ -8,6 +8,7 @@ use {Error, ErrorKind, RequestId};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
+#[derive(Debug)]
 pub struct EventLoopHandle {
     thread: Option<thread::JoinHandle<()>>,
     remote: reactor::Remote,
@@ -73,6 +74,7 @@ impl EventLoopHandle {
 impl Drop for EventLoopHandle {
     fn drop(&mut self) {
         self.done.store(true, atomic::Ordering::Relaxed);
+        self.remote.spawn(|_| Ok(()));
         self.thread
             .take()
             .expect("We never touch thread except for drop; drop happens only once; qed")

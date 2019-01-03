@@ -5,6 +5,7 @@ mod eth_filter;
 mod eth_subscribe;
 mod net;
 mod personal;
+mod traces;
 mod web3;
 
 pub use self::eth::Eth;
@@ -13,6 +14,7 @@ pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
 pub use self::net::Net;
 pub use self::personal::Personal;
 pub use self::web3::Web3 as Web3Api;
+pub use self::traces::Traces;
 
 use std::time::Duration;
 use futures::IntoFuture;
@@ -72,6 +74,11 @@ impl<T: Transport> Web3<T> {
 
     /// Access methods from `personal` namespace
     pub fn personal(&self) -> personal::Personal<T> {
+        self.api()
+    }
+
+    /// Access methods from `trace` namespace
+    pub fn trace(&self) -> traces::Traces<T> {
         self.api()
     }
 

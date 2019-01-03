@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.3.0"
+version = "0.5.1"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -12,27 +12,28 @@ readme = "README.md"
 
 [dependencies]
 arrayvec = "0.4"
-error-chain = "0.11"
-ethabi = "5.1"
-ethereum-types = "0.3"
+error-chain = "0.12"
+ethabi = "6.0"
+ethereum-types = "0.4"
 futures = "0.1"
 jsonrpc-core = "8.0.1"
 log = "0.4"
-parking_lot = "0.5"
+parking_lot = "0.7"
 rustc-hex = "1.0"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 tokio-timer = "0.1"
 url = "1.7"
+base64 = "0.10"
 # Optional deps
-hyper = { version = "0.11", optional = true }
-hyper-tls = { version = "0.1", optional = true }
-native-tls = { version = "0.1", optional = true }
+hyper = { version = "0.12", optional = true }
+hyper-tls = { version = "0.3", optional = true }
+native-tls = { version = "0.2", optional = true }
 tokio-core = { version = "0.1", optional = true }
 tokio-io = { version = "0.1", optional = true }
 tokio-uds = { version = "0.1", optional = true }
-websocket = { version = "0.20", optional = true }
+websocket = { version = "0.21", optional = true }
 
 [dev-dependencies]
 # For examples

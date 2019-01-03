@@ -6,7 +6,7 @@ use futures::{Future, IntoFuture, Poll, Stream};
 use futures::stream::Skip;
 use api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use types::{Bytes, H256, TransactionReceipt, TransactionRequest, U256};
-use helpers::CallResult;
+use helpers::CallFuture;
 use {Error, Transport};
 
 /// Checks whether an event has been confirmed.
@@ -33,7 +33,7 @@ where
 enum WaitForConfirmationsState<F, O> {
     WaitForNextBlock,
     CheckConfirmation(F),
-    CompareConfirmations(u64, CallResult<U256, O>),
+    CompareConfirmations(u64, CallFuture<U256, O>),
 }
 
 struct WaitForConfirmations<T, V, F>
@@ -162,7 +162,7 @@ where
 }
 
 struct TransactionReceiptBlockNumber<T: Transport> {
-    future: CallResult<Option<TransactionReceipt>, T::Out>,
+    future: CallFuture<Option<TransactionReceipt>, T::Out>,
 }
 
 impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
@@ -171,7 +171,7 @@ impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let receipt = try_ready!(self.future.poll());
-        Ok(receipt.map(|receipt| receipt.block_number).into())
+        Ok(receipt.and_then(|receipt| receipt.block_number).into())
     }
 }
 
@@ -198,12 +198,12 @@ impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
 
 enum SendTransactionWithConfirmationState<T: Transport> {
     Error(Option<Error>),
-    SendTransaction(CallResult<H256, T::Out>),
+    SendTransaction(CallFuture<H256, T::Out>),
     WaitForConfirmations(
         H256,
         Confirmations<T, TransactionReceiptBlockNumberCheck<T>, TransactionReceiptBlockNumber<T>>,
     ),
-    GetTransactionReceipt(CallResult<Option<TransactionReceipt>, T::Out>),
+    GetTransactionReceipt(CallFuture<Option<TransactionReceipt>, T::Out>),
 }
 
 /// Sends transaction and then checks if has been confirmed.
@@ -332,8 +332,8 @@ mod tests {
         let transaction_receipt = TransactionReceipt {
             transaction_hash: 0.into(),
             transaction_index: 0.into(),
-            block_hash: 0.into(),
-            block_number: 2.into(),
+            block_hash: Some(0.into()),
+            block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),
             gas_used: 0.into(),
             contract_address: None,

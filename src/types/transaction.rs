@@ -1,7 +1,7 @@
 use types::{Bytes, H160, H256, Index, Log, U256, U64};
 
 /// Description of a Transaction, pending or in the chain.
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Transaction {
     /// Hash
     pub hash: H256,
@@ -42,10 +42,10 @@ pub struct Receipt {
     pub transaction_index: Index,
     /// Hash of the block this transaction was included within.
     #[serde(rename = "blockHash")]
-    pub block_hash: H256,
+    pub block_hash: Option<H256>,
     /// Number of the block this transaction was included within.
     #[serde(rename = "blockNumber")]
-    pub block_number: U256,
+    pub block_number: Option<U256>,
     /// Cumulative gas used within the block after this was executed.
     #[serde(rename = "cumulativeGasUsed")]
     pub cumulative_gas_used: U256,
