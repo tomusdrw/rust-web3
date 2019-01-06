@@ -42,6 +42,11 @@ pub struct BlockHeader {
     pub timestamp: U256,
     /// Difficulty
     pub difficulty: U256,
+    /// Mix Hash
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<U256>,
 }
 
 /// The block type returned from RPC calls.
@@ -98,6 +103,10 @@ pub struct Block<TX> {
     pub transactions: Vec<TX>,
     /// Size in bytes
     pub size: Option<U256>,
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<U256>,
 }
 
 /// Block Number
