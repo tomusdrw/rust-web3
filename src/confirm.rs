@@ -339,6 +339,7 @@ mod tests {
             contract_address: None,
             logs: vec![],
             status: Some(1.into()),
+            logs_bloom: 0.into(),
         };
 
         let poll_interval = Duration::from_secs(0);
