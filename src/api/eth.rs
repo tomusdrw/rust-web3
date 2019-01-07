@@ -354,6 +354,8 @@ mod tests {
     "number": "0x1b4",
     "hash": "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
     "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
+    "mixHash": "0x1010101010101010101010101010101010101010101010101010101010101010",
+    "nonce": "0x0000000000000000",
     "sealFields": [
       "0xe04d296d2460cfb8472af2c5fd05b5a214109c25688d3704aed5484f9a7792f2",
       "0x0000000000000042"
@@ -377,7 +379,7 @@ mod tests {
   }"#;
 
     // taken from RPC docs, but with leading `00` added to `blockHash`
-    // and `transactionHash` fields because RPC docs currently show 
+    // and `transactionHash` fields because RPC docs currently show
     // 31-byte values in both positions (must be 32 bytes).
     const EXAMPLE_LOG: &'static str = r#"{
     "logIndex": "0x1",
@@ -416,6 +418,7 @@ mod tests {
     "cumulativeGasUsed": "0x33bc",
     "gasUsed": "0x4dc",
     "contractAddress": "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
+    "logsBloom":  "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
     "logs": []
   }"#;
 

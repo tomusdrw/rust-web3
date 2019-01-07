@@ -1,5 +1,5 @@
 use serde::{Serialize, Serializer};
-use types::{Bytes, H160, H2048, H256, U128, U256};
+use types::{Bytes, H160, H2048, H256, U128, U256, H64};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -42,6 +42,11 @@ pub struct BlockHeader {
     pub timestamp: U256,
     /// Difficulty
     pub difficulty: U256,
+    /// Mix Hash
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<H64>,
 }
 
 /// The block type returned from RPC calls.
@@ -98,6 +103,11 @@ pub struct Block<TX> {
     pub transactions: Vec<TX>,
     /// Size in bytes
     pub size: Option<U256>,
+    /// Mix Hash
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<H64>,
 }
 
 /// Block Number
