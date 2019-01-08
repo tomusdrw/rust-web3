@@ -1,8 +1,4 @@
-First, build the examples
-
-    cargo build --examples
-
-Then, run ganache
+First, run ganache
 
     ganache-cli -m "hamster coin cup brief quote trick stove draft hobby strong caught unable"
 
