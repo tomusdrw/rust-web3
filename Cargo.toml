@@ -34,6 +34,7 @@ tokio-core = { version = "0.1", optional = true }
 tokio-io = { version = "0.1", optional = true }
 tokio-uds = { version = "0.1", optional = true }
 websocket = { version = "0.21", optional = true }
+env_logger = "0.6.0"
 
 [dev-dependencies]
 # For examples

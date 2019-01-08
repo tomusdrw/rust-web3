@@ -1,3 +1,4 @@
+extern crate env_logger;
 extern crate rustc_hex;
 extern crate web3;
 
@@ -7,6 +8,7 @@ use web3::types::{Address, U256};
 use rustc_hex::FromHex;
 
 fn main() {
+    env_logger::init();
     let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
     let web3 = web3::Web3::new(http);
 
