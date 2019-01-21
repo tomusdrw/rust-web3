@@ -1,3 +1,4 @@
+extern crate env_logger;
 extern crate rustc_hex;
 extern crate web3;
 
@@ -7,10 +8,11 @@ use web3::types::{Address, U256};
 use rustc_hex::FromHex;
 
 fn main() {
+    env_logger::init();
     let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
     let web3 = web3::Web3::new(http);
 
-    let my_account: Address = "00a329c0648769a73afac7f9381e08fb43dbea72"
+    let my_account: Address = "d028d24f16a8893bd078259d413372ac01580769"
         .parse()
         .unwrap();
     // Get the contract bytecode for instance from Solidity compiler
@@ -20,7 +22,9 @@ fn main() {
         .unwrap()
         .confirmations(4)
         .options(Options::with(|opt| {
-            opt.value = Some(5.into())
+            opt.value = Some(5.into());
+            opt.gas_price = Some(5.into());
+            opt.gas = Some(1_000_000.into());
         }))
         .execute(
             bytecode,

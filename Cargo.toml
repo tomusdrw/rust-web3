@@ -39,6 +39,7 @@ websocket = { version = "0.21", optional = true }
 # For examples
 tokio-core = "0.1"
 rustc-hex = "1.0"
+env_logger = "0.6.0"
 
 [features]
 default = ["http", "ipc", "ws", "tls"]
