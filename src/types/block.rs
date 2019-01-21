@@ -51,7 +51,7 @@ pub struct BlockHeader {
 
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Block<TX> {
     /// Hash of the block
     pub hash: Option<H256>,
