@@ -66,10 +66,20 @@ pub struct Receipt {
     pub logs_bloom: H2048,
 }
 
+/// Raw bytes and details of a signed, but not yet sent transaction
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignedTransaction {
+  /// Signed transaction as raw bytes
+  pub raw: Bytes,
+  /// Transaction details
+  pub tx: Transaction,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json;
     use super::Receipt;
+    use super::SignedTransaction;
 
     #[test]
     fn test_deserialize_receipt() {
@@ -114,5 +124,28 @@ mod tests {
     }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_signed_tx() {
+      // taken from RPC docs.
+      let tx_str = r#"{
+      "raw": "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
+      "tx": {
+        "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+        "nonce": "0x0",
+        "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
+        "blockNumber": "0x15df",
+        "transactionIndex": "0x1",
+        "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "to": "0x853f43d8a49eeb85d32cf465507dd71d507100c1",
+        "value": "0x7f110",
+        "gas": "0x7f110",
+        "gasPrice": "0x09184e72a000",
+        "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
+      }
+    }"#;
+
+        let _tx: SignedTransaction = serde_json::from_str(tx_str).unwrap();
     }
 }
