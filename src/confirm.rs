@@ -335,7 +335,7 @@ mod tests {
             block_hash: Some(0.into()),
             block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),
-            gas_used: 0.into(),
+            gas_used: Some(0.into()),
             contract_address: None,
             logs: vec![],
             status: Some(1.into()),
