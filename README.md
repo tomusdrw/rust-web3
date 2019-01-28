@@ -78,7 +78,7 @@ For more see [examples folder](./examples).
 
 ### Parity-specific APIs
 - [ ] Parity read-only: `parity_*`
-- [ ] Parity accounts: `parity_*`
+- [x] Parity accounts: `parity_*` (Currently being implemented @CPerezz)
 - [ ] Parity set: `parity_*`
 - [ ] `signer_*`
 
