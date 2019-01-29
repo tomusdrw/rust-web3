@@ -2,7 +2,7 @@
 
 use api::Namespace;
 use helpers::{self, CallFuture};
-use types::{Address, H256, TransactionRequest};
+use types::{Address, H256, TransactionRequest, RawTransaction};
 
 use Transport;
 
@@ -63,6 +63,18 @@ impl<T: Transport> Personal<T> {
                 .execute("personal_sendTransaction", vec![transaction, password]),
         )
     }
+
+    /// Signs a transaction without dispatching it to the network.
+    /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
+    /// Returns a signed transaction in raw bytes along with it's details.
+    pub fn sign_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<RawTransaction, T::Out> {
+        let transaction = helpers::serialize(&transaction);
+        let password = helpers::serialize(&password);
+        CallFuture::new(
+            self.transport
+                .execute("personal_signTransaction", vec![transaction, password]),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -71,9 +83,27 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::TransactionRequest;
+    use types::{TransactionRequest, RawTransaction};
+    use rustc_hex::FromHex;
 
     use super::Personal;
+
+    const EXAMPLE_TX: &'static str = r#"{
+    "raw": "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
+    "tx": {
+      "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+      "nonce": "0x0",
+      "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
+      "blockNumber": "0x15df",
+      "transactionIndex": "0x1",
+      "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+      "to": "0x853f43d8a49eeb85d32cf465507dd71d507100c1",
+      "value": "0x7f110",
+      "gas": "0x7f110",
+      "gasPrice": "0x09184e72a000",
+      "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
+    }
+  }"#;
 
     rpc_test! (
     Personal:list_accounts => "personal_listAccounts";
@@ -102,5 +132,22 @@ mod tests {
     =>
     "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+  );
+
+    rpc_test! (
+    Personal:sign_transaction, TransactionRequest {
+      from: "0x407d73d8a49eeb85d32cf465507dd71d507100c1".into(),
+      to: Some("0x853f43d8a49eeb85d32cf465507dd71d507100c1".into()),
+      gas: Some(0x7f110.into()),
+      gas_price: Some(0x09184e72a000u64.into()),
+      value: Some(0x7f110.into()),
+      data: Some(FromHex::from_hex("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").unwrap().into()),
+      nonce: Some(0x0.into()),
+      condition: None,
+    }, "hunter2"
+    =>
+    "personal_signTransaction", vec![r#"{"data":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360","from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1","gas":"0x7f110","gasPrice":"0x9184e72a000","nonce":"0x0","to":"0x853f43d8a49eeb85d32cf465507dd71d507100c1","value":"0x7f110"}"#, r#""hunter2""#];
+    ::serde_json::from_str(EXAMPLE_TX).unwrap()
+    => ::serde_json::from_str::<RawTransaction>(EXAMPLE_TX).unwrap()
   );
 }
