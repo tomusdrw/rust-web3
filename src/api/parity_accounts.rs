@@ -3,8 +3,6 @@ use helpers::{self, CallFuture};
 use types::{Address, H256};
 use Transport;
 
-
-
 /// `Parity_Accounts` namespace
 #[derive(Debug, Clone)]
 pub struct ParityAccounts<T> {
@@ -24,9 +22,8 @@ impl<T: Transport> Namespace<T> for ParityAccounts<T> {
     }
 }
 
-
 impl<T: Transport> ParityAccounts<T> {
-    /// Imports account from Sk.
+    /// Imports an account from a given secret key.
     /// Returns the address of the corresponding Sk vinculated account.
     pub fn new_account_from_secret(&self, secret: &H256, pwd: &str) -> CallFuture<Address, T::Out> {
        let secret = helpers::serialize(&secret);
@@ -37,8 +34,6 @@ impl<T: Transport> ParityAccounts<T> {
        ) 
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

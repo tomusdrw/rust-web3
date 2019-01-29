@@ -4,19 +4,20 @@ mod eth;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
+mod parity_accounts;
 mod personal;
 mod traces;
 mod web3;
-mod parity_accounts;
+
 
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
 pub use self::net::Net;
+pub use self::parity_accounts::ParityAccounts;
 pub use self::personal::Personal;
 pub use self::web3::Web3 as Web3Api;
 pub use self::traces::Traces;
-pub use self::parity_accounts::ParityAccounts;
 
 
 use std::time::Duration;
@@ -75,6 +76,11 @@ impl<T: Transport> Web3<T> {
         self.api()
     }
 
+    /// Access methods from `parity_accounts` namespace
+    pub fn parity_accounts(&self) -> parity_accounts::ParityAccounts<T> {
+        self.api()
+    }
+
     /// Access methods from `personal` namespace
     pub fn personal(&self) -> personal::Personal<T> {
         self.api()
@@ -82,11 +88,6 @@ impl<T: Transport> Web3<T> {
 
     /// Access methods from `trace` namespace
     pub fn trace(&self) -> traces::Traces<T> {
-        self.api()
-    }
-
-    /// Access methods from `parity_accounts` namespace
-    pub fn parity_accounts(&self) -> parity_accounts::ParityAccounts<T> {
         self.api()
     }
 
