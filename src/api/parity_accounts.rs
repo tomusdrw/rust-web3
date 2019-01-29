@@ -26,7 +26,7 @@ impl<T: Transport> Namespace<T> for ParityAccounts<T> {
 
 
 impl<T: Transport> ParityAccounts<T> {
-    /// Imports account from Sk.
+    /// Imports account given secret and password.
     /// Returns the address of the corresponding Sk vinculated account.
     pub fn new_account_from_secret(&self, secret: &H256, pwd: &str) -> CallFuture<Address, T::Out> {
        let secret = helpers::serialize(&secret);
