@@ -43,7 +43,6 @@ impl<T: Transport> ParityAccounts<T> {
             .execute("parity_newAccountFromPhrase", vec![seed, pwd]),
        )  
     }
-
     /// Imports an account from a given secret key.
     /// Returns the address of the corresponding Sk vinculated account.
     pub fn new_account_from_secret(&self, secret: &H256, pwd: &str) -> CallFuture<Address, T::Out> {
