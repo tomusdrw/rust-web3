@@ -2,7 +2,7 @@
 
 use api::Namespace;
 use helpers::CallFuture;
-use types::U256;
+use types::{U256, PeerType, NodeType};
 
 use Transport;
 
@@ -34,6 +34,14 @@ impl<T: Transport> Net<T> {
     /// Returns number of peers connected to node.
     pub fn peer_count(&self) -> CallFuture<U256, T::Out> {
         CallFuture::new(self.transport.execute("net_peerCount", vec![]))
+    }
+
+    /// Returns list of connected nodes
+    pub fn peer_list(&self, n: NodeType) -> CallFuture<PeerType, T::Out>{
+        match n {
+            NodeType::Parity => CallFuture::new(self.transport.execute("parity_netPeers", vec![])),
+            NodeType::Geth => CallFuture::new(self.transport.execute("admin_peers", vec![])),
+        }
     }
 
     /// Whether the node is listening for network connections
