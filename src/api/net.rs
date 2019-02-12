@@ -37,8 +37,8 @@ impl<T: Transport> Net<T> {
     }
 
     /// Returns list of connected nodes
-    pub fn peer_list(&self, _n: NodeType) -> CallFuture<PeerType, T::Out>{
-        match _n {
+    pub fn peer_list(&self, n: NodeType) -> CallFuture<PeerType, T::Out>{
+        match n {
             NodeType::Parity => CallFuture::new(self.transport.execute("parity_netPeers", vec![])),
             NodeType::Geth => CallFuture::new(self.transport.execute("admin_peers", vec![])),
         }
