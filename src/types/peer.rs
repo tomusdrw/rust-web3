@@ -1,9 +1,11 @@
 //! Types for getting peer information
 use ethereum_types::U256;
+
 use serde_derive::{Deserialize, Serialize};
 
+
 /// Stores active peer count, connected count, max connected peers
-/// and a list of peers
+/// and a list of peers for parity node
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PeerType {
     /// number of active peers
@@ -17,6 +19,7 @@ pub struct PeerType {
 }
 
 /// details of a peer
+// also used for geth nodes
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PeerInfo {
     /// id of peer
@@ -58,4 +61,5 @@ pub struct PipProtocolInfo {
     pub difficulty: U256,
     pub head: String,
 }
+
 
