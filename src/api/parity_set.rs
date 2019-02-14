@@ -120,7 +120,7 @@ impl<T: Transport> ParitySet<T> {
     }
 
     /// Returns a ReleaseInfo object describing the release which is available for upgrade or null if none is available.
-    pub fn parity_upgrade_ready(&self) -> CallFuture<&str, T::Out> {
+    pub fn parity_upgrade_ready(&self) -> CallFuture<Option<String>, T::Out> {
         CallFuture::new(self.transport().execute("parity_upgradeReady", vec![]))
     }
 }
@@ -230,5 +230,10 @@ mod tests {
         ParitySet:parity_set_transactions_limit, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
         => "parity_setTransactionsLimit", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
+    );
+
+    rpc_test!(
+        ParitySet:parity_upgrade_ready => "parity_upgradeReady";
+        Value::Null => None
     );
 }
