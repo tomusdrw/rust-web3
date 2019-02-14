@@ -1,6 +1,7 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
-use types::{H256, Address};
+use types::{H128, H256, Address};
+
 
 use Transport;
 
@@ -27,47 +28,101 @@ impl<T: Transport> ParitySet<T> {
     
     /// Set Parity to accept non-reserved peers (default behavior)
     pub fn parity_accept_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
-        CallFuture::new(self.transport().execute("acceptNonReservedPeers", vec![]))
+        CallFuture::new(self.transport().execute("parity_acceptNonReservedPeers", vec![]))
     }
 
     /// Add a reserved peer
     pub fn parity_add_reserved_peer(&self, enode: &str) -> CallFuture<bool, T::Out> {
         let enode = helpers::serialize(&enode);
-        CallFuture::new(self.transport().execute("addReservedPeer", vec![enode]))
+        CallFuture::new(self.transport().execute("parity_addReservedPeer", vec![enode]))
     }
 
     /// Set Parity to drop all non-reserved peers. To restore default behavior call parity_acceptNonReservedPeers
     pub fn parity_drop_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
-        CallFuture::new(self.transport().execute("dropNonReservedPeers", vec![]))
+        CallFuture::new(self.transport().execute("parity_dropNonReservedPeers", vec![]))
     }
 
     /// Attempts to upgrade Parity to the version specified in parity_upgradeReady
     pub fn parity_execute_upgrade(&self) -> CallFuture<bool, T::Out> {
-        CallFuture::new(self.transport().execute("executeUpgrade", vec![]))
+        CallFuture::new(self.transport().execute("parity_executeUpgrade", vec![]))
     }
 
     /// Creates a hash of a file at a given URL
     pub fn parity_hash_content(&self, url: &str) -> CallFuture<H256, T::Out> {
         let url = helpers::serialize(&url);
-        CallFuture::new(self.transport().execute("hashContent", vec![url]))
+        CallFuture::new(self.transport().execute("parity_hashContent", vec![url]))
     }
 
     /// Remove a reserved peer
     pub fn parity_remove_reserved_peer(&self, enode: &str) -> CallFuture<bool, T::Out> {
         let enode = helpers::serialize(&enode);
-        CallFuture::new(self.transport().execute("removeReservedPeer", vec![enode]))
+        CallFuture::new(self.transport().execute("parity_removeReservedPeer", vec![enode]))
     }
 
     /// Changes author (coinbase) for mined blocks
     pub fn parity_set_author(&self, author: &Address) -> CallFuture<bool, T::Out> {
         let address = helpers::serialize(&author);
-        CallFuture::new(self.transport().execute("setAuthor", vec![address]))
+        CallFuture::new(self.transport().execute("parity_setAuthor", vec![address]))
     }
 
     /// Sets the network spec file Parity is using
     pub fn parity_set_chain(&self, chain: &str) -> CallFuture<bool, T::Out> {
         let chain = helpers::serialize(&chain);
-        CallFuture::new(self.transport().execute("setChain", vec![chain]))
+        CallFuture::new(self.transport().execute("parity_setChain", vec![chain]))
+    }
+
+    /// Sets an authority account for signing consensus messages
+    pub fn parity_set_engine_signer(&self, address: &Address, password: &str) -> CallFuture<bool, T::Out> {
+        let address = helpers::serialize(&address);
+        let password = helpers::serialize(&password);
+        CallFuture::new(self.transport().execute("parity_setEngineSigner", vec![address, password]))
+    }
+
+    /// Changes extra data for newly mined blocks
+    pub fn parity_set_extra_data(&self, data: &H256) -> CallFuture<bool, T::Out> {
+        let data = helpers::serialize(&data);
+        CallFuture::new(self.transport().execute("parity_setExtraData", vec![data]))
+    }
+
+    /// Sets new gas ceiling target for mined blocks
+    pub fn parity_set_gas_ceil_target(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+        let quantity = helpers::serialize(&quantity);
+        CallFuture::new(self.transport().execute("parity_setGasCeilTarget", vec![quantity]))
+    }
+
+    /// Sets a new gas floor target for mined blocks
+    pub fn parity_set_gas_floor_target(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+        let quantity = helpers::serialize(&quantity);
+        CallFuture::new(self.transport().execute("parity_setGasFloorTarget", vec![quantity]))
+    }
+
+    /// Sets the maximum amount of gas a single transaction may consume
+    pub fn parity_set_max_transaction_gas(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+        let quantity = helpers::serialize(&quantity);
+        CallFuture::new(self.transport().execute("parity_setMaxTransactionGas", vec![quantity]))
+    }
+
+    /// Changes minimal gas price for transaction to be accepted to the queue
+    pub fn parity_set_min_gas_price(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+        let quantity = helpers::serialize(&quantity);
+        CallFuture::new(self.transport().execute("parity_setMinGasPrice", vec![quantity]))
+    }
+
+    /// Changes the operating mode of Parity.
+    pub fn parity_set_mode(&self, mode: &str) -> CallFuture<bool, T::Out> {
+        let mode = helpers::serialize(&mode);
+        CallFuture::new(self.transport().execute("paritySetMode", vec![mode]))
+    }
+
+    /// Changes limit for transactions in queue.
+    pub fn parity_set_transactions_limit(&self, limit: &H128) -> CallFuture<bool, T::Out> {
+        let limit = helpers::serialize(&limit);
+        CallFuture::new(self.transport().execute("setTransactionsLimit", vec![limit]))
+    }
+
+    /// Returns a ReleaseInfo object describing the release which is available for upgrade or null if none is available.
+    pub fn parity_upgrade_ready(&self) -> CallFuture<&str, T::Out> {
+        CallFuture::new(self.transport().execute("upgradeReady", vec![]))
     }
 }
 
@@ -77,7 +132,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{H256, Address};
+    use types::{H128, H256, Address};
 
     use super::ParitySet;
 
@@ -126,6 +181,55 @@ mod tests {
     rpc_test! (
         ParitySet:parity_set_chain, "kovan"
         => "setChain", vec![r#""kovan""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_engine_signer, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1"), "hunter2"
+        => "setEngineSigner", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#, r#""hunter2""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_extra_data,
+        &H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46" )
+        => "setExtraData", vec![r#""0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_gas_ceil_target, &H128::from("0x40534f00c1")
+        => "setGasCeilTarget", vec![r#""0x40534f00c1""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_gas_floor_target, &H128::from("0x40534f00c1")
+        => "setGasFloorTarget", vec![r#""0x40534f00c1""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_max_transaction_gas, &H128::from("0x40534f00c1")
+        => "setMaxTransactionGas", vec![r#""0x40534f00c1""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_min_gas_price, &H128::from("0x40534f00c1")
+        => "setMinGasPrice", vec![r#""0x40534f00c1""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_mode, "offline"
+        => "setMode", vec![r#""offline""#];
+        Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_set_transactions_limit, &H128::from("0x4f00c1")
+        => "setTransactionsLimit", vec![r#""0x4f00c1""#];
         Value::Bool(true) => true
     );
 }
