@@ -23,8 +23,7 @@ impl<T: Transport> Namespace<T> for ParityAccounts<T> {
 }
 
 impl<T: Transport> ParityAccounts<T> {
-    // Given an address of an account and its password
-    // Deletes the account from the parity node
+    /// Given an address of an account and its password deletes the account from the parity node
     pub fn parity_kill_account(&self, address: &Address, pwd: &str) -> CallFuture<bool, T::Out> {
        let address = helpers::serialize(&address);
        let pwd = helpers::serialize(&pwd);
@@ -33,8 +32,8 @@ impl<T: Transport> ParityAccounts<T> {
             .execute("parity_killAccount", vec![address, pwd]),
        ) 
     }
-    // Imports an account from a given seed/phrase
-    // Retunrs the address of the corresponding seed vinculated account
+    /// Imports an account from a given seed/phrase
+    /// Retunrs the address of the corresponding seed vinculated account
     pub fn parity_new_account_from_phrase(&self, seed: &str, pwd: &str) -> CallFuture<Address, T::Out> {
        let seed = helpers::serialize(&seed);
        let pwd = helpers::serialize(&pwd);
