@@ -1,6 +1,6 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
-use types::{H128, H256, Address};
+use types::{H256, Address};
 
 use Transport;
 
@@ -84,25 +84,25 @@ impl<T: Transport> ParitySet<T> {
     }
 
     /// Sets new gas ceiling target for mined blocks
-    pub fn parity_set_gas_ceil_target(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+    pub fn parity_set_gas_ceil_target(&self, quantity: &H256) -> CallFuture<bool, T::Out> {
         let quantity = helpers::serialize(&quantity);
         CallFuture::new(self.transport().execute("parity_setGasCeilTarget", vec![quantity]))
     }
 
     /// Sets a new gas floor target for mined blocks
-    pub fn parity_set_gas_floor_target(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+    pub fn parity_set_gas_floor_target(&self, quantity: &H256) -> CallFuture<bool, T::Out> {
         let quantity = helpers::serialize(&quantity);
         CallFuture::new(self.transport().execute("parity_setGasFloorTarget", vec![quantity]))
     }
 
     /// Sets the maximum amount of gas a single transaction may consume
-    pub fn parity_set_max_transaction_gas(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+    pub fn parity_set_max_transaction_gas(&self, quantity: &H256) -> CallFuture<bool, T::Out> {
         let quantity = helpers::serialize(&quantity);
         CallFuture::new(self.transport().execute("parity_setMaxTransactionGas", vec![quantity]))
     }
 
     /// Changes minimal gas price for transaction to be accepted to the queue
-    pub fn parity_set_min_gas_price(&self, quantity: &H128) -> CallFuture<bool, T::Out> {
+    pub fn parity_set_min_gas_price(&self, quantity: &H256) -> CallFuture<bool, T::Out> {
         let quantity = helpers::serialize(&quantity);
         CallFuture::new(self.transport().execute("parity_setMinGasPrice", vec![quantity]))
     }
@@ -110,18 +110,18 @@ impl<T: Transport> ParitySet<T> {
     /// Changes the operating mode of Parity.
     pub fn parity_set_mode(&self, mode: &str) -> CallFuture<bool, T::Out> {
         let mode = helpers::serialize(&mode);
-        CallFuture::new(self.transport().execute("paritySetMode", vec![mode]))
+        CallFuture::new(self.transport().execute("parity_setMode", vec![mode]))
     }
 
     /// Changes limit for transactions in queue.
-    pub fn parity_set_transactions_limit(&self, limit: &H128) -> CallFuture<bool, T::Out> {
+    pub fn parity_set_transactions_limit(&self, limit: &H256) -> CallFuture<bool, T::Out> {
         let limit = helpers::serialize(&limit);
-        CallFuture::new(self.transport().execute("setTransactionsLimit", vec![limit]))
+        CallFuture::new(self.transport().execute("parity_setTransactionsLimit", vec![limit]))
     }
 
     /// Returns a ReleaseInfo object describing the release which is available for upgrade or null if none is available.
     pub fn parity_upgrade_ready(&self) -> CallFuture<&str, T::Out> {
-        CallFuture::new(self.transport().execute("upgradeReady", vec![]))
+        CallFuture::new(self.transport().execute("parity_upgradeReady", vec![]))
     }
 }
 
@@ -131,104 +131,104 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{H128, H256, Address};
+    use types::{H256, Address};
 
     use super::ParitySet;
 
     rpc_test! (
-        ParitySet:parity_accept_non_reserved_peers => "acceptNonReservedPeers";
+        ParitySet:parity_accept_non_reserved_peers => "parity_acceptNonReservedPeers";
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_add_reserved_peer,
         "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770" 
-        => "addReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
+        => "parity_addReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_drop_non_reserved_peers => "dropNonReservedPeers";
+        ParitySet:parity_drop_non_reserved_peers => "parity_dropNonReservedPeers";
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_execute_upgrade => "executeUpgrade";
+        ParitySet:parity_execute_upgrade => "parity_executeUpgrade";
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_hash_content,
         "https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md" 
-        => "hashContent", vec![r#""https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md""#];
+        => "parity_hashContent", vec![r#""https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md""#];
         Value::String("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".into()) => H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46")
     );
 
     rpc_test! (
         ParitySet:parity_remove_reserved_peer,
         "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770"
-        => "removeReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
+        => "parity_removeReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
         Value::Bool(true) => true
     );
     
     rpc_test! (
         ParitySet:parity_set_author, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1")
-        => "setAuthor", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#];
+        => "parity_setAuthor", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_set_chain, "kovan"
-        => "setChain", vec![r#""kovan""#];
+        => "parity_setChain", vec![r#""kovan""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_set_engine_signer, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1"), "hunter2"
-        => "setEngineSigner", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#, r#""hunter2""#];
+        => "parity_setEngineSigner", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#, r#""hunter2""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_set_extra_data,
         &H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46" )
-        => "setExtraData", vec![r#""0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46""#];
+        => "parity_setExtraData", vec![r#""0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_set_gas_ceil_target, &H128::from("0x40534f00c1")
-        => "setGasCeilTarget", vec![r#""0x40534f00c1""#];
+        ParitySet:parity_set_gas_ceil_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        => "parity_setGasCeilTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_set_gas_floor_target, &H128::from("0x40534f00c1")
-        => "setGasFloorTarget", vec![r#""0x40534f00c1""#];
+        ParitySet:parity_set_gas_floor_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        => "parity_setGasFloorTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_set_max_transaction_gas, &H128::from("0x40534f00c1")
-        => "setMaxTransactionGas", vec![r#""0x40534f00c1""#];
+        ParitySet:parity_set_max_transaction_gas, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        => "parity_setMaxTransactionGas", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_set_min_gas_price, &H128::from("0x40534f00c1")
-        => "setMinGasPrice", vec![r#""0x40534f00c1""#];
+        ParitySet:parity_set_min_gas_price, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        => "parity_setMinGasPrice", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:parity_set_mode, "offline"
-        => "setMode", vec![r#""offline""#];
+        => "parity_setMode", vec![r#""offline""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:parity_set_transactions_limit, &H128::from("0x4f00c1")
-        => "setTransactionsLimit", vec![r#""0x4f00c1""#];
+        ParitySet:parity_set_transactions_limit, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        => "parity_setTransactionsLimit", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 }
