@@ -16,10 +16,10 @@ pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
 pub use self::net::Net;
 pub use self::parity_accounts::ParityAccounts;
+pub use self::parity_set::ParitySet;
 pub use self::personal::Personal;
 pub use self::web3::Web3 as Web3Api;
 pub use self::traces::Traces;
-pub use self::parity_set::ParitySet;
 
 
 use std::time::Duration;
