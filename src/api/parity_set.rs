@@ -1,6 +1,6 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
-use types::{H256, Address};
+use types::{H256, Address, ParityPeerType};
 
 
 use Transport;
@@ -38,6 +38,11 @@ impl<T: Transport> ParitySet<T> {
     /// Set Parity to drop all non-reserved peers. To restore default behavior call parity_acceptNonReservedPeers
     pub fn drop_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
         CallFuture::new(self.transport().execute("parity_dropNonReservedPeers", vec![]))
+    }
+
+    /// Get list of connected/connecting peers.
+    pub fn parity_net_peers(&self) -> CallFuture<ParityPeerType, T::Out>{
+        CallFuture::new(self.transport.execute("parity_netPeers", vec![]))
     }
 
     /// Attempts to upgrade Parity to the version specified in parity_upgradeReady
@@ -130,7 +135,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{H256, Address};
+    use types::{H256, Address, ParityPeerType};
 
     use super::ParitySet;
 
@@ -149,6 +154,11 @@ mod tests {
     rpc_test! (
         ParitySet:drop_non_reserved_peers => "parity_dropNonReservedPeers";
         Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_net_peers => "parity_netPeers";
+        Value::String("".into()) => ParityPeerType::into()
     );
 
     rpc_test! (
