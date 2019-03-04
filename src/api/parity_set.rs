@@ -23,7 +23,6 @@ impl<T: Transport> Namespace<T> for ParitySet<T> {
 }
 
 impl<T: Transport> ParitySet<T> {
-    
     /// Set Parity to accept non-reserved peers (default behavior)
     pub fn accept_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
         CallFuture::new(self.transport().execute("parity_acceptNonReservedPeers", vec![]))
@@ -135,7 +134,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{H256, Address, ParityPeerType};
+    use types::{H256, Address};
 
     use super::ParitySet;
 
@@ -154,11 +153,6 @@ mod tests {
     rpc_test! (
         ParitySet:drop_non_reserved_peers => "parity_dropNonReservedPeers";
         Value::Bool(true) => true
-    );
-
-    rpc_test! (
-        ParitySet:parity_net_peers => "parity_netPeers";
-        Value::String("".into()) => ParityPeerType::into()
     );
 
     rpc_test! (
