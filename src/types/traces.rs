@@ -72,7 +72,7 @@ pub struct StateDiff(BTreeMap<H160, AccountDiff>);
 pub struct TransactionTrace {
 	/// Trace address
     #[serde(rename = "traceAddress")]
-	trace_address: Vec<Address>,
+	trace_address: Vec<usize>,
 	/// Subtraces
 	subtraces: usize,
 	/// Action
@@ -145,9 +145,9 @@ mod tests {
     use super::*;
     use serde_json;
 
-    // tx: https://etherscan.io/tx/0x550549eb0dde6a4a8f865a19808cb0019e60fac664912e009e5cbae7d5dc0638
+    // tx: https://etherscan.io/tx/0x4a91b11dbd2b11c308cfe7775eac2036f20c501691e3f8005d83b2dcce62d6b5
+    // using the 'trace_replayTransaction' API function
     // with 'trace', 'vmTrace', 'stateDiff'
-    // with 'trace_call' API function
     const EXAMPLE_TRACE: &'static str = include!("./example-trace-str.rs");
 
     #[test]
