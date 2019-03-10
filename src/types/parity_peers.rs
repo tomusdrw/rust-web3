@@ -3,10 +3,9 @@ use ethereum_types::U256;
 
 use serde_derive::{Deserialize, Serialize};
 
-
 /// Stores active peer count, connected count, max connected peers
 /// and a list of peers for parity node
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct ParityPeerType {
     /// number of active peers
     pub active: usize,
@@ -18,8 +17,34 @@ pub struct ParityPeerType {
     pub peers: Vec<ParityPeerInfo>,
 }
 
+/// add functions for ParityPeerType
+impl ParityPeerType {
+    /// string literal of json structure for a parity peer
+    pub fn get_test_string() -> &'static str {
+        r#"{"active":5,"connected":5,"max":5,"peers":[{"id":"f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo","name":"","caps":[],"network":{"remoteAddress":"Handshake","localAddress":"127.0.0.1:43128"},"protocols":{"eth":null,"pip":null}}]}"#
+    }
+}
+
+/// handle string literal conversion for tests
+impl From<&str> for ParityPeerType {
+    /// from string literal to expected return type
+   fn from(s: &str) -> ParityPeerType {
+       serde_json::from_str::<ParityPeerType>(s).unwrap()
+   }
+}
+
+/// handle variance
+/// rpc_test! expects type serde_json::Value enum
+impl From<serde_json::Value> for ParityPeerType {
+    /// in the case of testing ParityPeerType
+    /// value should be of type serde_json::Value::Object
+    fn from(value: serde_json::Value) -> ParityPeerType {
+        serde_json::from_value(value).unwrap()
+    }
+}
+
 /// details of a peer
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct ParityPeerInfo {
     /// id of peer
     pub id: Option<String>,
@@ -34,7 +59,7 @@ pub struct ParityPeerInfo {
 }
 
 /// ip address of both local and remote
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct PeerNetworkInfo {
     /// remote peer address
@@ -44,7 +69,7 @@ pub struct PeerNetworkInfo {
 }
 
 /// chain protocol info
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct PeerProtocolsInfo {
     /// chain info
     pub eth: Option<EthProtocolInfo>,
@@ -54,7 +79,7 @@ pub struct PeerProtocolsInfo {
 
 /// eth chain version, difficulty, and head of chain
 /// which soft fork? Olympic, Frontier, Homestead, Metropolis, Serenity, etc.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct EthProtocolInfo {
     /// version
     pub version: u32,
@@ -65,7 +90,7 @@ pub struct EthProtocolInfo {
 }
 
 /// pip version, difficulty, and head
-#[derive(Serialize, Clone, Deserialize, Debug)]
+#[derive(Serialize, PartialEq, Clone, Deserialize, Debug)]
 pub struct PipProtocolInfo {
     /// version
     pub version: u32,
