@@ -17,24 +17,6 @@ pub struct ParityPeerType {
     pub peers: Vec<ParityPeerInfo>,
 }
 
-/// handle string literal conversion for tests
-impl From<&str> for ParityPeerType {
-    /// from string literal to expected return type
-   fn from(s: &str) -> ParityPeerType {
-       serde_json::from_str::<ParityPeerType>(s).unwrap()
-   }
-}
-
-/// handle variance
-/// rpc_test! expects type serde_json::Value enum
-impl From<serde_json::Value> for ParityPeerType {
-    /// in the case of testing ParityPeerType
-    /// value should be of type serde_json::Value::Object
-    fn from(value: serde_json::Value) -> ParityPeerType {
-        serde_json::from_value(value).unwrap()
-    }
-}
-
 /// details of a peer
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct ParityPeerInfo {
