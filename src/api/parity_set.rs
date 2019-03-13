@@ -134,7 +134,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{H256, Address, ParityPeerType};
+    use types::{H256, Address, ParityPeerType, ParityPeerInfo, PeerNetworkInfo, PeerProtocolsInfo};
     use super::ParitySet;
 
     rpc_test! (
@@ -151,7 +151,25 @@ mod tests {
 
     rpc_test! (
         ParitySet:parity_net_peers => "parity_netPeers";
-        serde_json::to_value(ParityPeerType::from(ParityPeerType::get_test_string())).unwrap() => ParityPeerType::from(ParityPeerType::get_test_string())
+        serde_json::from_str::<Value>(r#"{"active":1,"connected":1,"max":1,"peers":[{"id":"f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo","name":"","caps":[],"network":{"remoteAddress":"Handshake","localAddress":"127.0.0.1:43128"},"protocols":{"eth":null,"pip":null}}]}"#).unwrap()
+            => ParityPeerType {
+                active: 1,
+                connected: 1,
+                max: 1,
+                peers: vec![ParityPeerInfo {
+                    id: Some(String::from("f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo")),
+                    name: String::from(""),
+                    caps: vec![],
+                    network: PeerNetworkInfo {
+                        remote_address: String::from("Handshake"),
+                        local_address: String::from("127.0.0.1:43128"),
+                    },
+                    protocols: PeerProtocolsInfo {
+                        eth: None,                         
+                        pip: None,
+                    },
+                }],
+            }
     );
 
     rpc_test! (

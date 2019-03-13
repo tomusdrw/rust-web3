@@ -17,14 +17,6 @@ pub struct ParityPeerType {
     pub peers: Vec<ParityPeerInfo>,
 }
 
-/// add functions for ParityPeerType
-impl ParityPeerType {
-    /// string literal of json structure for a parity peer
-    pub fn get_test_string() -> &'static str {
-        r#"{"active":5,"connected":5,"max":5,"peers":[{"id":"f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo","name":"","caps":[],"network":{"remoteAddress":"Handshake","localAddress":"127.0.0.1:43128"},"protocols":{"eth":null,"pip":null}}]}"#
-    }
-}
-
 /// handle string literal conversion for tests
 impl From<&str> for ParityPeerType {
     /// from string literal to expected return type
