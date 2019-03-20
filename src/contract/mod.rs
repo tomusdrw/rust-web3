@@ -6,6 +6,7 @@ use std::time;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
+use futures::{Future, future::{self, Either}};
 use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256, Log,
 FilterBuilder};
 use Transport;
@@ -207,17 +208,18 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Find events matching the topics.
-    pub fn events<A, B, C>(
+    pub fn events<A, B, C, R>(
       &self,
       event: &str,
       topic0: A,
       topic1: B,
       topic2: C,
-    ) -> CallFuture<Vec<Log>, T::Out>
+    ) -> impl Future<Item = Vec<R>, Error = Error>
     where
         A: Tokenize,
         B: Tokenize,
         C: Tokenize,
+        R: Detokenize,
     {
         fn to_topic<A: Tokenize>(x: A) -> ethabi::Topic<ethabi::Token> {
             let tokens = x.into_tokens();
@@ -228,19 +230,36 @@ impl<T: Transport> Contract<T> {
             }
         }
 
-        self.abi
-            .event(event)
+        let res = self.abi.event(event)
             .and_then(|ev| {
-              ev.filter(ethabi::RawTopicFilter {
-                topic0: to_topic(topic0),
-                topic1: to_topic(topic1),
-                topic2: to_topic(topic2),
-              })
+                let filter = ev.filter(ethabi::RawTopicFilter {
+                    topic0: to_topic(topic0),
+                    topic1: to_topic(topic1),
+                    topic2: to_topic(topic2),
+                })?;
+                Ok((ev.clone(), filter))
+            });
+        let (ev, filter) = match res {
+            Ok(x) => x,
+            Err(e) => return Either::A(future::err(e.into())),
+        };
+
+        Either::B(self.eth.logs(FilterBuilder::default().topic_filter(filter).build())
+            .map_err(Into::into)
+            .and_then(move |logs| {
+                logs
+                    .into_iter()
+                    .map(move |l| {
+                        let log = ev.parse_log(ethabi::RawLog {
+                            topics: l.topics,
+                            data: l.data.0,
+                        })?;
+
+                        Ok(R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())?)
+                    })
+                    .collect::<Result<Vec<R>, Error>>()
             })
-            .map(|filter| {
-              self.eth.logs(FilterBuilder::default().topic_filter(filter).build()).into()
-            })
-            .unwrap_or_else(Into::into)
+        )
     }
 }
 
