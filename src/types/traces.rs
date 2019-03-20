@@ -1,5 +1,5 @@
 //! Types for the Parity Ad-Hoc Trace API
-use types::{H160, H256, U256, Bytes, Action, Res, Address};
+use types::{H160, H256, U256, Bytes, Action, Res};
 use std::collections::BTreeMap;
 use serde_derive::{Deserialize, Serialize};
 

@@ -6,7 +6,8 @@ use std::time;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
+use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256, Log,
+FilterBuilder};
 use Transport;
 
 mod error;
@@ -201,6 +202,43 @@ impl<T: Transport> Contract<T> {
                     block.into(),
                 );
                 QueryResult::new(result, function.clone())
+            })
+            .unwrap_or_else(Into::into)
+    }
+
+    /// Find events matching the topics.
+    pub fn events<A, B, C>(
+      &self,
+      event: &str,
+      topic0: A,
+      topic1: B,
+      topic2: C,
+    ) -> CallFuture<Vec<Log>, T::Out>
+    where
+        A: Tokenize,
+        B: Tokenize,
+        C: Tokenize,
+    {
+        fn to_topic<A: Tokenize>(x: A) -> ethabi::Topic<ethabi::Token> {
+            let tokens = x.into_tokens();
+            if tokens.is_empty() {
+                ethabi::Topic::Any
+            } else {
+                tokens.into()
+            }
+        }
+
+        self.abi
+            .event(event)
+            .and_then(|ev| {
+              ev.filter(ethabi::RawTopicFilter {
+                topic0: to_topic(topic0),
+                topic1: to_topic(topic1),
+                topic2: to_topic(topic2),
+              })
+            })
+            .map(|filter| {
+              self.eth.logs(FilterBuilder::default().topic_filter(filter).build()).into()
             })
             .unwrap_or_else(Into::into)
     }
