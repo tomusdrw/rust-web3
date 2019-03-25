@@ -3,9 +3,9 @@
 #![allow(unknown_lints)]
 #![allow(missing_docs)]
 
-use std::io;
-use serde_json;
 use rpc;
+use serde_json;
+use std::io;
 
 error_chain! {
   foreign_links {
@@ -58,7 +58,8 @@ impl Clone for Error {
             ErrorKind::Internal => ErrorKind::Internal,
             ErrorKind::Msg(ref e) => ErrorKind::Msg(e.clone()).into(),
             _ => unimplemented!(),
-        }.into()
+        }
+        .into()
     }
 }
 

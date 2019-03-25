@@ -1,9 +1,9 @@
 extern crate parking_lot;
 extern crate web3;
 
-use std::{thread, time};
-use std::sync::{atomic, Arc};
 use parking_lot::Mutex;
+use std::sync::{atomic, Arc};
+use std::{thread, time};
 use web3::futures::Future;
 
 fn as_millis(dur: time::Duration) -> u64 {
@@ -45,10 +45,7 @@ impl Ticker {
         let elapsed = as_millis(time.elapsed());
         let result = reqs * 1_000 / elapsed;
 
-        println!(
-            "[{}] {} reqs/s ({} reqs in {} ms)",
-            self.id, result, reqs, elapsed
-        );
+        println!("[{}] {} reqs/s ({} reqs in {} ms)", self.id, result, reqs, elapsed);
 
         self.reqs.store(0, atomic::Ordering::Release);
         *time = time::Instant::now();

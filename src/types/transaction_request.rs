@@ -66,8 +66,8 @@ pub enum TransactionCondition {
 
 #[cfg(test)]
 mod tests {
-    use serde_json;
     use super::{CallRequest, TransactionCondition, TransactionRequest};
+    use serde_json;
 
     #[test]
     fn should_serialize_call_request() {

@@ -1,7 +1,7 @@
-use std::fmt;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::{Error, Visitor};
 use rustc_hex::{FromHex, ToHex};
+use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 /// Raw bytes wrapper
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]

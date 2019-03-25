@@ -1,6 +1,6 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
-use types::{TraceType, BlockTrace, Trace, TraceFilter, CallRequest, BlockNumber, Bytes, H256, Index};
+use types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256};
 use Transport;
 
 /// `Trace` namespace
@@ -80,11 +80,11 @@ impl<T: Transport> Traces<T> {
 }
 
 #[cfg(test)]
-mod tests  {
+mod tests {
     use futures::Future;
 
     use api::Namespace;
-    use types::{TraceType, BlockNumber, BlockTrace, Trace, TraceFilterBuilder, Bytes, CallRequest, H256};
+    use types::{BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
 
     use super::Traces;
 

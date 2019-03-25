@@ -43,8 +43,8 @@ mod tests {
     use futures::Future;
 
     use api::Namespace;
-    use types::Bytes;
     use rpc::Value;
+    use types::Bytes;
 
     use super::Web3;
 

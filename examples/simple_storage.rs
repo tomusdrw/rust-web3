@@ -2,11 +2,11 @@
 extern crate rustc_hex;
 extern crate web3;
 
-use web3::futures::Future;
-use web3::contract::{Contract, Options};
-use web3::types::U256;
 use rustc_hex::FromHex;
 use std::time;
+use web3::contract::{Contract, Options};
+use web3::futures::Future;
+use web3::types::U256;
 
 fn main() {
     let (_eloop, transport) = web3::transports::Http::new("http://localhost:8545").unwrap();
@@ -19,21 +19,9 @@ fn main() {
     println!("Balance: {}", balance);
 
     // Get the contract bytecode for instance from Solidity compiler
-    let bytecode: Vec<u8> = include_str!("./build/SimpleStorage.bin")
-        .from_hex()
-        .unwrap();
+    let bytecode: Vec<u8> = include_str!("./build/SimpleStorage.bin").from_hex().unwrap();
     // Deploying a contract
-    let contract = Contract::deploy(web3.eth(), include_bytes!("./build/SimpleStorage.abi"))
-        .unwrap()
-        .confirmations(0)
-        .poll_interval(time::Duration::from_secs(10))
-        .options(Options::with(|opt| {
-            opt.gas = Some(3_000_000.into())
-        }))
-        .execute(bytecode, (), accounts[0])
-        .unwrap()
-        .wait()
-        .unwrap();
+    let contract = Contract::deploy(web3.eth(), include_bytes!("./build/SimpleStorage.abi")).unwrap().confirmations(0).poll_interval(time::Duration::from_secs(10)).options(Options::with(|opt| opt.gas = Some(3_000_000.into()))).execute(bytecode, (), accounts[0]).unwrap().wait().unwrap();
 
     println!("{}", contract.address());
 
