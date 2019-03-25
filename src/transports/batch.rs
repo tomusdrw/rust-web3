@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::mem;
 use std::sync::Arc;
 use transports::Result;
-use {BatchTransport, Error as RpcError, ErrorKind, RequestId, Transport};
+use {BatchTransport, Error as RpcError, RequestId, Transport};
 
 type Pending = oneshot::Sender<Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -99,7 +99,7 @@ impl<T: Future<Item = Vec<Result<rpc::Value>>, Error = RpcError>> Future for Bat
                             pending.remove(&request_id).map(|rx| match res {
                                 Ok(ref results) if results.len() > idx => rx.send(results[idx].clone()),
                                 Err(ref err) => rx.send(Err(err.clone())),
-                                _ => rx.send(Err(ErrorKind::Internal.into())),
+                                _ => rx.send(Err(RpcError::Internal.into())),
                             })
                         })
                         .collect::<Vec<_>>();
@@ -131,7 +131,7 @@ impl Future for SingleResult {
     type Error = RpcError;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(self.0.poll().map_err(|_| RpcError::from(ErrorKind::Internal)));
+        let res = try_ready!(self.0.poll().map_err(|_| RpcError::Internal));
         res.map(futures::Async::Ready)
     }
 }

@@ -6,7 +6,8 @@ use futures::{Async, Future, Poll};
 use rpc;
 use serde;
 use serde_json;
-use {Error, ErrorKind};
+
+use crate::error::Error;
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
@@ -20,7 +21,7 @@ pub struct CallFuture<T, F> {
 impl<T, F> CallFuture<T, F> {
     /// Create a new CallFuture wrapping the inner future.
     pub fn new(inner: F) -> Self {
-        CallFuture { inner: inner, _marker: PhantomData }
+        CallFuture { inner, _marker: PhantomData }
     }
 }
 
@@ -62,12 +63,12 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
-    serde_json::from_slice(response).map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse bytes slice into JSON-RPC notification.
 pub fn to_notification_from_slice(notification: &[u8]) -> Result<rpc::Notification, Error> {
-    serde_json::from_slice(notification).map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(notification).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
@@ -79,20 +80,21 @@ pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<r
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
     match output {
         rpc::Output::Success(success) => Ok(success.result),
-        rpc::Output::Failure(failure) => Err(ErrorKind::Rpc(failure.error).into()),
+        rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error).into()),
     }
 }
 
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
+    use crate::error::Error;
     use futures;
     use rpc;
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use {ErrorKind, RequestId, Result, Transport};
+    use {RequestId, Result, Transport};
 
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
@@ -115,7 +117,7 @@ pub mod tests {
                 Some(response) => Box::new(futures::finished(response)),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
-                    Box::new(futures::failed(ErrorKind::Unreachable.into()))
+                    Box::new(futures::failed(Error::Unreachable))
                 }
             }
         }

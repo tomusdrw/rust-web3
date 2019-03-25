@@ -12,7 +12,6 @@ readme = "README.md"
 
 [dependencies]
 arrayvec = "0.4"
-error-chain = "0.12"
 ethabi = "6.0"
 ethereum-types = "0.4"
 futures = "0.1"
@@ -26,6 +25,7 @@ serde_json = "1.0"
 tokio-timer = "0.1"
 url = "1.7"
 base64 = "0.10"
+derive_more = "0.14"
 # Optional deps
 hyper = { version = "0.12", optional = true }
 hyper-tls = { version = "0.3", optional = true }

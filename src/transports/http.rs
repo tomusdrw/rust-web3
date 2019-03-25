@@ -23,37 +23,37 @@ use serde_json;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
 use transports::Result;
-use {BatchTransport, Error, ErrorKind, RequestId, Transport};
+use {BatchTransport, Error, RequestId, Transport};
 
 impl From<hyper::Error> for Error {
     fn from(err: hyper::Error) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 impl From<hyper::http::uri::InvalidUri> for Error {
     fn from(err: hyper::http::uri::InvalidUri) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 impl From<hyper::header::InvalidHeaderValue> for Error {
     fn from(err: hyper::header::InvalidHeaderValue) -> Self {
-        ErrorKind::Transport(format!("{}", err)).into()
+        Error::Transport(format!("{}", err))
     }
 }
 
 #[cfg(all(feature = "http", not(feature = "ws")))]
 impl From<self::url::ParseError> for Error {
     fn from(err: self::url::ParseError) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 #[cfg(feature = "tls")]
 impl From<native_tls::Error> for Error {
     fn from(err: native_tls::Error) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err)).into()
     }
 }
 
@@ -102,7 +102,7 @@ impl Http {
         handle.spawn(write_receiver.map(move |(request, tx): (_, Pending)| client.request(request).then(move |response| Ok((response, tx)))).buffer_unordered(max_parallel).for_each(|(response, tx)| {
             use futures::future::Either::{A, B};
             let future = match response {
-                Ok(ref res) if !res.status().is_success() => A(future::err(ErrorKind::Transport(format!("Unexpected response status code: {}", res.status())).into())),
+                Ok(ref res) if !res.status().is_success() => A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status())).into())),
                 Ok(res) => B(res.into_body().concat2().map_err(Into::into)),
                 Err(err) => A(future::err(err.into())),
             };
@@ -154,7 +154,7 @@ impl Http {
             req.headers_mut().insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
         let (tx, rx) = futures::oneshot();
-        let result = self.write_sender.unbounded_send((req, tx)).map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
+        let result = self.write_sender.unbounded_send((req, tx)).map_err(|_| Error::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -192,20 +192,20 @@ impl BatchTransport for Http {
 
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Single(output) => helpers::to_result_from_output(output),
-        _ => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
+        _ => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
     }
 }
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target = [u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
-        _ => Err(ErrorKind::InvalidResponse("Expected batch, got single.".into()).into()),
+        _ => Err(Error::InvalidResponse("Expected batch, got single.".into()).into()),
     }
 }

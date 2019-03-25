@@ -11,7 +11,7 @@ use contract::{Contract, Options};
 use types::{Address, Bytes, TransactionRequest};
 use Transport;
 
-pub use contract::error::deploy::{Error, ErrorKind};
+pub use contract::error::deploy::Error;
 
 /// A configuration builder for contract deployment.
 #[derive(Debug)]
@@ -94,7 +94,7 @@ impl<T: Transport> Future for PendingContract<T> {
 
         match receipt.contract_address {
             Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
-            None => Err(ErrorKind::ContractDeploymentFailure(receipt.transaction_hash).into()),
+            None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash).into()),
         }
     }
 }

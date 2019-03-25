@@ -4,7 +4,7 @@ use std::sync::{self, atomic, Arc};
 use std::{fmt, mem, thread};
 use transports::tokio_core::reactor;
 use transports::Result;
-use {Error, ErrorKind, RequestId};
+use {Error, RequestId};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
@@ -110,12 +110,12 @@ where
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
                     trace!("[{}] Checking response.", self.id);
-                    let result = try_ready!(rx.poll().map_err(|_| Error::from(ErrorKind::Io(::std::io::ErrorKind::TimedOut.into()))));
+                    let result = try_ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
                     trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Async::Ready);
                 }
                 RequestState::Done => {
-                    return Err(ErrorKind::Unreachable.into());
+                    return Err(Error::Unreachable);
                 }
             }
             // Proceeed to the next state

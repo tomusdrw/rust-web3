@@ -16,7 +16,7 @@ extern crate tokio_timer;
 extern crate serde_json;
 
 #[macro_use]
-extern crate error_chain;
+extern crate derive_more;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -40,7 +40,7 @@ pub mod types;
 pub mod confirm;
 
 pub use api::Web3;
-pub use error::{Error, ErrorKind};
+pub use error::Error;
 
 /// RPC result
 pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;

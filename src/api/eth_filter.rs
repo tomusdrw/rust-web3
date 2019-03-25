@@ -10,7 +10,7 @@ use tokio_timer::{Interval, Timer};
 use api::Namespace;
 use helpers::{self, CallFuture};
 use types::{Filter, Log, H256};
-use {rpc, Error, ErrorKind, Transport};
+use {rpc, Error, Transport};
 
 /// Stream of events
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = try_ready!(self.interval.poll().map_err(|_| Error::from(ErrorKind::Unreachable)));
+                    let _ready = try_ready!(self.interval.poll().map_err(|_| Error::Unreachable));
                     let id = helpers::serialize(&self.base.id);
                     let future = CallFuture::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
                     FilterStreamState::GetFilterChanges(future)

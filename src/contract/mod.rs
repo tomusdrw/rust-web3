@@ -14,7 +14,7 @@ mod error;
 mod result;
 pub mod tokens;
 
-pub use contract::error::{Error, ErrorKind};
+pub use contract::error::Error;
 pub use contract::result::{CallFuture, QueryResult};
 
 /// Contract Call/Query Options
@@ -129,7 +129,7 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(|e| {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
-                confirm::SendTransactionWithConfirmation::from_err(self.eth.transport().clone(), ::error::ErrorKind::Decoder(format!("{:?}", e)))
+                confirm::SendTransactionWithConfirmation::from_err(self.eth.transport().clone(), ::error::Error::Decoder(format!("{:?}", e)))
             })
     }
 

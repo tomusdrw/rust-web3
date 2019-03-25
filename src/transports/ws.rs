@@ -16,17 +16,17 @@ use rpc;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
 use transports::Result;
-use {BatchTransport, DuplexTransport, Error, ErrorKind, RequestId, Transport};
+use {BatchTransport, DuplexTransport, Error, RequestId, Transport};
 
 impl From<websocket::WebSocketError> for Error {
     fn from(err: websocket::WebSocketError) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err)).into()
     }
 }
 
 impl From<websocket::client::ParseError> for Error {
     fn from(err: websocket::client::ParseError) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err)).into()
     }
 }
 
@@ -74,8 +74,8 @@ impl WebSocket {
                     trace!("Message received: {:?}", message);
 
                     match message {
-                        OwnedMessage::Close(e) => write_sender_.unbounded_send(OwnedMessage::Close(e)).map_err(|_| ErrorKind::Transport("Error sending close message".into()).into()),
-                        OwnedMessage::Ping(d) => write_sender_.unbounded_send(OwnedMessage::Pong(d)).map_err(|_| ErrorKind::Transport("Error sending pong message".into()).into()),
+                        OwnedMessage::Close(e) => write_sender_.unbounded_send(OwnedMessage::Close(e)).map_err(|_| Error::Transport("Error sending close message".into()).into()),
+                        OwnedMessage::Ping(d) => write_sender_.unbounded_send(OwnedMessage::Pong(d)).map_err(|_| Error::Transport("Error sending pong message".into()).into()),
                         OwnedMessage::Text(t) => {
                             if let Ok(notification) = helpers::to_notification_from_slice(t.as_bytes()) {
                                 if let Some(rpc::Params::Map(params)) = notification.params {
@@ -85,7 +85,7 @@ impl WebSocket {
                                     if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
                                         let id: SubscriptionId = id.clone().into();
                                         if let Some(stream) = subscriptions_.lock().get(&id) {
-                                            return stream.unbounded_send(result.clone()).map_err(|_| ErrorKind::Transport("Error sending notification".into()).into());
+                                            return stream.unbounded_send(result.clone()).map_err(|_| Error::Transport("Error sending notification".into()).into());
                                         } else {
                                             warn!("Got notification for unknown subscription (id: {:?})", id);
                                         }
@@ -151,7 +151,7 @@ impl WebSocket {
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
-        let result = self.write_sender.unbounded_send(OwnedMessage::Text(request)).map_err(|_| ErrorKind::Transport("Error sending request".into()).into());
+        let result = self.write_sender.unbounded_send(OwnedMessage::Text(request)).map_err(|_| Error::Transport("Error sending request".into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -170,7 +170,7 @@ impl Transport for WebSocket {
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
         self.send_request(id, rpc::Request::Single(request), |response| match response.into_iter().next() {
             Some(res) => res,
-            None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
+            None => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
         })
     }
 }
@@ -197,7 +197,7 @@ impl DuplexTransport for WebSocket {
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
             warn!("Replacing already-registered subscription with id {:?}", id)
         }
-        Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
+        Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
     }
 
     fn unsubscribe(&self, id: &SubscriptionId) {

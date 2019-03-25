@@ -22,7 +22,7 @@ use transports::tokio_core::reactor;
 use transports::tokio_io::io::{ReadHalf, WriteHalf};
 use transports::tokio_io::AsyncRead;
 use transports::Result;
-use {BatchTransport, DuplexTransport, Error, ErrorKind, RequestId, Transport};
+use {BatchTransport, DuplexTransport, Error, RequestId, Transport};
 
 macro_rules! try_nb {
     ($e:expr) => {
@@ -99,7 +99,7 @@ impl Ipc {
 
     #[cfg(not(unix))]
     pub fn with_event_loop<P>(_path: P, _handle: &reactor::Handle) -> Result<Self> {
-        return Err(ErrorKind::Transport("IPC transport is only supported on Unix".into()).into());
+        return Err(Error::Transport("IPC transport is only supported on Unix".into()).into());
     }
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> IpcTask<F>
@@ -111,7 +111,7 @@ impl Ipc {
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
-        let result = self.write_sender.unbounded_send(request.into_bytes()).map_err(|_| ErrorKind::Io(io::ErrorKind::BrokenPipe.into()).into());
+        let result = self.write_sender.unbounded_send(request.into_bytes()).map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -135,7 +135,7 @@ impl Transport for Ipc {
 fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
     match response.into_iter().next() {
         Some(res) => res,
-        None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
+        None => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
     }
 }
 
@@ -161,7 +161,7 @@ impl DuplexTransport for Ipc {
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
             warn!("Replacing already-registered subscription with id {:?}", id)
         }
-        Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
+        Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
     }
 
     fn unsubscribe(&self, id: &SubscriptionId) {
@@ -433,7 +433,7 @@ mod tests {
                 }
             }
 
-            Task { server: server }
+            Task { server }
         });
 
         // when
