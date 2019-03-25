@@ -1,7 +1,7 @@
+use crate::types::{H256, U256};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{self, Value};
-use types::{H256, U256};
 
 /// Miner's work package
 #[derive(Debug, PartialEq, Eq)]

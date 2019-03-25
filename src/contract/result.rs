@@ -3,12 +3,12 @@ use futures::{Async, Future, Poll};
 use serde;
 use std::mem;
 
-use contract;
-use contract::tokens::Detokenize;
-use helpers;
-use rpc;
-use types::Bytes;
-use Error as ApiError;
+use crate::contract;
+use crate::contract::tokens::Detokenize;
+use crate::helpers;
+use crate::rpc;
+use crate::types::Bytes;
+use crate::Error as ApiError;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
@@ -26,8 +26,8 @@ pub struct CallFuture<T, F> {
     inner: ResultType<T, F>,
 }
 
-impl<T, F> From<::helpers::CallFuture<T, F>> for CallFuture<T, F> {
-    fn from(inner: ::helpers::CallFuture<T, F>) -> Self {
+impl<T, F> From<crate::helpers::CallFuture<T, F>> for CallFuture<T, F> {
+    fn from(inner: crate::helpers::CallFuture<T, F>) -> Self {
         CallFuture { inner: ResultType::Simple(inner) }
     }
 }

@@ -1,14 +1,14 @@
 //! Batching Transport
 
+use crate::rpc;
+use crate::transports::Result;
+use crate::{BatchTransport, Error as RpcError, RequestId, Transport};
 use futures::sync::oneshot;
 use futures::{self, future, Future};
 use parking_lot::Mutex;
-use rpc;
 use std::collections::BTreeMap;
 use std::mem;
 use std::sync::Arc;
-use transports::Result;
-use {BatchTransport, Error as RpcError, RequestId, Transport};
 
 type Pending = oneshot::Sender<Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;

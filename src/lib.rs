@@ -39,8 +39,8 @@ pub mod types;
 
 pub mod confirm;
 
-pub use api::Web3;
-pub use error::Error;
+pub use crate::api::Web3;
+pub use crate::error::Error;
 
 /// RPC result
 pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
@@ -145,7 +145,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{rpc, Error, RequestId, Transport};
-    use api::Web3;
+    use crate::api::Web3;
     use futures::Future;
     use std::sync::Arc;
 

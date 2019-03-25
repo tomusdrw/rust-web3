@@ -9,6 +9,7 @@ license = "MIT"
 keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
 authors = ["Tomasz Drwięga <tomasz@parity.io>"]
 readme = "README.md"
+edition = "2018"
 
 [dependencies]
 arrayvec = "0.4"

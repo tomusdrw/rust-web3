@@ -1,7 +1,7 @@
 //! Types for the Parity Ad-Hoc Trace API
+use crate::types::{Action, Bytes, Res, H160, H256, U256};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use types::{Action, Bytes, Res, H160, H256, U256};
 
 #[derive(Debug, Clone, Serialize)]
 /// Description of the type of trace to make

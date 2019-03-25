@@ -1,10 +1,10 @@
 //! `Personal` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Address, RawTransaction, TransactionRequest, H256};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, RawTransaction, TransactionRequest, H256};
 
-use Transport;
+use crate::Transport;
 
 /// `Personal` namespace
 #[derive(Debug, Clone)]
@@ -69,10 +69,10 @@ impl<T: Transport> Personal<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{RawTransaction, TransactionRequest};
     use rustc_hex::FromHex;
-    use types::{RawTransaction, TransactionRequest};
 
     use super::Personal;
 

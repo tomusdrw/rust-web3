@@ -1,9 +1,9 @@
 //! Contract Functions Output types.
 
+use crate::contract::error::Error;
+use crate::types::{Address, H256, U128, U256};
 use arrayvec::ArrayVec;
-use contract::error::Error;
 use ethabi::Token;
-use types::{Address, H256, U128, U256};
 
 /// Output type possible to deserialize from Contract ABI
 pub trait Detokenize {
@@ -329,8 +329,8 @@ impl_fixed_types!(1024);
 #[cfg(test)]
 mod tests {
     use super::Detokenize;
+    use crate::types::{Address, U256};
     use ethabi::Token;
-    use types::{Address, U256};
 
     fn output<R: Detokenize>() -> R {
         unimplemented!()

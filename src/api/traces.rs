@@ -1,7 +1,7 @@
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256};
-use Transport;
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256};
+use crate::Transport;
 
 /// `Trace` namespace
 #[derive(Debug, Clone)]
@@ -83,8 +83,8 @@ impl<T: Transport> Traces<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use types::{BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
+    use crate::api::Namespace;
+    use crate::types::{BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
 
     use super::Traces;
 

@@ -14,16 +14,16 @@ use std::sync::Arc;
 
 use self::hyper::header::HeaderValue;
 use self::url::Url;
+use crate::helpers;
+use crate::rpc;
+use crate::transports::shared::{EventLoopHandle, Response};
+use crate::transports::tokio_core::reactor;
+use crate::transports::Result;
+use crate::{BatchTransport, Error, RequestId, Transport};
 use base64;
 use futures::sync::{mpsc, oneshot};
 use futures::{self, future, Future, Stream};
-use helpers;
-use rpc;
 use serde_json;
-use transports::shared::{EventLoopHandle, Response};
-use transports::tokio_core::reactor;
-use transports::Result;
-use {BatchTransport, Error, RequestId, Transport};
 
 impl From<hyper::Error> for Error {
     fn from(err: hyper::Error) -> Self {

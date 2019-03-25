@@ -1,9 +1,9 @@
 //! `Eth` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256};
-use Transport;
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256};
+use crate::Transport;
 
 /// `Eth` namespace
 #[derive(Debug, Clone)]
@@ -312,9 +312,9 @@ impl<T: Transport> Eth<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
-    use types::{Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256};
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256};
 
     use super::Eth;
 

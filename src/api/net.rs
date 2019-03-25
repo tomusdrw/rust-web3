@@ -1,10 +1,10 @@
 //! `Net` namespace
 
-use api::Namespace;
-use helpers::CallFuture;
-use types::U256;
+use crate::api::Namespace;
+use crate::helpers::CallFuture;
+use crate::types::U256;
 
-use Transport;
+use crate::Transport;
 
 /// `Net` namespace
 #[derive(Debug, Clone)]
@@ -46,9 +46,9 @@ impl<T: Transport> Net<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
-    use types::U256;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::U256;
 
     use super::Net;
 

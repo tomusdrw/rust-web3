@@ -2,8 +2,8 @@
 
 use std::marker::PhantomData;
 
+use crate::rpc;
 use futures::{Async, Future, Poll};
-use rpc;
 use serde;
 use serde_json;
 
@@ -88,13 +88,13 @@ pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
 #[cfg(test)]
 pub mod tests {
     use crate::error::Error;
+    use crate::rpc;
+    use crate::{RequestId, Result, Transport};
     use futures;
-    use rpc;
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use {RequestId, Result, Transport};
 
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {

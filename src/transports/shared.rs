@@ -1,10 +1,10 @@
+use crate::transports::tokio_core::reactor;
+use crate::transports::Result;
+use crate::{Error, RequestId};
 use futures::sync::oneshot;
 use futures::{self, Future};
 use std::sync::{self, atomic, Arc};
 use std::{fmt, mem, thread};
-use transports::tokio_core::reactor;
-use transports::Result;
-use {Error, RequestId};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!

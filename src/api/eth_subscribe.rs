@@ -2,13 +2,13 @@
 
 use std::marker::PhantomData;
 
-use api::Namespace;
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
+use crate::{DuplexTransport, Error};
 use futures::{Async, Future, Poll, Stream};
-use helpers::{self, CallFuture};
 use serde;
 use serde_json;
-use types::{BlockHeader, Filter, Log, SyncState, H256};
-use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]

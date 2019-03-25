@@ -2,12 +2,12 @@
 
 use std::time::Duration;
 
-use api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
+use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
+use crate::helpers::CallFuture;
+use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U256};
+use crate::{Error, Transport};
 use futures::stream::Skip;
 use futures::{Future, IntoFuture, Poll, Stream};
-use helpers::CallFuture;
-use types::{Bytes, TransactionReceipt, TransactionRequest, H256, U256};
-use {Error, Transport};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -290,11 +290,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::send_transaction_with_confirmation;
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc::Value;
+    use crate::types::{TransactionReceipt, TransactionRequest};
     use futures::Future;
-    use helpers::tests::TestTransport;
-    use rpc::Value;
     use std::time::Duration;
-    use types::{TransactionReceipt, TransactionRequest};
 
     #[test]
     fn test_send_transaction_with_confirmation() {

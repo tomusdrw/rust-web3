@@ -4,14 +4,14 @@ use ethabi;
 use futures::{Async, Future, Poll};
 use std::time;
 
-use api::{Eth, Namespace};
-use confirm;
-use contract::tokens::Tokenize;
-use contract::{Contract, Options};
-use types::{Address, Bytes, TransactionRequest};
-use Transport;
+use crate::api::{Eth, Namespace};
+use crate::confirm;
+use crate::contract::tokens::Tokenize;
+use crate::contract::{Contract, Options};
+use crate::types::{Address, Bytes, TransactionRequest};
+use crate::Transport;
 
-pub use contract::error::deploy::Error;
+pub use crate::contract::error::deploy::Error;
 
 /// A configuration builder for contract deployment.
 #[derive(Debug)]
@@ -101,12 +101,12 @@ impl<T: Transport> Future for PendingContract<T> {
 
 #[cfg(test)]
 mod tests {
-    use api::{self, Namespace};
-    use contract::{Contract, Options};
+    use crate::api::{self, Namespace};
+    use crate::contract::{Contract, Options};
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc;
+    use crate::types::U256;
     use futures::Future;
-    use helpers::tests::TestTransport;
-    use rpc;
-    use types::U256;
 
     #[test]
     fn should_deploy_a_contract() {

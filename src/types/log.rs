@@ -1,6 +1,6 @@
+use crate::types::{BlockNumber, Bytes, H160, H256, U256};
 use ethabi;
 use serde::{Serialize, Serializer};
-use types::{BlockNumber, Bytes, H160, H256, U256};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -156,8 +156,8 @@ fn topic_to_option<T>(topic: ethabi::Topic<T>) -> Option<Vec<T>> {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::log::{Bytes, FilterBuilder, Log};
     use ethabi;
-    use types::log::{Bytes, FilterBuilder, Log};
 
     #[test]
     fn is_removed_removed_true() {

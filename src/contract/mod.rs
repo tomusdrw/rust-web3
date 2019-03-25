@@ -2,20 +2,20 @@
 
 use ethabi;
 
-use api::{Eth, Namespace};
-use confirm;
-use contract::tokens::{Detokenize, Tokenize};
+use crate::api::{Eth, Namespace};
+use crate::confirm;
+use crate::contract::tokens::{Detokenize, Tokenize};
+use crate::types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
+use crate::Transport;
 use std::time;
-use types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
-use Transport;
 
 pub mod deploy;
 mod error;
 mod result;
 pub mod tokens;
 
-pub use contract::error::Error;
-pub use contract::result::{CallFuture, QueryResult};
+pub use crate::contract::error::Error;
+pub use crate::contract::result::{CallFuture, QueryResult};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -129,7 +129,7 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(|e| {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
-                confirm::SendTransactionWithConfirmation::from_err(self.eth.transport().clone(), ::error::Error::Decoder(format!("{:?}", e)))
+                confirm::SendTransactionWithConfirmation::from_err(self.eth.transport().clone(), crate::error::Error::Decoder(format!("{:?}", e)))
             })
     }
 
@@ -191,12 +191,12 @@ impl<T: Transport> Contract<T> {
 #[cfg(test)]
 mod tests {
     use super::{Contract, Options};
-    use api::{self, Namespace};
+    use crate::api::{self, Namespace};
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc;
+    use crate::types::{Address, BlockNumber, H256, U256};
+    use crate::Transport;
     use futures::Future;
-    use helpers::tests::TestTransport;
-    use rpc;
-    use types::{Address, BlockNumber, H256, U256};
-    use Transport;
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);

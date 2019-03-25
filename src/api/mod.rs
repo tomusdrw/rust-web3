@@ -20,10 +20,10 @@ pub use self::personal::Personal;
 pub use self::traces::Traces;
 pub use self::web3::Web3 as Web3Api;
 
+use crate::types::{Bytes, TransactionRequest, U256};
+use crate::{confirm, DuplexTransport, Error, Transport};
 use futures::IntoFuture;
 use std::time::Duration;
-use types::{Bytes, TransactionRequest, U256};
-use {confirm, DuplexTransport, Error, Transport};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {

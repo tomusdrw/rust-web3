@@ -11,18 +11,18 @@ use std::sync::{atomic, Arc};
 #[cfg(unix)]
 use self::tokio_uds::UnixStream;
 
-use api::SubscriptionId;
+use crate::api::SubscriptionId;
+use crate::helpers;
+use crate::rpc;
+use crate::transports::shared::{EventLoopHandle, Response};
+use crate::transports::tokio_core::reactor;
+use crate::transports::tokio_io::io::{ReadHalf, WriteHalf};
+use crate::transports::tokio_io::AsyncRead;
+use crate::transports::Result;
+use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::sync::{mpsc, oneshot};
 use futures::{self, Future, Stream};
-use helpers;
 use parking_lot::Mutex;
-use rpc;
-use transports::shared::{EventLoopHandle, Response};
-use transports::tokio_core::reactor;
-use transports::tokio_io::io::{ReadHalf, WriteHalf};
-use transports::tokio_io::AsyncRead;
-use transports::Result;
-use {BatchTransport, DuplexTransport, Error, RequestId, Transport};
 
 macro_rules! try_nb {
     ($e:expr) => {
@@ -354,10 +354,10 @@ mod tests {
     extern crate tokio_uds;
 
     use super::Ipc;
+    use crate::rpc;
+    use crate::Transport;
     use futures::{self, Future};
-    use rpc;
     use std::io::{self, Read, Write};
-    use Transport;
 
     #[test]
     fn should_send_a_request() {

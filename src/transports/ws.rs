@@ -7,16 +7,16 @@ use std::sync::{atomic, Arc};
 
 use self::websocket::url::Url;
 use self::websocket::{ClientBuilder, OwnedMessage};
-use api::SubscriptionId;
+use crate::api::SubscriptionId;
+use crate::helpers;
+use crate::rpc;
+use crate::transports::shared::{EventLoopHandle, Response};
+use crate::transports::tokio_core::reactor;
+use crate::transports::Result;
+use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::sync::{mpsc, oneshot};
 use futures::{self, Future, Sink, Stream};
-use helpers;
 use parking_lot::Mutex;
-use rpc;
-use transports::shared::{EventLoopHandle, Response};
-use transports::tokio_core::reactor;
-use transports::Result;
-use {BatchTransport, DuplexTransport, Error, RequestId, Transport};
 
 impl From<websocket::WebSocketError> for Error {
     fn from(err: websocket::WebSocketError) -> Self {
@@ -210,13 +210,13 @@ mod tests {
     extern crate tokio_core;
     extern crate websocket;
 
-    use self::websocket::async::Server;
     use self::websocket::message::OwnedMessage;
+    use self::websocket::r#async::Server;
     use self::websocket::server::InvalidConnection;
     use super::WebSocket;
+    use crate::rpc;
+    use crate::Transport;
     use futures::{Future, Sink, Stream};
-    use rpc;
-    use Transport;
 
     #[test]
     fn should_send_a_request() {

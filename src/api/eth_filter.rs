@@ -7,10 +7,10 @@ use std::time::Duration;
 use std::vec;
 use tokio_timer::{Interval, Timer};
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Filter, Log, H256};
-use {rpc, Error, Transport};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Filter, Log, H256};
+use crate::{rpc, Error, Transport};
 
 /// Stream of events
 #[derive(Debug)]
@@ -234,14 +234,14 @@ impl<T: Transport> EthFilter<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::rpc::Value;
     use futures::{Future, Stream};
-    use rpc::Value;
     use serde_json;
     use std::time::Duration;
 
-    use api::Namespace;
-    use helpers::tests::TestTransport;
-    use types::{Bytes, FilterBuilder, Log};
+    use crate::api::Namespace;
+    use crate::helpers::tests::TestTransport;
+    use crate::types::{Bytes, FilterBuilder, Log};
 
     use super::EthFilter;
 

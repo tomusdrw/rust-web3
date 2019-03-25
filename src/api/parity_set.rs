@@ -1,8 +1,8 @@
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Address, ParityPeerType, H256};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, ParityPeerType, H256};
 
-use Transport;
+use crate::Transport;
 
 #[derive(Debug, Clone)]
 /// `Parity_Set` Specific API
@@ -131,9 +131,9 @@ mod tests {
     use futures::Future;
 
     use super::ParitySet;
-    use api::Namespace;
-    use rpc::Value;
-    use types::{Address, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, H256};
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Address, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, H256};
 
     rpc_test! (
         ParitySet:accept_non_reserved_peers => "parity_acceptNonReservedPeers";
