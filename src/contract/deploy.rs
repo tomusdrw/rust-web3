@@ -1,17 +1,17 @@
 //! Contract deployment utilities
 
-use std::time;
 use ethabi;
 use futures::{Async, Future, Poll};
+use std::time;
 
-use api::{Eth, Namespace};
-use confirm;
-use contract::tokens::Tokenize;
-use contract::{Contract, Options};
-use types::{Address, Bytes, TransactionRequest};
-use Transport;
+use crate::api::{Eth, Namespace};
+use crate::confirm;
+use crate::contract::tokens::Tokenize;
+use crate::contract::{Contract, Options};
+use crate::types::{Address, Bytes, TransactionRequest};
+use crate::Transport;
 
-pub use contract::error::deploy::{Error, ErrorKind};
+pub use crate::contract::error::deploy::Error;
 
 /// A configuration builder for contract deployment.
 #[derive(Debug)]
@@ -70,18 +70,9 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let waiting = confirm::send_transaction_with_confirmation(
-            eth.transport().clone(),
-            tx,
-            self.poll_interval,
-            self.confirmations,
-        );
+        let waiting = confirm::send_transaction_with_confirmation(eth.transport().clone(), tx, self.poll_interval, self.confirmations);
 
-        Ok(PendingContract {
-            eth: Some(eth),
-            abi: Some(abi),
-            waiting,
-        })
+        Ok(PendingContract { eth: Some(eth), abi: Some(abi), waiting })
     }
 }
 
@@ -103,37 +94,31 @@ impl<T: Transport> Future for PendingContract<T> {
 
         match receipt.contract_address {
             Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
-            None => Err(ErrorKind::ContractDeploymentFailure(receipt.transaction_hash).into()),
+            None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash).into()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use api::{self, Namespace};
+    use crate::api::{self, Namespace};
+    use crate::contract::{Contract, Options};
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc;
+    use crate::types::U256;
     use futures::Future;
-    use helpers::tests::TestTransport;
-    use rpc;
-    use types::U256;
-    use contract::{Contract, Options};
 
     #[test]
     fn should_deploy_a_contract() {
         // given
         let mut transport = TestTransport::default();
         // Transaction Hash
-        transport.add_response(rpc::Value::String(
-            "0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1".into(),
-        ));
+        transport.add_response(rpc::Value::String("0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1".into()));
         // BlockFilter
         transport.add_response(rpc::Value::String("0x0".into()));
         // getFilterChanges
-        transport.add_response(rpc::Value::Array(vec![
-            rpc::Value::String("0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f".into()),
-        ]));
-        transport.add_response(rpc::Value::Array(vec![
-            rpc::Value::String("0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c548790".into()),
-        ]));
+        transport.add_response(rpc::Value::Array(vec![rpc::Value::String("0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f".into())]));
+        transport.add_response(rpc::Value::Array(vec![rpc::Value::String("0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c548790".into())]));
         // receipt
         let receipt = ::serde_json::from_str::<rpc::Value>(
         "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\"}"
@@ -145,30 +130,10 @@ mod tests {
         transport.add_response(receipt);
 
         {
-            let builder = Contract::deploy(
-                api::Eth::new(&transport),
-                include_bytes!("./res/token.json"),
-            ).unwrap();
+            let builder = Contract::deploy(api::Eth::new(&transport), include_bytes!("./res/token.json")).unwrap();
 
             // when
-            builder
-                .options(Options::with(|opt| {
-                    opt.value = Some(5.into())
-                }))
-                .confirmations(1)
-                .execute(
-                    vec![1, 2, 3, 4],
-                    (
-                        U256::from(1_000_000),
-                        "My Token".to_owned(),
-                        3u64,
-                        "MT".to_owned(),
-                    ),
-                    5.into(),
-                )
-                .unwrap()
-                .wait()
-                .unwrap();
+            builder.options(Options::with(|opt| opt.value = Some(5.into()))).confirmations(1).execute(vec![1, 2, 3, 4], (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()), 5.into()).unwrap().wait().unwrap();
         };
 
         // then
@@ -178,19 +143,9 @@ mod tests {
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &["\"0x0\"".into()]);
         transport.assert_request("eth_getFilterChanges", &["\"0x0\"".into()]);
-        transport.assert_request(
-            "eth_getTransactionReceipt",
-            &[
-                "\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into(),
-            ],
-        );
+        transport.assert_request("eth_getTransactionReceipt", &["\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into()]);
         transport.assert_request("eth_blockNumber", &[]);
-        transport.assert_request(
-            "eth_getTransactionReceipt",
-            &[
-                "\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into(),
-            ],
-        );
+        transport.assert_request("eth_getTransactionReceipt", &["\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into()]);
         transport.assert_no_more_requests();
     }
 }

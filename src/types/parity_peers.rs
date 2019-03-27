@@ -34,7 +34,7 @@ pub struct ParityPeerInfo {
 
 /// ip address of both local and remote
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct PeerNetworkInfo {
     /// remote peer address
     pub remote_address: String,
@@ -73,4 +73,3 @@ pub struct PipProtocolInfo {
     /// head of chain
     pub head: String,
 }
-

@@ -11,30 +11,30 @@ use std::sync::{atomic, Arc};
 #[cfg(unix)]
 use self::tokio_uds::UnixStream;
 
-use api::SubscriptionId;
+use crate::api::SubscriptionId;
+use crate::helpers;
+use crate::rpc;
+use crate::transports::shared::{EventLoopHandle, Response};
+use crate::transports::tokio_core::reactor;
+use crate::transports::tokio_io::io::{ReadHalf, WriteHalf};
+use crate::transports::tokio_io::AsyncRead;
+use crate::transports::Result;
+use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::sync::{mpsc, oneshot};
 use futures::{self, Future, Stream};
-use helpers;
 use parking_lot::Mutex;
-use rpc;
-use transports::Result;
-use transports::shared::{EventLoopHandle, Response};
-use transports::tokio_core::reactor;
-use transports::tokio_io::AsyncRead;
-use transports::tokio_io::io::{ReadHalf, WriteHalf};
-use {BatchTransport, DuplexTransport, Error, ErrorKind, RequestId, Transport};
 
 macro_rules! try_nb {
-  ($e:expr) => (match $e {
-    Ok(t) => t,
-    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-      return Ok(futures::Async::NotReady)
-    }
-    Err(e) => {
-      warn!("Unexpected IO error: {:?}", e);
-      return Err(())
-    },
-  })
+    ($e:expr) => {
+        match $e {
+            Ok(t) => t,
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(futures::Async::NotReady),
+            Err(e) => {
+                warn!("Unexpected IO error: {:?}", e);
+                return Err(());
+            }
+        }
+    };
 }
 
 type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
@@ -87,34 +87,19 @@ impl Ipc {
         let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
         let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
 
-        let r = ReadStream {
-            read,
-            pending: pending.clone(),
-            subscriptions: subscriptions.clone(),
-            buffer: vec![],
-            current_pos: 0,
-        };
+        let r = ReadStream { read, pending: pending.clone(), subscriptions: subscriptions.clone(), buffer: vec![], current_pos: 0 };
 
-        let w = WriteStream {
-            write,
-            incoming: write_receiver,
-            state: WriteState::WaitingForRequest,
-        };
+        let w = WriteStream { write, incoming: write_receiver, state: WriteState::WaitingForRequest };
 
         handle.spawn(r);
         handle.spawn(w);
 
-        Ok(Ipc {
-            id: Arc::new(atomic::AtomicUsize::new(1)),
-            write_sender,
-            pending,
-            subscriptions,
-        })
+        Ok(Ipc { id: Arc::new(atomic::AtomicUsize::new(1)), write_sender, pending, subscriptions })
     }
 
     #[cfg(not(unix))]
     pub fn with_event_loop<P>(_path: P, _handle: &reactor::Handle) -> Result<Self> {
-        return Err(ErrorKind::Transport("IPC transport is only supported on Unix".into()).into());
+        return Err(Error::Transport("IPC transport is only supported on Unix".into()).into());
     }
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> IpcTask<F>
@@ -126,9 +111,7 @@ impl Ipc {
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
-        let result = self.write_sender
-            .unbounded_send(request.into_bytes())
-            .map_err(|_| ErrorKind::Io(io::ErrorKind::BrokenPipe.into()).into());
+        let result = self.write_sender.unbounded_send(request.into_bytes()).map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -152,7 +135,7 @@ impl Transport for Ipc {
 fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
     match response.into_iter().next() {
         Some(res) => res,
-        None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
+        None => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
     }
 }
 
@@ -164,9 +147,7 @@ impl BatchTransport for Ipc {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
         self.send_request(id, rpc::Request::Batch(requests), Ok)
     }
@@ -180,7 +161,7 @@ impl DuplexTransport for Ipc {
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
             warn!("Replacing already-registered subscription with id {:?}", id)
         }
-        Box::new(rx.map_err(|()| ErrorKind::Transport("No data available".into()).into()))
+        Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
     }
 
     fn unsubscribe(&self, id: &SubscriptionId) {
@@ -214,22 +195,13 @@ impl Future for WriteStream {
                     // Ask for more to write
                     let to_send = try_ready!(self.incoming.poll());
                     if let Some(to_send) = to_send {
-                        trace!(
-                            "Got new message to write: {:?}",
-                            String::from_utf8_lossy(&to_send)
-                        );
-                        WriteState::Writing {
-                            buffer: to_send,
-                            current_pos: 0,
-                        }
+                        trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
+                        WriteState::Writing { buffer: to_send, current_pos: 0 }
                     } else {
                         return Ok(futures::Async::NotReady);
                     }
                 }
-                WriteState::Writing {
-                    ref buffer,
-                    ref mut current_pos,
-                } => {
+                WriteState::Writing { ref buffer, ref mut current_pos } => {
                     // Write everything in the buffer
                     while *current_pos < buffer.len() {
                         let n = try_nb!(self.write.write(&buffer[*current_pos..]));
@@ -381,11 +353,11 @@ mod tests {
     extern crate tokio_core;
     extern crate tokio_uds;
 
-    use std::io::{self, Read, Write};
     use super::Ipc;
+    use crate::rpc;
+    use crate::Transport;
     use futures::{self, Future};
-    use rpc;
-    use Transport;
+    use std::io::{self, Read, Write};
 
     #[test]
     fn should_send_a_request() {
@@ -408,10 +380,7 @@ mod tests {
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));
                     let request = String::from_utf8(data[0..read].to_vec()).unwrap();
-                    assert_eq!(
-                        &request,
-                        r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#
-                    );
+                    assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
 
                     // Write response
                     let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
@@ -453,10 +422,7 @@ mod tests {
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));
                     let request = String::from_utf8(data[0..read].to_vec()).unwrap();
-                    assert_eq!(
-                        &request,
-                        r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":2}"#
-                    );
+                    assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":2}"#);
 
                     // Write response
                     let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}{"jsonrpc":"2.0","id":2,"result":"x"}"#;
@@ -467,7 +433,7 @@ mod tests {
                 }
             }
 
-            Task { server: server }
+            Task { server }
         });
 
         // when
@@ -475,12 +441,6 @@ mod tests {
         let res2 = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
         // then
-        assert_eq!(
-            eloop.run(res1.join(res2)),
-            Ok((
-                rpc::Value::String("x".into()),
-                rpc::Value::String("x".into())
-            ))
-        );
+        assert_eq!(eloop.run(res1.join(res2)), Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into()))));
     }
 }

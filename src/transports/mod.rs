@@ -1,6 +1,6 @@
 //! Supported Ethereum JSON-RPC transports.
 
-use Error;
+use crate::Error;
 
 /// RPC Result.
 pub type Result<T> = ::std::result::Result<T, Error>;

@@ -2,13 +2,13 @@
 
 use std::marker::PhantomData;
 
-use api::Namespace;
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
+use crate::{DuplexTransport, Error};
 use futures::{Async, Future, Poll, Stream};
-use helpers::{self, CallFuture};
 use serde;
 use serde_json;
-use types::{BlockHeader, Filter, H256, Log, SyncState};
-use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]
@@ -53,12 +53,7 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
     fn new(transport: T, id: SubscriptionId) -> Self {
         let rx = transport.subscribe(&id);
-        SubscriptionStream {
-            transport,
-            id,
-            rx,
-            _marker: PhantomData,
-        }
+        SubscriptionStream { transport, id, rx, _marker: PhantomData }
     }
 
     /// Return the ID of this subscription
@@ -84,9 +79,7 @@ where
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match self.rx.poll() {
-            Ok(Async::Ready(Some(x))) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
+            Ok(Async::Ready(Some(x))) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
             Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
@@ -109,11 +102,7 @@ pub struct SubscriptionResult<T: DuplexTransport, I> {
 
 impl<T: DuplexTransport, I> SubscriptionResult<T, I> {
     pub fn new(transport: T, id_future: CallFuture<String, T::Out>) -> Self {
-        SubscriptionResult {
-            transport,
-            inner: id_future,
-            _marker: PhantomData,
-        }
+        SubscriptionResult { transport, inner: id_future, _marker: PhantomData }
     }
 }
 
@@ -127,10 +116,7 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner.poll() {
-            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(
-                self.transport.clone(),
-                SubscriptionId(id),
-            ))),
+            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(self.transport.clone(), SubscriptionId(id)))),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }
@@ -149,10 +135,7 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     pub fn subscribe_logs(&self, filter: Filter) -> SubscriptionResult<T, Log> {
         let subscription = helpers::serialize(&&"logs");
         let filter = helpers::serialize(&filter);
-        let id_future = CallFuture::new(
-            self.transport
-                .execute("eth_subscribe", vec![subscription, filter]),
-        );
+        let id_future = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription, filter]));
         SubscriptionResult::new(self.transport().clone(), id_future)
     }
 

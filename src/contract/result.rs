@@ -1,14 +1,14 @@
-use std::mem;
 use ethabi;
 use futures::{Async, Future, Poll};
 use serde;
+use std::mem;
 
-use contract;
-use contract::tokens::Detokenize;
-use helpers;
-use rpc;
-use types::Bytes;
-use Error as ApiError;
+use crate::contract;
+use crate::contract::tokens::Detokenize;
+use crate::helpers;
+use crate::rpc;
+use crate::types::Bytes;
+use crate::Error as ApiError;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
@@ -26,11 +26,9 @@ pub struct CallFuture<T, F> {
     inner: ResultType<T, F>,
 }
 
-impl<T, F> From<::helpers::CallFuture<T, F>> for CallFuture<T, F> {
-    fn from(inner: ::helpers::CallFuture<T, F>) -> Self {
-        CallFuture {
-            inner: ResultType::Simple(inner),
-        }
+impl<T, F> From<crate::helpers::CallFuture<T, F>> for CallFuture<T, F> {
+    fn from(inner: crate::helpers::CallFuture<T, F>) -> Self {
+        CallFuture { inner: ResultType::Simple(inner) }
     }
 }
 
@@ -39,9 +37,7 @@ where
     E: Into<contract::Error>,
 {
     fn from(e: E) -> Self {
-        CallFuture {
-            inner: ResultType::Constant(Err(e.into())),
-        }
+        CallFuture { inner: ResultType::Constant(Err(e.into())) }
     }
 }
 
@@ -58,18 +54,14 @@ where
     E: Into<contract::Error>,
 {
     fn from(e: E) -> Self {
-        QueryResult {
-            inner: ResultType::Constant(Err(e.into())),
-        }
+        QueryResult { inner: ResultType::Constant(Err(e.into())) }
     }
 }
 
 impl<T, F> QueryResult<T, F> {
     /// Create a new `QueryResult` wrapping the inner future.
     pub fn new(inner: helpers::CallFuture<Bytes, F>, function: ethabi::Function) -> Self {
-        QueryResult {
-            inner: ResultType::Decodable(inner, function),
-        }
+        QueryResult { inner: ResultType::Decodable(inner, function) }
     }
 }
 
@@ -83,9 +75,7 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
             let bytes: Bytes = try_ready!(inner.poll());
-            return Ok(Async::Ready(
-                T::from_tokens(function.decode_output(&bytes.0)?)?,
-            ));
+            return Ok(Async::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {

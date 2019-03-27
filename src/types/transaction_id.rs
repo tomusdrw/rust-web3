@@ -1,4 +1,4 @@
-use types::{BlockId, H256, Index};
+use crate::types::{BlockId, Index, H256};
 
 /// Transaction Identifier
 #[derive(Clone, Debug, PartialEq)]

@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 
 extern crate arrayvec;
+extern crate base64;
 extern crate ethabi;
 extern crate ethereum_types;
 extern crate jsonrpc_core as rpc;
@@ -10,13 +11,12 @@ extern crate parking_lot;
 extern crate rustc_hex;
 extern crate serde;
 extern crate tokio_timer;
-extern crate base64;
 
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;
 
 #[macro_use]
-extern crate error_chain;
+extern crate derive_more;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -39,8 +39,8 @@ pub mod types;
 
 pub mod confirm;
 
-pub use error::{Error, ErrorKind};
-pub use api::Web3;
+pub use crate::api::Web3;
+pub use crate::error::Error;
 
 /// RPC result
 pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
@@ -144,10 +144,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use api::Web3;
-    use futures::Future;
     use super::{rpc, Error, RequestId, Transport};
+    use crate::api::Web3;
+    use futures::Future;
+    use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;

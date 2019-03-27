@@ -1,38 +1,53 @@
 //! Contract call/query error.
 
-#![allow(unknown_lints)]
-#![allow(missing_docs)]
+use ethabi::Error as EthError;
 
-use ethabi;
+use crate::error::Error as ApiError;
 
-error_chain! {
-  links {
-    Abi(ethabi::Error, ethabi::ErrorKind);
-    Api(::Error, ::ErrorKind);
-  }
-
-  errors {
-    InvalidOutputType(e: String) {
-      description("invalid output type requested by the caller"),
-      display("Invalid output type: {}", e),
-    }
-  }
+/// Contract error.
+#[derive(Debug, Display)]
+pub enum Error {
+    /// invalid output type requested by the caller
+    #[display(fmt = "Invalid output type: {}", _0)]
+    InvalidOutputType(String),
+    /// eth abi error
+    #[display(fmt = "Abi error: {}", _0)]
+    Abi(EthError),
+    /// Rpc error
+    #[display(fmt = "Api error: {}", _0)]
+    Api(ApiError),
 }
 
-/// Contract deployment error.
+impl From<EthError> for Error {
+    fn from(e: EthError) -> Self {
+        Error::Abi(e)
+    }
+}
+
+impl From<ApiError> for Error {
+    fn from(e: ApiError) -> Self {
+        Error::Api(e)
+    }
+}
+
 pub mod deploy {
-    use types::H256;
+    use crate::error::Error as ApiError;
+    use crate::types::H256;
 
-    error_chain! {
-      links {
-        Api(::Error, ::ErrorKind);
-      }
+    /// Contract deployment error.
+    #[derive(Debug, Display)]
+    pub enum Error {
+        /// Rpc error
+        #[display(fmt = "Api error: {}", _0)]
+        Api(ApiError),
+        /// Contract deployment failed
+        #[display(fmt = "Failure during deployment.Tx hash: {:?}", _0)]
+        ContractDeploymentFailure(H256),
+    }
 
-      errors {
-        ContractDeploymentFailure(hash: H256) {
-          description("Contract deployment failed")
-          display("Failure during deployment. Tx hash: {:?}", hash),
+    impl From<ApiError> for Error {
+        fn from(e: ApiError) -> Self {
+            Error::Api(e)
         }
-      }
     }
 }

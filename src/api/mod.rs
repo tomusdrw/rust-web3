@@ -10,7 +10,6 @@ mod personal;
 mod traces;
 mod web3;
 
-
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
@@ -18,14 +17,13 @@ pub use self::net::Net;
 pub use self::parity_accounts::ParityAccounts;
 pub use self::parity_set::ParitySet;
 pub use self::personal::Personal;
-pub use self::web3::Web3 as Web3Api;
 pub use self::traces::Traces;
+pub use self::web3::Web3 as Web3Api;
 
-
-use std::time::Duration;
+use crate::types::{Bytes, TransactionRequest, U256};
+use crate::{confirm, DuplexTransport, Error, Transport};
 use futures::IntoFuture;
-use {confirm, DuplexTransport, Error, Transport};
-use types::{Bytes, TransactionRequest, U256};
+use std::time::Duration;
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {
@@ -104,13 +102,7 @@ impl<T: Transport> Web3<T> {
         F: IntoFuture<Item = Option<U256>, Error = Error>,
         V: confirm::ConfirmationCheck<Check = F>,
     {
-        confirm::wait_for_confirmations(
-            self.eth(),
-            self.eth_filter(),
-            poll_interval,
-            confirmations,
-            check,
-        )
+        confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)
     }
 
     /// Sends transaction and returns future resolved after transaction is confirmed

@@ -1,14 +1,14 @@
 //! Batching Transport
 
-use std::mem;
-use std::collections::BTreeMap;
-use std::sync::Arc;
-use futures::{self, future, Future};
+use crate::rpc;
+use crate::transports::Result;
+use crate::{BatchTransport, Error as RpcError, RequestId, Transport};
 use futures::sync::oneshot;
+use futures::{self, future, Future};
 use parking_lot::Mutex;
-use rpc;
-use transports::Result;
-use {BatchTransport, Error as RpcError, ErrorKind, RequestId, Transport};
+use std::collections::BTreeMap;
+use std::mem;
+use std::sync::Arc;
 
 type Pending = oneshot::Sender<Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -27,11 +27,7 @@ where
 {
     /// Creates new Batch transport given existing transport supporing batch requests.
     pub fn new(transport: T) -> Self {
-        Batch {
-            transport,
-            pending: Default::default(),
-            batch: Default::default(),
-        }
+        Batch { transport, pending: Default::default(), batch: Default::default() }
     }
 
     /// Sends all requests as a batch.
@@ -42,10 +38,7 @@ where
         let batch = self.transport.send_batch(batch);
         let pending = self.pending.clone();
 
-        BatchFuture {
-            state: BatchState::SendingBatch(batch, ids),
-            pending,
-        }
+        BatchFuture { state: BatchState::SendingBatch(batch, ids), pending }
     }
 }
 
@@ -70,10 +63,7 @@ where
 
 enum BatchState<T> {
     SendingBatch(T, Vec<RequestId>),
-    Resolving(
-        future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>,
-        Result<Vec<Result<rpc::Value>>>,
-    ),
+    Resolving(future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>, Result<Vec<Result<rpc::Value>>>),
     Done,
 }
 
@@ -102,13 +92,14 @@ impl<T: Future<Item = Vec<Result<rpc::Value>>, Error = RpcError>> Future for Bat
                     };
 
                     let mut pending = self.pending.lock();
-                    let sending = ids.into_iter()
+                    let sending = ids
+                        .into_iter()
                         .enumerate()
                         .filter_map(|(idx, request_id)| {
                             pending.remove(&request_id).map(|rx| match res {
                                 Ok(ref results) if results.len() > idx => rx.send(results[idx].clone()),
                                 Err(ref err) => rx.send(Err(err.clone())),
-                                _ => rx.send(Err(ErrorKind::Internal.into())),
+                                _ => rx.send(Err(RpcError::Internal.into())),
                             })
                         })
                         .collect::<Vec<_>>();
@@ -140,11 +131,7 @@ impl Future for SingleResult {
     type Error = RpcError;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(
-            self.0
-                .poll()
-                .map_err(|_| RpcError::from(ErrorKind::Internal))
-        );
+        let res = try_ready!(self.0.poll().map_err(|_| RpcError::Internal));
         res.map(futures::Async::Ready)
     }
 }

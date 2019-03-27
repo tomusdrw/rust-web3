@@ -1,10 +1,10 @@
 //! `Personal` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Address, H256, TransactionRequest, RawTransaction};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, RawTransaction, TransactionRequest, H256};
 
-use Transport;
+use crate::Transport;
 
 /// `Personal` namespace
 #[derive(Debug, Clone)]
@@ -35,10 +35,7 @@ impl<T: Transport> Personal<T> {
     /// Returns the address of created account.
     pub fn new_account(&self, password: &str) -> CallFuture<Address, T::Out> {
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_newAccount", vec![password]),
-        )
+        CallFuture::new(self.transport.execute("personal_newAccount", vec![password]))
     }
 
     /// Unlocks the account with given password for some period of time (or single transaction).
@@ -47,10 +44,7 @@ impl<T: Transport> Personal<T> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
         let duration = helpers::serialize(&duration);
-        CallFuture::new(
-            self.transport
-                .execute("personal_unlockAccount", vec![address, password, duration]),
-        )
+        CallFuture::new(self.transport.execute("personal_unlockAccount", vec![address, password, duration]))
     }
 
     /// Sends a transaction from locked account.
@@ -58,10 +52,7 @@ impl<T: Transport> Personal<T> {
     pub fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<H256, T::Out> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_sendTransaction", vec![transaction, password]),
-        )
+        CallFuture::new(self.transport.execute("personal_sendTransaction", vec![transaction, password]))
     }
 
     /// Signs a transaction without dispatching it to the network.
@@ -70,10 +61,7 @@ impl<T: Transport> Personal<T> {
     pub fn sign_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<RawTransaction, T::Out> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_signTransaction", vec![transaction, password]),
-        )
+        CallFuture::new(self.transport.execute("personal_signTransaction", vec![transaction, password]))
     }
 }
 
@@ -81,9 +69,9 @@ impl<T: Transport> Personal<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
-    use types::{TransactionRequest, RawTransaction};
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{RawTransaction, TransactionRequest};
     use rustc_hex::FromHex;
 
     use super::Personal;

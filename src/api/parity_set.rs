@@ -1,19 +1,17 @@
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{H256, Address, ParityPeerType};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, ParityPeerType, H256};
 
-
-use Transport;
+use crate::Transport;
 
 #[derive(Debug, Clone)]
 /// `Parity_Set` Specific API
 pub struct ParitySet<T> {
-    transport: T
+    transport: T,
 }
 
 impl<T: Transport> Namespace<T> for ParitySet<T> {
-    fn new(transport: T) -> Self
-    {
+    fn new(transport: T) -> Self {
         ParitySet { transport }
     }
 
@@ -40,7 +38,7 @@ impl<T: Transport> ParitySet<T> {
     }
 
     /// Get list of connected/connecting peers.
-    pub fn parity_net_peers(&self) -> CallFuture<ParityPeerType, T::Out>{
+    pub fn parity_net_peers(&self) -> CallFuture<ParityPeerType, T::Out> {
         CallFuture::new(self.transport.execute("parity_netPeers", vec![]))
     }
 
@@ -132,10 +130,10 @@ impl<T: Transport> ParitySet<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
-    use types::{H256, Address, ParityPeerType, ParityPeerInfo, PeerNetworkInfo, PeerProtocolsInfo};
     use super::ParitySet;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Address, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, H256};
 
     rpc_test! (
         ParitySet:accept_non_reserved_peers => "parity_acceptNonReservedPeers";
@@ -165,7 +163,7 @@ mod tests {
                         local_address: String::from("127.0.0.1:43128"),
                     },
                     protocols: PeerProtocolsInfo {
-                        eth: None,                         
+                        eth: None,
                         pip: None,
                     },
                 }],
@@ -195,7 +193,7 @@ mod tests {
         => "parity_removeReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
         Value::Bool(true) => true
     );
-    
+
     rpc_test! (
         ParitySet:set_author, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1")
         => "parity_setAuthor", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#];
