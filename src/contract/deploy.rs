@@ -2,7 +2,9 @@
 
 use ethabi;
 use futures::{Async, Future, Poll};
-use std::time;
+use std::{time, collections::HashMap};
+use regex::Regex;
+use rustc_hex::ToHex;
 
 use crate::api::{Eth, Namespace};
 use crate::confirm;
@@ -21,6 +23,7 @@ pub struct Builder<T: Transport> {
     pub(crate) options: Options,
     pub(crate) confirmations: usize,
     pub(crate) poll_interval: time::Duration,
+    pub(crate) linker: HashMap<String, Address>,
 }
 
 impl<T: Transport> Builder<T> {
@@ -51,15 +54,24 @@ impl<T: Transport> Builder<T> {
         let options = self.options;
         let eth = self.eth;
         let abi = self.abi;
+        let code = code.into();
+
+        let mut code_hex = String::from_utf8(code).unwrap();
+
+        for (lib, address) in self.linker {
+            let re = Regex::new(&format!("__{}_+", lib)).unwrap();
+            code_hex = re.replace::<&str>(&code_hex, &address.to_hex()).to_string();
+        }
+        code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
+        let code = code_hex.into_bytes();
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
-            (None, false) => {
-                return Err(ethabi::ErrorKind::Msg(format!("Constructor is not defined in the ABI.")).into());
-            }
-            (None, true) => code.into(),
-            (Some(constructor), _) => constructor.encode_input(code.into(), &params)?,
+            (None, false) => return Err(ethabi::ErrorKind::Msg(format!("Constructor is not defined in the ABI.")).into()),
+            (None, true) => code,
+            (Some(constructor), _) => constructor.encode_input(code, &params)?,
         };
+
 
         let tx = TransactionRequest {
             from,
@@ -118,6 +130,8 @@ mod tests {
     use crate::rpc;
     use crate::types::U256;
     use futures::Future;
+    use serde_json::Value;
+    use std::collections::HashMap;
 
     #[test]
     fn should_deploy_a_contract() {

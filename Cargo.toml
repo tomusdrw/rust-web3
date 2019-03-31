@@ -26,6 +26,7 @@ tokio-timer = "0.1"
 url = "1.7.2"
 base64 = "0.10.1"
 derive_more = "0.14.0"
+regex = "1.1"
 # Optional deps
 hyper = { version = "0.12.25", optional = true }
 hyper-tls = { version = "0.3.2", optional = true }
