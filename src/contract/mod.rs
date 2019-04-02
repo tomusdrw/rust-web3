@@ -7,7 +7,7 @@ use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
 use crate::types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
 use crate::Transport;
-use std::{time, collections::HashMap};
+use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
 mod error;
