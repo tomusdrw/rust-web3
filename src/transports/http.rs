@@ -108,7 +108,7 @@ impl Http {
             };
             future.then(move |result| {
                 if let Err(err) = tx.send(result) {
-                    warn!("Error resuming asynchronous request: {:?}", err);
+                    log::warn!("Error resuming asynchronous request: {:?}", err);
                 }
                 Ok(())
             })
@@ -137,7 +137,7 @@ impl Http {
         F: Fn(hyper::Chunk) -> O,
     {
         let request = helpers::to_string(&request);
-        debug!("[{}] Sending: {} to {}", id, request, self.url);
+        log::debug!("[{}] Sending: {} to {}", id, request, self.url);
         let len = request.len();
         let mut req = hyper::Request::new(hyper::Body::from(request));
         *req.method_mut() = hyper::Method::POST;

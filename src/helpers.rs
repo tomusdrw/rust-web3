@@ -56,7 +56,7 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
     rpc::Call::MethodCall(rpc::MethodCall {
         jsonrpc: Some(rpc::Version::V2),
         method: method.into(),
-        params: Some(rpc::Params::Array(params)),
+        params: rpc::Params::Array(params),
         id: rpc::Id::Num(id as u64),
     })
 }

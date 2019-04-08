@@ -171,7 +171,7 @@ impl Tokenizable for H256 {
     }
 
     fn into_token(self) -> Token {
-        Token::FixedBytes(self.0.to_vec())
+        Token::FixedBytes(self.as_ref().to_vec())
     }
 }
 

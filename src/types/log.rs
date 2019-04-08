@@ -1,6 +1,6 @@
 use crate::types::{BlockNumber, Bytes, H160, H256, U256};
 use ethabi;
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer, Deserialize};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

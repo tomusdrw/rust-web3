@@ -103,15 +103,15 @@ where
             let extract = &self.extract;
             match self.state {
                 RequestState::Sending(ref mut result, _) => {
-                    trace!("[{}] Request pending.", self.id);
+                    log::trace!("[{}] Request pending.", self.id);
                     if let Some(Err(e)) = result.take() {
                         return Err(e);
                     }
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
-                    trace!("[{}] Checking response.", self.id);
+                    log::trace!("[{}] Checking response.", self.id);
                     let result = try_ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
-                    trace!("[{}] Extracting result.", self.id);
+                    log::trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Async::Ready);
                 }
                 RequestState::Done => {

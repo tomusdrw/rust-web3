@@ -3,6 +3,7 @@
 use ethabi::Error as EthError;
 
 use crate::error::Error as ApiError;
+use derive_more::Display;
 
 /// Contract error.
 #[derive(Debug, Display)]
@@ -33,6 +34,7 @@ impl From<ApiError> for Error {
 pub mod deploy {
     use crate::error::Error as ApiError;
     use crate::types::H256;
+    use derive_more::Display;
 
     /// Contract deployment error.
     #[derive(Debug, Display)]

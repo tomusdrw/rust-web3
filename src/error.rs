@@ -1,5 +1,6 @@
 //! Web3 Error
 use crate::rpc::error::Error as RPCError;
+use derive_more::Display;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 

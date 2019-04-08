@@ -57,7 +57,7 @@ impl WebSocket {
 
     /// Create new WebSocket transport within existing Event Loop.
     pub fn with_event_loop(url: &str, handle: &reactor::Handle) -> Result<Self> {
-        trace!("Connecting to: {:?}", url);
+        log::trace!("Connecting to: {:?}", url);
 
         let url: Url = url.parse()?;
         let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
@@ -69,16 +69,16 @@ impl WebSocket {
             let subscriptions_ = subscriptions.clone();
             let write_sender_ = write_sender.clone();
 
-            ClientBuilder::from_url(&url).async_connect(None, handle).from_err::<Error>().map(|(duplex, _)| duplex.split()).and_then(move |(sink, stream)| {
+            ClientBuilder::from_url(&url).async_connect(None).from_err::<Error>().map(|(duplex, _)| duplex.split()).and_then(move |(sink, stream)| {
                 let reader = stream.from_err::<Error>().for_each(move |message| {
-                    trace!("Message received: {:?}", message);
+                    log::trace!("Message received: {:?}", message);
 
                     match message {
                         OwnedMessage::Close(e) => write_sender_.unbounded_send(OwnedMessage::Close(e)).map_err(|_| Error::Transport("Error sending close message".into()).into()),
                         OwnedMessage::Ping(d) => write_sender_.unbounded_send(OwnedMessage::Pong(d)).map_err(|_| Error::Transport("Error sending pong message".into()).into()),
                         OwnedMessage::Text(t) => {
                             if let Ok(notification) = helpers::to_notification_from_slice(t.as_bytes()) {
-                                if let Some(rpc::Params::Map(params)) = notification.params {
+                                if let rpc::Params::Map(params) = notification.params {
                                     let id = params.get("subscription");
                                     let result = params.get("result");
 
@@ -87,10 +87,10 @@ impl WebSocket {
                                         if let Some(stream) = subscriptions_.lock().get(&id) {
                                             return stream.unbounded_send(result.clone()).map_err(|_| Error::Transport("Error sending notification".into()).into());
                                         } else {
-                                            warn!("Got notification for unknown subscription (id: {:?})", id);
+                                            log::warn!("Got notification for unknown subscription (id: {:?})", id);
                                         }
                                     } else {
-                                        error!("Got unsupported notification (id: {:?})", id);
+                                        log::error!("Got unsupported notification (id: {:?})", id);
                                     }
                                 }
 
@@ -112,15 +112,15 @@ impl WebSocket {
 
                             if let rpc::Id::Num(num) = id {
                                 if let Some(request) = pending_.lock().remove(&(num as usize)) {
-                                    trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+                                    log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
                                     if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-                                        warn!("Sending a response to deallocated channel: {:?}", err);
+                                        log::warn!("Sending a response to deallocated channel: {:?}", err);
                                     }
                                 } else {
-                                    warn!("Got response for unknown request (id: {:?})", num);
+                                    log::warn!("Got response for unknown request (id: {:?})", num);
                                 }
                             } else {
-                                warn!("Got unsupported response (id: {:?})", id);
+                                log::warn!("Got unsupported response (id: {:?})", id);
                             }
 
                             Ok(())
@@ -136,7 +136,7 @@ impl WebSocket {
         };
 
         handle.spawn(ws_future.map(|_| ()).map_err(|err| {
-            error!("WebSocketError: {:?}", err);
+            log::error!("WebSocketError: {:?}", err);
         }));
 
         Ok(Self { id: Arc::new(atomic::AtomicUsize::new(1)), url: url, pending, subscriptions, write_sender })
@@ -147,7 +147,7 @@ impl WebSocket {
         F: Fn(Vec<Result<rpc::Value>>) -> O,
     {
         let request = helpers::to_string(&request);
-        debug!("[{}] Calling: {}", id, request);
+        log::debug!("[{}] Calling: {}", id, request);
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
@@ -195,7 +195,7 @@ impl DuplexTransport for WebSocket {
     fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
-            warn!("Replacing already-registered subscription with id {:?}", id)
+            log::warn!("Replacing already-registered subscription with id {:?}", id)
         }
         Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
     }
@@ -227,7 +227,7 @@ mod tests {
         let f = {
             let handle_ = handle.clone();
             server.incoming().take(1).map_err(|InvalidConnection { error, .. }| error).for_each(move |(upgrade, addr)| {
-                trace!("Got a connection from {}", addr);
+                log::trace!("Got a connection from {}", addr);
                 let f = upgrade.accept().and_then(|(s, _)| {
                     let (sink, stream) = s.split();
 

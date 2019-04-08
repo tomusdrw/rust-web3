@@ -1,6 +1,7 @@
 use crate::types::U256;
-use serde::de::{Deserialize, Deserializer, Error};
-use serde::ser::{Serialize, Serializer};
+use serde::{Serialize, Deserialize};
+use serde::de::{Deserializer, Error};
+use serde::ser::{Serializer};
 
 /// Information about current blockchain syncing operations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
