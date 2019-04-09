@@ -53,7 +53,12 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
     fn new(transport: T, id: SubscriptionId) -> Self {
         let rx = transport.subscribe(&id);
-        SubscriptionStream { transport, id, rx, _marker: PhantomData }
+        SubscriptionStream {
+            transport,
+            id,
+            rx,
+            _marker: PhantomData,
+        }
     }
 
     /// Return the ID of this subscription
@@ -102,7 +107,11 @@ pub struct SubscriptionResult<T: DuplexTransport, I> {
 
 impl<T: DuplexTransport, I> SubscriptionResult<T, I> {
     pub fn new(transport: T, id_future: CallFuture<String, T::Out>) -> Self {
-        SubscriptionResult { transport, inner: id_future, _marker: PhantomData }
+        SubscriptionResult {
+            transport,
+            inner: id_future,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -116,7 +125,10 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner.poll() {
-            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(self.transport.clone(), SubscriptionId(id)))),
+            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(
+                self.transport.clone(),
+                SubscriptionId(id),
+            ))),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }

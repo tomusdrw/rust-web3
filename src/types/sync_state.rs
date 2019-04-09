@@ -1,7 +1,7 @@
 use crate::types::U256;
-use serde::{Serialize, Deserialize};
 use serde::de::{Deserializer, Error};
-use serde::ser::{Serializer};
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 
 /// Information about current blockchain syncing operations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,7 +43,11 @@ struct SubscriptionSyncInfo {
 
 impl From<SubscriptionSyncInfo> for SyncInfo {
     fn from(s: SubscriptionSyncInfo) -> Self {
-        Self { starting_block: s.starting_block, current_block: s.current_block, highest_block: s.highest_block }
+        Self {
+            starting_block: s.starting_block,
+            current_block: s.current_block,
+            highest_block: s.highest_block,
+        }
     }
 }
 
@@ -75,7 +79,9 @@ impl<'de> Deserialize<'de> for SyncState {
             SyncStateVariants::Subscription(state) => match state.status {
                 None if !state.syncing => Ok(SyncState::NotSyncing),
                 Some(ref info) if state.syncing => Ok(SyncState::Syncing(info.clone().into())),
-                _ => Err(D::Error::custom("expected object or `syncing = false`, got `syncing = true`")),
+                _ => Err(D::Error::custom(
+                    "expected object or `syncing = false`, got `syncing = true`",
+                )),
             },
             SyncStateVariants::Boolean(boolean) => {
                 if !boolean {
@@ -118,7 +124,14 @@ mod tests {
 
         let value: SyncState = serde_json::from_str(sync_state).unwrap();
 
-        assert_eq!(value, SyncState::Syncing(SyncInfo { starting_block: 0x0.into(), current_block: 0x42.into(), highest_block: 0x9001.into() }));
+        assert_eq!(
+            value,
+            SyncState::Syncing(SyncInfo {
+                starting_block: 0x0.into(),
+                current_block: 0x42.into(),
+                highest_block: 0x9001.into()
+            })
+        );
     }
 
     #[test]
@@ -136,7 +149,14 @@ mod tests {
 
         let value: SyncState = serde_json::from_str(sync_state).unwrap();
 
-        assert_eq!(value, SyncState::Syncing(SyncInfo { starting_block: 0x0.into(), current_block: 0x42.into(), highest_block: 0x9001.into() }));
+        assert_eq!(
+            value,
+            SyncState::Syncing(SyncInfo {
+                starting_block: 0x0.into(),
+                current_block: 0x42.into(),
+                highest_block: 0x9001.into()
+            })
+        );
     }
 
     #[test]

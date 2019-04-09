@@ -68,7 +68,9 @@ impl PartialEq for Error {
         use self::Error::*;
         match (self, other) {
             (Unreachable, Unreachable) | (Internal, Internal) => true,
-            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => a == b,
+            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => {
+                a == b
+            }
             (Rpc(a), Rpc(b)) => a == b,
             (Io(a), Io(b)) => a.kind() == b.kind(),
             _ => false,

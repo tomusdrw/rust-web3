@@ -56,7 +56,13 @@ impl<T: Transport> Contract<T> {
     /// Creates deployment builder for a contract given it's ABI in JSON.
     pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>, ethabi::Error> {
         let abi = ethabi::Contract::load(json)?;
-        Ok(deploy::Builder { eth, abi, options: Options::default(), confirmations: 1, poll_interval: time::Duration::from_secs(7) })
+        Ok(deploy::Builder {
+            eth,
+            abi,
+            options: Options::default(),
+            confirmations: 1,
+            poll_interval: time::Duration::from_secs(7),
+        })
     }
 }
 
@@ -103,7 +109,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function and wait for confirmations
-    pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
+    pub fn call_with_confirmations<P>(
+        &self,
+        func: &str,
+        params: P,
+        from: Address,
+        options: Options,
+        confirmations: usize,
+    ) -> confirm::SendTransactionWithConfirmation<T>
     where
         P: Tokenize,
     {
@@ -124,12 +137,20 @@ impl<T: Transport> Contract<T> {
                     condition: options.condition,
                 };
 
-                confirm::send_transaction_with_confirmation(self.eth.transport().clone(), transaction_request, poll_interval, confirmations)
+                confirm::send_transaction_with_confirmation(
+                    self.eth.transport().clone(),
+                    transaction_request,
+                    poll_interval,
+                    confirmations,
+                )
             })
             .unwrap_or_else(|e| {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
-                confirm::SendTransactionWithConfirmation::from_err(self.eth.transport().clone(), crate::error::Error::Decoder(format!("{:?}", e)))
+                confirm::SendTransactionWithConfirmation::from_err(
+                    self.eth.transport().clone(),
+                    crate::error::Error::Decoder(format!("{:?}", e)),
+                )
             })
     }
 
@@ -160,7 +181,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Call constant function
-    pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out>
+    pub fn query<R, A, B, P>(
+        &self,
+        func: &str,
+        params: P,
+        from: A,
+        options: Options,
+        block: B,
+    ) -> QueryResult<R, T::Out>
     where
         R: Detokenize,
         A: Into<Option<Address>>,
@@ -169,7 +197,11 @@ impl<T: Transport> Contract<T> {
     {
         self.abi
             .function(func.into())
-            .and_then(|function| function.encode_input(&params.into_tokens()).map(|call| (call, function)))
+            .and_then(|function| {
+                function
+                    .encode_input(&params.into_tokens())
+                    .map(|call| (call, function))
+            })
             .map(|(call, function)| {
                 let result = self.eth.call(
                     CallRequest {
@@ -213,11 +245,20 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token.query("name", (), None, Options::default(), BlockNumber::Number(1)).wait().unwrap()
+            token
+                .query("name", (), None, Options::default(), BlockNumber::Number(1))
+                .wait()
+                .unwrap()
         };
 
         // then
-        transport.assert_request("eth_call", &["{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"0x1\"".into()]);
+        transport.assert_request(
+            "eth_call",
+            &[
+                "{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
+                "\"0x1\"".into(),
+            ],
+        );
         transport.assert_no_more_requests();
         assert_eq!(result, "Hello World!".to_owned());
     }
@@ -281,7 +322,10 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token.estimate_gas("name", (), 5.into(), Options::default()).wait().unwrap()
+            token
+                .estimate_gas("name", (), 5.into(), Options::default())
+                .wait()
+                .unwrap()
         };
 
         // then
@@ -294,13 +338,18 @@ mod tests {
     fn should_query_single_parameter_function() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020".into()));
+        transport.set_response(rpc::Value::String(
+            "0x0000000000000000000000000000000000000000000000000000000000000020".into(),
+        ));
 
         let result: U256 = {
             let token = contract(&transport);
 
             // when
-            token.query("balanceOf", Address::from(5), None, Options::default(), None).wait().unwrap()
+            token
+                .query("balanceOf", Address::from(5), None, Options::default(), None)
+                .wait()
+                .unwrap()
         };
 
         // then

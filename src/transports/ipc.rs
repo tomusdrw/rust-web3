@@ -87,14 +87,29 @@ impl Ipc {
         let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
         let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
 
-        let r = ReadStream { read, pending: pending.clone(), subscriptions: subscriptions.clone(), buffer: vec![], current_pos: 0 };
+        let r = ReadStream {
+            read,
+            pending: pending.clone(),
+            subscriptions: subscriptions.clone(),
+            buffer: vec![],
+            current_pos: 0,
+        };
 
-        let w = WriteStream { write, incoming: write_receiver, state: WriteState::WaitingForRequest };
+        let w = WriteStream {
+            write,
+            incoming: write_receiver,
+            state: WriteState::WaitingForRequest,
+        };
 
         handle.spawn(r);
         handle.spawn(w);
 
-        Ok(Ipc { id: Arc::new(atomic::AtomicUsize::new(1)), write_sender, pending, subscriptions })
+        Ok(Ipc {
+            id: Arc::new(atomic::AtomicUsize::new(1)),
+            write_sender,
+            pending,
+            subscriptions,
+        })
     }
 
     #[cfg(not(unix))]
@@ -111,7 +126,10 @@ impl Ipc {
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
-        let result = self.write_sender.unbounded_send(request.into_bytes()).map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
+        let result = self
+            .write_sender
+            .unbounded_send(request.into_bytes())
+            .map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -196,12 +214,18 @@ impl Future for WriteStream {
                     let to_send = try_ready!(self.incoming.poll());
                     if let Some(to_send) = to_send {
                         log::trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
-                        WriteState::Writing { buffer: to_send, current_pos: 0 }
+                        WriteState::Writing {
+                            buffer: to_send,
+                            current_pos: 0,
+                        }
                     } else {
                         return Ok(futures::Async::NotReady);
                     }
                 }
-                WriteState::Writing { ref buffer, ref mut current_pos } => {
+                WriteState::Writing {
+                    ref buffer,
+                    ref mut current_pos,
+                } => {
                     // Write everything in the buffer
                     while *current_pos < buffer.len() {
                         let n = try_nb!(self.write.write(&buffer[*current_pos..]));
@@ -380,7 +404,10 @@ mod tests {
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));
                     let request = String::from_utf8(data[0..read].to_vec()).unwrap();
-                    assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
+                    assert_eq!(
+                        &request,
+                        r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#
+                    );
 
                     // Write response
                     let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
@@ -441,6 +468,9 @@ mod tests {
         let res2 = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
         // then
-        assert_eq!(eloop.run(res1.join(res2)), Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into()))));
+        assert_eq!(
+            eloop.run(res1.join(res2)),
+            Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into())))
+        );
     }
 }

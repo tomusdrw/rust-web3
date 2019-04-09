@@ -21,7 +21,10 @@ pub struct CallFuture<T, F> {
 impl<T, F> CallFuture<T, F> {
     /// Create a new CallFuture wrapping the inner future.
     pub fn new(inner: F) -> Self {
-        CallFuture { inner, _marker: PhantomData }
+        CallFuture {
+            inner,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -144,7 +147,12 @@ pub mod tests {
 
         pub fn assert_no_more_requests(&mut self) {
             let requests = self.requests.borrow();
-            assert_eq!(self.asserted, requests.len(), "Expected no more requests, got: {:?}", &requests[self.asserted..]);
+            assert_eq!(
+                self.asserted,
+                requests.len(),
+                "Expected no more requests, got: {:?}",
+                &requests[self.asserted..]
+            );
         }
     }
 
