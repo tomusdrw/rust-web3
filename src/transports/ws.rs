@@ -70,7 +70,7 @@ impl WebSocket {
             let write_sender_ = write_sender.clone();
 
             ClientBuilder::from_url(&url)
-                .async_connect(None)
+                .async_connect(None, handle)
                 .from_err::<Error>()
                 .map(|(duplex, _)| duplex.split())
                 .and_then(move |(sink, stream)| {

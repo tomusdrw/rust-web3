@@ -132,13 +132,13 @@ mod tests {
     }, "hunter2"
     =>
     "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => Address::from_low_u64_le(0x123)
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
   );
 
     rpc_test! (
     Personal:sign_transaction, TransactionRequest {
-      from: "0x407d73d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap(),
-      to: Some("0x853f43d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap()),
+      from: "407d73d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap(),
+      to: Some("853f43d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap()),
       gas: Some(0x7f110.into()),
       gas_price: Some(0x09184e72a000u64.into()),
       value: Some(0x7f110.into()),

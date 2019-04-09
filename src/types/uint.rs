@@ -75,10 +75,10 @@ mod tests {
         arr[13] = 1;
         arr[12] = 0;
         arr[11] = 10;
-        let a = U128::from(arr).into();
-        let b = U128::from(1023).into();
-        let c = U128::from(0).into();
-        let d = U128::from(10000).into();
+        let a: H128 = U128::from(arr).into();
+        let b: H128 = U128::from(1023).into();
+        let c: H128 = U128::from(0).into();
+        let d: H128 = U128::from(10000).into();
 
         // Debug
         assert_eq!(&format!("{:?}", a), "0x00000000000000000000000a00010f00");

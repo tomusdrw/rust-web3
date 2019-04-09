@@ -201,7 +201,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:replay_transaction, "0x0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![TraceType::Trace]
+    Traces:replay_transaction, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![TraceType::Trace]
     =>
     "trace_replayTransaction", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#,r#"["trace"]"#];
     ::serde_json::from_str(EXAMPLE_BLOCKTRACE).unwrap()
@@ -231,7 +231,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:get, "0x0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![0.into()]
+    Traces:get, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![0.into()]
     =>
     "trace_get", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"["0x0"]"#];
     ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
@@ -239,7 +239,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:transaction, "0x0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
+    Traces:transaction, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
     =>
     "trace_transaction", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     ::serde_json::from_str(EXAMPLE_TRACE_ARR).unwrap()
