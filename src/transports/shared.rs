@@ -51,7 +51,16 @@ impl EventLoopHandle {
             }
         });
 
-        rx.recv().expect("Thread is always spawned.").map(|(http, remote)| (EventLoopHandle { thread: Some(eloop), remote, done }, http))
+        rx.recv().expect("Thread is always spawned.").map(|(http, remote)| {
+            (
+                EventLoopHandle {
+                    thread: Some(eloop),
+                    remote,
+                    done,
+                },
+                http,
+            )
+        })
     }
 
     /// Returns event loop remote.
@@ -64,7 +73,11 @@ impl Drop for EventLoopHandle {
     fn drop(&mut self) {
         self.done.store(true, atomic::Ordering::Relaxed);
         self.remote.spawn(|_| Ok(()));
-        self.thread.take().expect("We never touch thread except for drop; drop happens only once; qed").join().expect("Thread should shut down cleanly.");
+        self.thread
+            .take()
+            .expect("We never touch thread except for drop; drop happens only once; qed")
+            .join()
+            .expect("Thread should shut down cleanly.");
     }
 }
 
@@ -86,7 +99,11 @@ pub struct Response<T, O> {
 impl<T, O> Response<T, O> {
     /// Creates a new `Response`
     pub fn new(id: RequestId, result: Result<()>, rx: PendingResult<O>, extract: T) -> Self {
-        Response { id, extract, state: RequestState::Sending(Some(result), rx) }
+        Response {
+            id,
+            extract,
+            state: RequestState::Sending(Some(result), rx),
+        }
     }
 }
 
@@ -103,15 +120,15 @@ where
             let extract = &self.extract;
             match self.state {
                 RequestState::Sending(ref mut result, _) => {
-                    trace!("[{}] Request pending.", self.id);
+                    log::trace!("[{}] Request pending.", self.id);
                     if let Some(Err(e)) = result.take() {
                         return Err(e);
                     }
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
-                    trace!("[{}] Checking response.", self.id);
+                    log::trace!("[{}] Checking response.", self.id);
                     let result = try_ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
-                    trace!("[{}] Extracting result.", self.id);
+                    log::trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Async::Ready);
                 }
                 RequestState::Done => {
@@ -120,7 +137,11 @@ where
             }
             // Proceeed to the next state
             let state = mem::replace(&mut self.state, RequestState::Done);
-            self.state = if let RequestState::Sending(_, rx) = state { RequestState::WaitingForResponse(rx) } else { state }
+            self.state = if let RequestState::Sending(_, rx) = state {
+                RequestState::WaitingForResponse(rx)
+            } else {
+                state
+            }
         }
     }
 }

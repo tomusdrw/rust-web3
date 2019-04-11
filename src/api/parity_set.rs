@@ -75,7 +75,10 @@ impl<T: Transport> ParitySet<T> {
     pub fn set_engine_signer(&self, address: &Address, password: &str) -> CallFuture<bool, T::Out> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
-        CallFuture::new(self.transport().execute("parity_setEngineSigner", vec![address, password]))
+        CallFuture::new(
+            self.transport()
+                .execute("parity_setEngineSigner", vec![address, password]),
+        )
     }
 
     /// Changes extra data for newly mined blocks
@@ -182,9 +185,9 @@ mod tests {
 
     rpc_test! (
         ParitySet:hash_content,
-        "https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md" 
+        "https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md"
         => "parity_hashContent", vec![r#""https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md""#];
-        Value::String("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".into()) => H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46")
+        Value::String("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".into()) => "5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".parse::<H256>().unwrap()
     );
 
     rpc_test! (
@@ -195,7 +198,7 @@ mod tests {
     );
 
     rpc_test! (
-        ParitySet:set_author, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1")
+        ParitySet:set_author, &"407d73d8a49eeb85d32cf465507dd71d507100c1".parse::<Address>().unwrap()
         => "parity_setAuthor", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#];
         Value::Bool(true) => true
     );
@@ -207,38 +210,40 @@ mod tests {
     );
 
     rpc_test! (
-        ParitySet:set_engine_signer, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1"), "hunter2"
+        ParitySet:set_engine_signer, &"407d73d8a49eeb85d32cf465507dd71d507100c1".parse::<Address>().unwrap(), "hunter2"
         => "parity_setEngineSigner", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#, r#""hunter2""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:set_extra_data,
-        &H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46" )
+        &"5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".parse::<H256>().unwrap()
         => "parity_setExtraData", vec![r#""0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_gas_ceil_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_gas_ceil_target, &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setGasCeilTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_gas_floor_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_gas_floor_target, &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setGasFloorTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_max_transaction_gas, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_max_transaction_gas,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setMaxTransactionGas", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_min_gas_price, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_min_gas_price,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setMinGasPrice", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
@@ -250,7 +255,8 @@ mod tests {
     );
 
     rpc_test! (
-        ParitySet:set_transactions_limit, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_transactions_limit,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setTransactionsLimit", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );

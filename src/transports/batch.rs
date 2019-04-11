@@ -27,7 +27,11 @@ where
 {
     /// Creates new Batch transport given existing transport supporing batch requests.
     pub fn new(transport: T) -> Self {
-        Batch { transport, pending: Default::default(), batch: Default::default() }
+        Batch {
+            transport,
+            pending: Default::default(),
+            batch: Default::default(),
+        }
     }
 
     /// Sends all requests as a batch.
@@ -38,7 +42,10 @@ where
         let batch = self.transport.send_batch(batch);
         let pending = self.pending.clone();
 
-        BatchFuture { state: BatchState::SendingBatch(batch, ids), pending }
+        BatchFuture {
+            state: BatchState::SendingBatch(batch, ids),
+            pending,
+        }
     }
 }
 
@@ -63,7 +70,10 @@ where
 
 enum BatchState<T> {
     SendingBatch(T, Vec<RequestId>),
-    Resolving(future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>, Result<Vec<Result<rpc::Value>>>),
+    Resolving(
+        future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>,
+        Result<Vec<Result<rpc::Value>>>,
+    ),
     Done,
 }
 

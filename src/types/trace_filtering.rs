@@ -1,6 +1,6 @@
 //! Types for the Parity Transaction-Trace Filtering API
 use crate::types::{Address, BlockNumber, Bytes, H160, H256, U256};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Trace filter
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]

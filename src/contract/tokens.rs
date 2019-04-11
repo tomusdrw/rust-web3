@@ -16,7 +16,10 @@ pub trait Detokenize {
 impl<T: Tokenizable> Detokenize for T {
     fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
         if tokens.len() != 1 {
-            Err(Error::InvalidOutputType(format!("Expected single element, got a list: {:?}", tokens)))
+            Err(Error::InvalidOutputType(format!(
+                "Expected single element, got a list: {:?}",
+                tokens
+            )))
         } else {
             Self::from_token(tokens.drain(..).next().expect("At least one element in vector; qed"))
         }
@@ -171,7 +174,7 @@ impl Tokenizable for H256 {
     }
 
     fn into_token(self) -> Token {
-        Token::FixedBytes(self.0.to_vec())
+        Token::FixedBytes(self.as_ref().to_vec())
     }
 }
 
@@ -249,7 +252,9 @@ impl Tokenizable for Vec<u8> {
 impl<T: Tokenizable> Tokenizable for Vec<T> {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
-            Token::FixedArray(tokens) | Token::Array(tokens) => tokens.into_iter().map(Tokenizable::from_token).collect(),
+            Token::FixedArray(tokens) | Token::Array(tokens) => {
+                tokens.into_iter().map(Tokenizable::from_token).collect()
+            }
             other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other)).into()),
         }
     }
@@ -266,14 +271,20 @@ macro_rules! impl_fixed_types {
                 match token {
                     Token::FixedBytes(bytes) => {
                         if bytes.len() != $num {
-                            return Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got FixedBytes({})", $num, bytes.len())));
+                            return Err(Error::InvalidOutputType(format!(
+                                "Expected `FixedBytes({})`, got FixedBytes({})",
+                                $num,
+                                bytes.len()
+                            )));
                         }
 
                         let mut arr = [0; $num];
                         arr.copy_from_slice(&bytes);
                         Ok(arr)
                     }
-                    other => Err(Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other)).into()),
+                    other => Err(
+                        Error::InvalidOutputType(format!("Expected `FixedBytes({})`, got {:?}", $num, other)).into(),
+                    ),
                 }
             }
 
@@ -287,7 +298,11 @@ macro_rules! impl_fixed_types {
                 match token {
                     Token::FixedArray(tokens) => {
                         if tokens.len() != $num {
-                            return Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got FixedArray({})", $num, tokens.len())));
+                            return Err(Error::InvalidOutputType(format!(
+                                "Expected `FixedArray({})`, got FixedArray({})",
+                                $num,
+                                tokens.len()
+                            )));
                         }
 
                         let mut arr = ArrayVec::<[T; $num]>::new();
@@ -301,7 +316,9 @@ macro_rules! impl_fixed_types {
                             Err(_) => panic!("All elements inserted so the array is full; qed"),
                         }
                     }
-                    other => Err(Error::InvalidOutputType(format!("Expected `FixedArray({})`, got {:?}", $num, other)).into()),
+                    other => Err(
+                        Error::InvalidOutputType(format!("Expected `FixedArray({})`, got {:?}", $num, other)).into(),
+                    ),
                 }
             }
 
@@ -357,7 +374,16 @@ mod tests {
     #[test]
     fn should_decode_array_of_fixed_bytes() {
         // byte[8][]
-        let tokens = vec![Token::FixedArray(vec![Token::FixedBytes(vec![1]), Token::FixedBytes(vec![2]), Token::FixedBytes(vec![3]), Token::FixedBytes(vec![4]), Token::FixedBytes(vec![5]), Token::FixedBytes(vec![6]), Token::FixedBytes(vec![7]), Token::FixedBytes(vec![8])])];
+        let tokens = vec![Token::FixedArray(vec![
+            Token::FixedBytes(vec![1]),
+            Token::FixedBytes(vec![2]),
+            Token::FixedBytes(vec![3]),
+            Token::FixedBytes(vec![4]),
+            Token::FixedBytes(vec![5]),
+            Token::FixedBytes(vec![6]),
+            Token::FixedBytes(vec![7]),
+            Token::FixedBytes(vec![8]),
+        ])];
         let data: [[u8; 1]; 8] = Detokenize::from_tokens(tokens).unwrap();
         assert_eq!(data[0][0], 1);
         assert_eq!(data[1][0], 2);

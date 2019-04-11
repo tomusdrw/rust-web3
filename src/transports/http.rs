@@ -99,20 +99,29 @@ impl Http {
         #[cfg(not(feature = "tls"))]
         let client = hyper::Client::new();
 
-        handle.spawn(write_receiver.map(move |(request, tx): (_, Pending)| client.request(request).then(move |response| Ok((response, tx)))).buffer_unordered(max_parallel).for_each(|(response, tx)| {
-            use futures::future::Either::{A, B};
-            let future = match response {
-                Ok(ref res) if !res.status().is_success() => A(future::err(Error::Transport(format!("Unexpected response status code: {}", res.status())).into())),
-                Ok(res) => B(res.into_body().concat2().map_err(Into::into)),
-                Err(err) => A(future::err(err.into())),
-            };
-            future.then(move |result| {
-                if let Err(err) = tx.send(result) {
-                    warn!("Error resuming asynchronous request: {:?}", err);
-                }
-                Ok(())
-            })
-        }));
+        handle.spawn(
+            write_receiver
+                .map(move |(request, tx): (_, Pending)| {
+                    client.request(request).then(move |response| Ok((response, tx)))
+                })
+                .buffer_unordered(max_parallel)
+                .for_each(|(response, tx)| {
+                    use futures::future::Either::{A, B};
+                    let future = match response {
+                        Ok(ref res) if !res.status().is_success() => A(future::err(
+                            Error::Transport(format!("Unexpected response status code: {}", res.status())).into(),
+                        )),
+                        Ok(res) => B(res.into_body().concat2().map_err(Into::into)),
+                        Err(err) => A(future::err(err.into())),
+                    };
+                    future.then(move |result| {
+                        if let Err(err) = tx.send(result) {
+                            log::warn!("Error resuming asynchronous request: {:?}", err);
+                        }
+                        Ok(())
+                    })
+                }),
+        );
 
         let basic_auth = {
             let url = Url::parse(url)?;
@@ -129,7 +138,12 @@ impl Http {
             }
         };
 
-        Ok(Http { id: Default::default(), url: url.parse()?, basic_auth, write_sender })
+        Ok(Http {
+            id: Default::default(),
+            url: url.parse()?,
+            basic_auth,
+            write_sender,
+        })
     }
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> FetchTask<F>
@@ -137,13 +151,17 @@ impl Http {
         F: Fn(hyper::Chunk) -> O,
     {
         let request = helpers::to_string(&request);
-        debug!("[{}] Sending: {} to {}", id, request, self.url);
+        log::debug!("[{}] Sending: {} to {}", id, request, self.url);
         let len = request.len();
         let mut req = hyper::Request::new(hyper::Body::from(request));
         *req.method_mut() = hyper::Method::POST;
         *req.uri_mut() = self.url.clone();
-        req.headers_mut().insert(hyper::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        req.headers_mut().insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
+        req.headers_mut().insert(
+            hyper::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        req.headers_mut()
+            .insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
 
         // Don't send chunked request
         if len < MAX_SINGLE_CHUNK {
@@ -151,10 +169,14 @@ impl Http {
         }
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut().insert(hyper::header::AUTHORIZATION, basic_auth.clone());
+            req.headers_mut()
+                .insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
         let (tx, rx) = futures::oneshot();
-        let result = self.write_sender.unbounded_send((req, tx)).map_err(|_| Error::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
+        let result = self
+            .write_sender
+            .unbounded_send((req, tx))
+            .map_err(|_| Error::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -192,7 +214,8 @@ impl BatchTransport for Http {
 
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Single(output) => helpers::to_result_from_output(output),
@@ -202,7 +225,8 @@ fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target = [u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),

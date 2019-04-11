@@ -1,4 +1,5 @@
 use crate::types::{Bytes, Index, Log, H160, H2048, H256, U256, U64};
+use serde::{Deserialize, Serialize};
 
 /// Description of a Transaction, pending or in the chain.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]

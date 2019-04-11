@@ -23,7 +23,12 @@ impl<T: Transport> Namespace<T> for Traces<T> {
 }
 impl<T: Transport> Traces<T> {
     /// Executes the given call and returns a number of possible traces for it
-    pub fn call(&self, req: CallRequest, trace_type: Vec<TraceType>, block: Option<BlockNumber>) -> CallFuture<BlockTrace, T::Out> {
+    pub fn call(
+        &self,
+        req: CallRequest,
+        trace_type: Vec<TraceType>,
+        block: Option<BlockNumber>,
+    ) -> CallFuture<BlockTrace, T::Out> {
         let req = helpers::serialize(&req);
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
         let trace_type = helpers::serialize(&trace_type);
@@ -41,14 +46,24 @@ impl<T: Transport> Traces<T> {
     pub fn replay_transaction(&self, hash: H256, trace_type: Vec<TraceType>) -> CallFuture<BlockTrace, T::Out> {
         let hash = helpers::serialize(&hash);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(self.transport.execute("trace_replayTransaction", vec![hash, trace_type]))
+        CallFuture::new(
+            self.transport
+                .execute("trace_replayTransaction", vec![hash, trace_type]),
+        )
     }
 
     /// Replays all transactions in a block returning the requested traces for each transaction
-    pub fn replay_block_transactions(&self, block: BlockNumber, trace_type: Vec<TraceType>) -> CallFuture<BlockTrace, T::Out> {
+    pub fn replay_block_transactions(
+        &self,
+        block: BlockNumber,
+        trace_type: Vec<TraceType>,
+    ) -> CallFuture<BlockTrace, T::Out> {
         let block = helpers::serialize(&block);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(self.transport.execute("trace_replayBlockTransaction", vec![block, trace_type]))
+        CallFuture::new(
+            self.transport
+                .execute("trace_replayBlockTransaction", vec![block, trace_type]),
+        )
     }
 
     /// Returns traces created at given block
@@ -186,7 +201,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:replay_transaction, H256::from("0x0000000000000000000000000000000000000000000000000000000000000123"), vec![TraceType::Trace]
+    Traces:replay_transaction, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![TraceType::Trace]
     =>
     "trace_replayTransaction", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#,r#"["trace"]"#];
     ::serde_json::from_str(EXAMPLE_BLOCKTRACE).unwrap()
@@ -216,7 +231,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:get, H256::from("0x0000000000000000000000000000000000000000000000000000000000000123"), vec![0.into()]
+    Traces:get, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap(), vec![0.into()]
     =>
     "trace_get", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"["0x0"]"#];
     ::serde_json::from_str(EXAMPLE_TRACE).unwrap()
@@ -224,7 +239,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:transaction, H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+    Traces:transaction, "0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
     =>
     "trace_transaction", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     ::serde_json::from_str(EXAMPLE_TRACE_ARR).unwrap()

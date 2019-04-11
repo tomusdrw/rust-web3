@@ -2,7 +2,10 @@
 
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
-use crate::types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256};
+use crate::types::{
+    Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
+    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
+};
 use crate::Transport;
 
 /// `Eth` namespace
@@ -138,7 +141,8 @@ impl<T: Transport> Eth<T> {
             }
             BlockId::Number(num) => {
                 let num = helpers::serialize(&num);
-                self.transport.execute("eth_getBlockTransactionCountByNumber", vec![num])
+                self.transport
+                    .execute("eth_getBlockTransactionCountByNumber", vec![num])
             }
         };
 
@@ -185,12 +189,14 @@ impl<T: Transport> Eth<T> {
             TransactionId::Block(BlockId::Hash(hash), index) => {
                 let hash = helpers::serialize(&hash);
                 let idx = helpers::serialize(&index);
-                self.transport.execute("eth_getTransactionByBlockHashAndIndex", vec![hash, idx])
+                self.transport
+                    .execute("eth_getTransactionByBlockHashAndIndex", vec![hash, idx])
             }
             TransactionId::Block(BlockId::Number(number), index) => {
                 let number = helpers::serialize(&number);
                 let idx = helpers::serialize(&index);
-                self.transport.execute("eth_getTransactionByBlockNumberAndIndex", vec![number, idx])
+                self.transport
+                    .execute("eth_getTransactionByBlockNumberAndIndex", vec![number, idx])
             }
         };
 
@@ -211,11 +217,13 @@ impl<T: Transport> Eth<T> {
         let result = match block {
             BlockId::Hash(hash) => {
                 let hash = helpers::serialize(&hash);
-                self.transport.execute("eth_getUncleByBlockHashAndIndex", vec![hash, index])
+                self.transport
+                    .execute("eth_getUncleByBlockHashAndIndex", vec![hash, index])
             }
             BlockId::Number(num) => {
                 let num = helpers::serialize(&num);
-                self.transport.execute("eth_getUncleByBlockNumberAndIndex", vec![num, index])
+                self.transport
+                    .execute("eth_getUncleByBlockNumberAndIndex", vec![num, index])
             }
         };
 
@@ -299,7 +307,10 @@ impl<T: Transport> Eth<T> {
         let nonce = helpers::serialize(&nonce);
         let pow_hash = helpers::serialize(&pow_hash);
         let mix_hash = helpers::serialize(&mix_hash);
-        CallFuture::new(self.transport.execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]))
+        CallFuture::new(
+            self.transport
+                .execute("eth_submitWork", vec![nonce, pow_hash, mix_hash]),
+        )
     }
 
     /// Get syncing status
@@ -311,10 +322,14 @@ impl<T: Transport> Eth<T> {
 #[cfg(test)]
 mod tests {
     use futures::Future;
+    use serde_json::json;
 
     use crate::api::Namespace;
     use crate::rpc::Value;
-    use crate::types::{Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256};
+    use crate::types::{
+        Address, Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction,
+        TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+    };
 
     use super::Eth;
 
@@ -519,7 +534,7 @@ mod tests {
       r#""0x456""#,
       r#""latest""#
     ];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
   );
 
     rpc_test! (
@@ -652,12 +667,12 @@ mod tests {
     Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sendRawTransaction", vec![r#""0x01020304""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
   );
 
     rpc_test! (
     Eth:send_transaction, TransactionRequest {
-      from: 0x123.into(), to: Some(0x123.into()),
+      from: Address::from_low_u64_be(0x123), to: Some(Address::from_low_u64_be(0x123)),
       gas: None, gas_price: Some(0x1.into()),
       value: Some(0x1.into()), data: None,
       nonce: None, condition: None,
@@ -671,7 +686,7 @@ mod tests {
     Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => H520::from_low_u64_be(0x123)
   );
 
     rpc_test! (
@@ -682,7 +697,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:submit_work, 0x123, 0x456, 0x789
+    Eth:submit_work, H64::from_low_u64_be(0x123), H256::from_low_u64_be(0x456), H256::from_low_u64_be(0x789)
     =>
     "eth_submitWork", vec![r#""0x0000000000000123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#, r#""0x0000000000000000000000000000000000000000000000000000000000000789""#];
     Value::Bool(true) => true

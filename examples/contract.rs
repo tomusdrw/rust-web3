@@ -24,7 +24,11 @@ fn main() {
             opt.gas_price = Some(5.into());
             opt.gas = Some(1_000_000.into());
         }))
-        .execute(bytecode, (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()), my_account)
+        .execute(
+            bytecode,
+            (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
+            my_account,
+        )
         .expect("Correct parameters are passed to the constructor.")
         .wait()
         .unwrap();
@@ -35,7 +39,12 @@ fn main() {
 
     // Accessing existing contract
     let contract_address = contract.address();
-    let contract = Contract::from_json(web3.eth(), contract_address, include_bytes!("../src/contract/res/token.json")).unwrap();
+    let contract = Contract::from_json(
+        web3.eth(),
+        contract_address,
+        include_bytes!("../src/contract/res/token.json"),
+    )
+    .unwrap();
 
     let result = contract.query("balanceOf", (my_account,), None, Options::default(), None);
     let balance_of: U256 = result.wait().unwrap();

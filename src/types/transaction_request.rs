@@ -1,4 +1,5 @@
 use crate::types::{Address, Bytes, U256};
+use serde::{Deserialize, Serialize};
 
 /// Call contract request (eth_call / eth_estimateGas)
 #[derive(Clone, Debug, PartialEq, Serialize)]

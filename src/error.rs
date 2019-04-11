@@ -1,5 +1,6 @@
 //! Web3 Error
 use crate::rpc::error::Error as RPCError;
+use derive_more::Display;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 
@@ -67,7 +68,9 @@ impl PartialEq for Error {
         use self::Error::*;
         match (self, other) {
             (Unreachable, Unreachable) | (Internal, Internal) => true,
-            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => a == b,
+            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => {
+                a == b
+            }
             (Rpc(a), Rpc(b)) => a == b,
             (Io(a), Io(b)) => a.kind() == b.kind(),
             _ => false,

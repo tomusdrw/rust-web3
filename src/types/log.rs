@@ -1,6 +1,6 @@
 use crate::types::{BlockNumber, Bytes, H160, H256, U256};
 use ethabi;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,8 +120,19 @@ impl FilterBuilder {
     }
 
     /// Topics
-    pub fn topics(mut self, topic1: Option<Vec<H256>>, topic2: Option<Vec<H256>>, topic3: Option<Vec<H256>>, topic4: Option<Vec<H256>>) -> Self {
-        let mut topics = vec![topic1, topic2, topic3, topic4].into_iter().rev().skip_while(Option::is_none).map(|option| option.map(ValueOrArray)).collect::<Vec<_>>();
+    pub fn topics(
+        mut self,
+        topic1: Option<Vec<H256>>,
+        topic2: Option<Vec<H256>>,
+        topic3: Option<Vec<H256>>,
+        topic4: Option<Vec<H256>>,
+    ) -> Self {
+        let mut topics = vec![topic1, topic2, topic3, topic4]
+            .into_iter()
+            .rev()
+            .skip_while(Option::is_none)
+            .map(|option| option.map(ValueOrArray))
+            .collect::<Vec<_>>();
         topics.reverse();
 
         self.filter.topics = Some(topics);
@@ -130,7 +141,12 @@ impl FilterBuilder {
 
     /// Sets the topics according to the given `ethabi` topic filter
     pub fn topic_filter(self, topic_filter: ethabi::TopicFilter) -> Self {
-        self.topics(topic_to_option(topic_filter.topic0), topic_to_option(topic_filter.topic1), topic_to_option(topic_filter.topic2), topic_to_option(topic_filter.topic3))
+        self.topics(
+            topic_to_option(topic_filter.topic0),
+            topic_to_option(topic_filter.topic1),
+            topic_to_option(topic_filter.topic2),
+            topic_to_option(topic_filter.topic3),
+        )
     }
 
     /// Limit the result
@@ -258,7 +274,14 @@ mod tests {
             topic3: ethabi::Topic::Any,
         };
         let filter0 = FilterBuilder::default().topic_filter(topic_filter).build();
-        let filter1 = FilterBuilder::default().topics(Some(vec![3.into()]), Some(vec![5.into(), 8.into()]), Some(vec![13.into()]), None).build();
+        let filter1 = FilterBuilder::default()
+            .topics(
+                Some(vec![3.into()]),
+                Some(vec![5.into(), 8.into()]),
+                Some(vec![13.into()]),
+                None,
+            )
+            .build();
         assert_eq!(filter0, filter1);
     }
 }

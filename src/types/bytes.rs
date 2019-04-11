@@ -19,7 +19,7 @@ impl Serialize for Bytes {
         S: Serializer,
     {
         let mut serialized = "0x".to_owned();
-        serialized.push_str(self.0.to_hex().as_ref());
+        serialized.push_str(self.0.to_hex::<String>().as_ref());
         serializer.serialize_str(serialized.as_ref())
     }
 }
@@ -47,7 +47,9 @@ impl<'a> Visitor<'a> for BytesVisitor {
         E: Error,
     {
         if value.len() >= 2 && &value[0..2] == "0x" && value.len() & 1 == 0 {
-            Ok(Bytes(FromHex::from_hex(&value[2..]).map_err(|_| Error::custom("invalid hex"))?))
+            Ok(Bytes(
+                FromHex::from_hex(&value[2..]).map_err(|_| Error::custom("invalid hex"))?,
+            ))
         } else {
             Err(Error::custom("invalid format"))
         }

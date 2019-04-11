@@ -1,7 +1,6 @@
 //! Types for getting peer information
 use ethereum_types::U256;
-
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Stores active peer count, connected count, max connected peers
 /// and a list of peers for parity node

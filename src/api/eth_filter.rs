@@ -22,7 +22,11 @@ pub struct FilterStream<T: Transport, I> {
 
 impl<T: Transport, I> FilterStream<T, I> {
     fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
-        FilterStream { base, interval: Timer::default().interval(poll_interval), state: FilterStreamState::WaitForInterval }
+        FilterStream {
+            base,
+            interval: Timer::default().interval(poll_interval),
+            state: FilterStreamState::WaitForInterval,
+        }
     }
 
     /// Borrow a transport from this filter.
@@ -123,7 +127,11 @@ pub struct BaseFilter<T: Transport, I> {
 
 impl<T: Transport, I> Clone for BaseFilter<T, I> {
     fn clone(&self) -> Self {
-        BaseFilter { id: self.id.clone(), transport: self.transport.clone(), item: PhantomData::default() }
+        BaseFilter {
+            id: self.id.clone(),
+            transport: self.transport.clone(),
+            item: PhantomData::default(),
+        }
     }
 }
 
@@ -170,7 +178,11 @@ impl<T: Transport> BaseFilter<T, Log> {
 /// Should be used to create new filter future
 fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
     let future = CallFuture::new(t.execute(F::constructor(), arg));
-    CreateFilter { transport: Some(t), item: PhantomData, future }
+    CreateFilter {
+        transport: Some(t),
+        item: PhantomData,
+        future,
+    }
 }
 
 /// Future which resolves with new filter
@@ -190,7 +202,11 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Error> {
         let id = try_ready!(self.future.poll());
-        let result = BaseFilter { id, transport: self.transport.take().expect("future polled after ready; qed"), item: PhantomData };
+        let result = BaseFilter {
+            id,
+            transport: self.transport.take().expect("future polled after ready; qed"),
+            item: PhantomData,
+        };
         Ok(result.into())
     }
 }
@@ -288,7 +304,9 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = FilterBuilder::default().topics(None, Some(vec![2.into()]), None, None).build();
+            let filter = FilterBuilder::default()
+                .topics(None, Some(vec![2.into()]), None, None)
+                .build();
             let filter = eth.create_logs_filter(filter).wait().unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
             filter.logs().wait()
@@ -296,7 +314,10 @@ mod tests {
 
         // then
         assert_eq!(result, Ok(vec![log]));
-        transport.assert_request("eth_newFilter", &[r#"{"topics":[null,"0x0000000000000000000000000000000000000000000000000000000000000002"]}"#.into()]);
+        transport.assert_request(
+            "eth_newFilter",
+            &[r#"{"topics":[null,"0x0000000000000000000000000000000000000000000000000000000000000002"]}"#.into()],
+        );
         transport.assert_request("eth_getFilterLogs", &[r#""0x123""#.into()]);
         transport.assert_no_more_requests();
     }
@@ -333,7 +354,10 @@ mod tests {
 
         // then
         assert_eq!(result, Ok(Some(vec![log])));
-        transport.assert_request("eth_newFilter", &[r#"{"address":"0x0000000000000000000000000000000000000002"}"#.into()]);
+        transport.assert_request(
+            "eth_newFilter",
+            &[r#"{"address":"0x0000000000000000000000000000000000000002"}"#.into()],
+        );
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_no_more_requests();
     }
@@ -361,7 +385,9 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
-        transport.add_response(Value::Array(vec![Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into())]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into(),
+        )]));
         let result = {
             let eth = EthFilter::new(&transport);
 
@@ -383,9 +409,16 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
-        transport.add_response(Value::Array(vec![Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into())]));
-        transport.add_response(Value::Array(vec![Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()), Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into())]));
-        transport.add_response(Value::Array(vec![Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into())]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into(),
+        )]));
+        transport.add_response(Value::Array(vec![
+            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()),
+            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()),
+        ]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into(),
+        )]));
         let result = {
             let eth = EthFilter::new(&transport);
 
@@ -425,7 +458,9 @@ mod tests {
         // given
         let mut transport = TestTransport::default();
         transport.set_response(Value::String("0x123".into()));
-        transport.add_response(Value::Array(vec![Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into())]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into(),
+        )]));
         let result = {
             let eth = EthFilter::new(&transport);
 

@@ -30,7 +30,7 @@ macro_rules! try_nb {
             Ok(t) => t,
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(futures::Async::NotReady),
             Err(e) => {
-                warn!("Unexpected IO error: {:?}", e);
+                log::warn!("Unexpected IO error: {:?}", e);
                 return Err(());
             }
         }
@@ -74,7 +74,7 @@ impl Ipc {
     where
         P: AsRef<Path>,
     {
-        trace!("Connecting to: {:?}", path.as_ref());
+        log::trace!("Connecting to: {:?}", path.as_ref());
         let stream = UnixStream::connect(path, handle)?;
         Self::with_stream(stream, handle)
     }
@@ -87,14 +87,29 @@ impl Ipc {
         let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
         let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
 
-        let r = ReadStream { read, pending: pending.clone(), subscriptions: subscriptions.clone(), buffer: vec![], current_pos: 0 };
+        let r = ReadStream {
+            read,
+            pending: pending.clone(),
+            subscriptions: subscriptions.clone(),
+            buffer: vec![],
+            current_pos: 0,
+        };
 
-        let w = WriteStream { write, incoming: write_receiver, state: WriteState::WaitingForRequest };
+        let w = WriteStream {
+            write,
+            incoming: write_receiver,
+            state: WriteState::WaitingForRequest,
+        };
 
         handle.spawn(r);
         handle.spawn(w);
 
-        Ok(Ipc { id: Arc::new(atomic::AtomicUsize::new(1)), write_sender, pending, subscriptions })
+        Ok(Ipc {
+            id: Arc::new(atomic::AtomicUsize::new(1)),
+            write_sender,
+            pending,
+            subscriptions,
+        })
     }
 
     #[cfg(not(unix))]
@@ -107,11 +122,14 @@ impl Ipc {
         F: Fn(Vec<Result<rpc::Value>>) -> O,
     {
         let request = helpers::to_string(&request);
-        debug!("[{}] Calling: {}", id, request);
+        log::debug!("[{}] Calling: {}", id, request);
         let (tx, rx) = futures::oneshot();
         self.pending.lock().insert(id, tx);
 
-        let result = self.write_sender.unbounded_send(request.into_bytes()).map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
+        let result = self
+            .write_sender
+            .unbounded_send(request.into_bytes())
+            .map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -159,7 +177,7 @@ impl DuplexTransport for Ipc {
     fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
-            warn!("Replacing already-registered subscription with id {:?}", id)
+            log::warn!("Replacing already-registered subscription with id {:?}", id)
         }
         Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
     }
@@ -195,19 +213,25 @@ impl Future for WriteStream {
                     // Ask for more to write
                     let to_send = try_ready!(self.incoming.poll());
                     if let Some(to_send) = to_send {
-                        trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
-                        WriteState::Writing { buffer: to_send, current_pos: 0 }
+                        log::trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
+                        WriteState::Writing {
+                            buffer: to_send,
+                            current_pos: 0,
+                        }
                     } else {
                         return Ok(futures::Async::NotReady);
                     }
                 }
-                WriteState::Writing { ref buffer, ref mut current_pos } => {
+                WriteState::Writing {
+                    ref buffer,
+                    ref mut current_pos,
+                } => {
                     // Write everything in the buffer
                     while *current_pos < buffer.len() {
                         let n = try_nb!(self.write.write(&buffer[*current_pos..]));
                         *current_pos += n;
                         if n == 0 {
-                            warn!("IO Error: Zero write.");
+                            log::warn!("IO Error: Zero write.");
                             return Err(()); // zero write?
                         }
                     }
@@ -292,19 +316,19 @@ impl ReadStream {
 
                 if let rpc::Id::Num(num) = id {
                     if let Some(request) = self.pending.lock().remove(&(num as usize)) {
-                        trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+                        log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
                         if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-                            warn!("Sending a response to deallocated channel: {:?}", err);
+                            log::warn!("Sending a response to deallocated channel: {:?}", err);
                         }
                     } else {
-                        warn!("Got response for unknown request (id: {:?})", num);
+                        log::warn!("Got response for unknown request (id: {:?})", num);
                     }
                 } else {
-                    warn!("Got unsupported response (id: {:?})", id);
+                    log::warn!("Got unsupported response (id: {:?})", id);
                 }
             }
             Message::Notification(notification) => {
-                if let Some(rpc::Params::Map(params)) = notification.params {
+                if let rpc::Params::Map(params) = notification.params {
                     let id = params.get("subscription");
                     let result = params.get("result");
 
@@ -312,13 +336,13 @@ impl ReadStream {
                         let id: SubscriptionId = id.clone().into();
                         if let Some(stream) = self.subscriptions.lock().get(&id) {
                             if let Err(e) = stream.unbounded_send(result.clone()) {
-                                error!("Error sending notification (id: {:?}): {:?}", id, e);
+                                log::error!("Error sending notification (id: {:?}): {:?}", id, e);
                             }
                         } else {
-                            warn!("Got notification for unknown subscription (id: {:?})", id);
+                            log::warn!("Got notification for unknown subscription (id: {:?})", id);
                         }
                     } else {
-                        error!("Got unsupported notification (id: {:?})", id);
+                        log::error!("Got unsupported notification (id: {:?})", id);
                     }
                 }
             }
@@ -380,7 +404,10 @@ mod tests {
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));
                     let request = String::from_utf8(data[0..read].to_vec()).unwrap();
-                    assert_eq!(&request, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
+                    assert_eq!(
+                        &request,
+                        r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#
+                    );
 
                     // Write response
                     let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
@@ -441,6 +468,9 @@ mod tests {
         let res2 = ipc.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
         // then
-        assert_eq!(eloop.run(res1.join(res2)), Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into()))));
+        assert_eq!(
+            eloop.run(res1.join(res2)),
+            Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into())))
+        );
     }
 }
