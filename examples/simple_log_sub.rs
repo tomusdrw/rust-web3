@@ -2,7 +2,6 @@ extern crate rustc_hex;
 extern crate tokio_core;
 extern crate web3;
 
-use rustc_hex::FromHex;
 use std::time;
 use web3::contract::{Contract, Options};
 use web3::futures::{Future, Stream};
@@ -14,7 +13,7 @@ fn main() {
         web3::Web3::new(web3::transports::WebSocket::with_event_loop("ws://localhost:8546", &eloop.handle()).unwrap());
 
     // Get the contract bytecode for instance from Solidity compiler
-    let bytecode: Vec<u8> = include_str!("./build/SimpleEvent.bin").from_hex().unwrap();
+    let bytecode = include_str!("./build/SimpleEvent.bin");
 
     eloop
         .run(web3.eth().accounts().then(|accounts| {

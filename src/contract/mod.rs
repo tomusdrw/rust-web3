@@ -7,7 +7,7 @@ use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
 use crate::types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
 use crate::Transport;
-use std::time;
+use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
 mod error;
@@ -62,6 +62,28 @@ impl<T: Transport> Contract<T> {
             options: Options::default(),
             confirmations: 1,
             poll_interval: time::Duration::from_secs(7),
+            linker: HashMap::default(),
+        })
+    }
+
+    /// test
+    pub fn deploy_from_truffle<S>(
+        eth: Eth<T>,
+        json: &[u8],
+        linker: HashMap<S, Address>,
+    ) -> Result<deploy::Builder<T>, ethabi::Error>
+    where
+        S: AsRef<str> + Eq + Hash,
+    {
+        let abi = ethabi::Contract::load(json)?;
+        let linker: HashMap<String, Address> = linker.into_iter().map(|(s, a)| (s.as_ref().to_string(), a)).collect();
+        Ok(deploy::Builder {
+            eth,
+            abi,
+            options: Options::default(),
+            confirmations: 1,
+            poll_interval: time::Duration::from_secs(7),
+            linker,
         })
     }
 }

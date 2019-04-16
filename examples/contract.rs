@@ -2,7 +2,6 @@ extern crate env_logger;
 extern crate rustc_hex;
 extern crate web3;
 
-use rustc_hex::FromHex;
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
 use web3::types::{Address, U256};
@@ -14,7 +13,7 @@ fn main() {
 
     let my_account: Address = "d028d24f16a8893bd078259d413372ac01580769".parse().unwrap();
     // Get the contract bytecode for instance from Solidity compiler
-    let bytecode: Vec<u8> = include_str!("./contract_token.code").from_hex().unwrap();
+    let bytecode = include_str!("./contract_token.code");
     // Deploying a contract
     let contract = Contract::deploy(web3.eth(), include_bytes!("../src/contract/res/token.json"))
         .unwrap()
