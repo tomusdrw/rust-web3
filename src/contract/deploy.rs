@@ -2,8 +2,7 @@
 
 use ethabi;
 use futures::{Async, Future, Poll};
-use regex::Regex;
-use rustc_hex::ToHex;
+use rustc_hex::{ToHex, FromHex};
 use std::{collections::HashMap, time};
 
 use crate::api::{Eth, Namespace};
@@ -49,21 +48,24 @@ impl<T: Transport> Builder<T> {
     pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
     where
         P: Tokenize,
-        V: Into<Vec<u8>>,
+        V: AsRef<str>,
     {
         let options = self.options;
         let eth = self.eth;
         let abi = self.abi;
-        let code = code.into();
 
-        let mut code_hex = String::from_utf8(code).unwrap();
+        let mut code_hex = code.as_ref().to_string();
 
         for (lib, address) in self.linker {
-            let re = Regex::new(&format!("__{}_+", lib)).unwrap();
-            code_hex = re.replace::<&str>(&code_hex, &address.to_hex()).to_string();
+            if lib.len() > 38 {
+                return Err(ethabi::ErrorKind::Msg(String::from("The library name should be under 39 characters.")).into());
+            }
+            let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it. 
+            let address: String = address.as_ref().to_hex();
+            code_hex = code_hex.replacen(&replace, &address, 1);
         }
         code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.into_bytes();
+        let code = code_hex.from_hex().map_err(|e| ethabi::ErrorKind::Hex(e))?;
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
