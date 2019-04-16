@@ -2,7 +2,6 @@
 extern crate rustc_hex;
 extern crate web3;
 
-use rustc_hex::FromHex;
 use std::time;
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
@@ -19,7 +18,7 @@ fn main() {
     println!("Balance: {}", balance);
 
     // Get the contract bytecode for instance from Solidity compiler
-    let bytecode: Vec<u8> = include_str!("./build/SimpleStorage.bin").from_hex().unwrap();
+    let bytecode = include_str!("./build/SimpleStorage.bin");
     // Deploying a contract
     let contract = Contract::deploy(web3.eth(), include_bytes!("./build/SimpleStorage.abi"))
         .unwrap()
