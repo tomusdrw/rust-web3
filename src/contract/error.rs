@@ -3,10 +3,10 @@
 use ethabi::Error as EthError;
 
 use crate::error::Error as ApiError;
-use derive_more::Display;
+use derive_more::{Display, From};
 
 /// Contract error.
-#[derive(Debug, Display)]
+#[derive(Debug, Display, From)]
 pub enum Error {
     /// invalid output type requested by the caller
     #[display(fmt = "Invalid output type: {}", _0)]
@@ -19,25 +19,23 @@ pub enum Error {
     Api(ApiError),
 }
 
-impl From<EthError> for Error {
-    fn from(e: EthError) -> Self {
-        Error::Abi(e)
-    }
-}
-
-impl From<ApiError> for Error {
-    fn from(e: ApiError) -> Self {
-        Error::Api(e)
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            Error::InvalidOutputType(_) => None,
+            Error::Abi(ref e) => Some(e),
+            Error::Api(ref e) => Some(e),
+        }
     }
 }
 
 pub mod deploy {
     use crate::error::Error as ApiError;
     use crate::types::H256;
-    use derive_more::Display;
+    use derive_more::{Display, From};
 
     /// Contract deployment error.
-    #[derive(Debug, Display)]
+    #[derive(Debug, Display, From)]
     pub enum Error {
         /// Rpc error
         #[display(fmt = "Api error: {}", _0)]
@@ -47,9 +45,12 @@ pub mod deploy {
         ContractDeploymentFailure(H256),
     }
 
-    impl From<ApiError> for Error {
-        fn from(e: ApiError) -> Self {
-            Error::Api(e)
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match *self {
+                Error::Api(ref e) => Some(e),
+                Error::ContractDeploymentFailure(_) => None,
+            }
         }
     }
 }
