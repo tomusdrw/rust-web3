@@ -20,7 +20,7 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn std::error::Error> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
             Error::InvalidOutputType(_) => None,
             Error::Abi(ref e) => Some(e),
@@ -46,7 +46,7 @@ pub mod deploy {
     }
 
     impl std::error::Error for Error {
-        fn cause(&self) -> Option<&dyn std::error::Error> {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match *self {
                 Error::Api(ref e) => Some(e),
                 Error::ContractDeploymentFailure(_) => None,

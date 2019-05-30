@@ -31,7 +31,7 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn std::error::Error> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         use self::Error::*;
         match *self {
             Unreachable | Decoder(_) | InvalidResponse(_) | Transport(_) | Internal => None,
