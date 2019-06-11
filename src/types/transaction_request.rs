@@ -67,7 +67,7 @@ pub enum TransactionCondition {
 
 #[cfg(test)]
 mod tests {
-    use super::{CallRequest, TransactionCondition, TransactionRequest};
+    use super::{Address, CallRequest, TransactionCondition, TransactionRequest};
     use serde_json;
 
     #[test]
@@ -75,7 +75,7 @@ mod tests {
         // given
         let call_request = CallRequest {
             from: None,
-            to: 5.into(),
+            to: Address::from_low_u64_be(5),
             gas: Some(21_000.into()),
             gas_price: None,
             value: Some(5_000_000.into()),
@@ -101,7 +101,7 @@ mod tests {
     fn should_serialize_transaction_request() {
         // given
         let tx_request = TransactionRequest {
-            from: 5.into(),
+            from: Address::from_low_u64_be(5),
             to: None,
             gas: Some(21_000.into()),
             gas_price: None,

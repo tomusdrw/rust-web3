@@ -1,8 +1,8 @@
-pub use ethereum_types::{Bloom as H2048, H128, H160, H256, H512, H520, H64, U128, U256, U64};
+pub use ethereum_types::{BigEndianHash, Bloom as H2048, H128, H160, H256, H512, H520, H64, U128, U256, U64};
 
 #[cfg(test)]
 mod tests {
-    use super::{H128, U128, U256};
+    use super::*;
     use serde_json;
 
     type Res = Result<U256, serde_json::Error>;
@@ -75,10 +75,10 @@ mod tests {
         arr[13] = 1;
         arr[12] = 0;
         arr[11] = 10;
-        let a: H128 = U128::from(arr).into();
-        let b: H128 = U128::from(1023).into();
-        let c: H128 = U128::from(0).into();
-        let d: H128 = U128::from(10000).into();
+        let a = H128::from_uint(&arr.into());
+        let b = H128::from_uint(&1023.into());
+        let c = H128::from_uint(&0.into());
+        let d = H128::from_uint(&10000.into());
 
         // Debug
         assert_eq!(&format!("{:?}", a), "0x00000000000000000000000a00010f00");

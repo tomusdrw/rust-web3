@@ -21,6 +21,7 @@ impl<T: Transport> Namespace<T> for Traces<T> {
         &self.transport
     }
 }
+
 impl<T: Transport> Traces<T> {
     /// Executes the given call and returns a number of possible traces for it
     pub fn call(
@@ -99,7 +100,9 @@ mod tests {
     use futures::Future;
 
     use crate::api::Namespace;
-    use crate::types::{BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
+    use crate::types::{
+        Address, BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256,
+    };
 
     use super::Traces;
 
@@ -180,9 +183,9 @@ mod tests {
       }
     "#;
 
-    rpc_test! (
+    rpc_test!(
     Traces:call, CallRequest {
-    from: None, to: 0x123.into(),
+    from: None, to: Address::from_low_u64_be(0x123),
     gas: None, gas_price: None,
     value: Some(0x1.into()), data: None,
     }, vec![TraceType::Trace], None

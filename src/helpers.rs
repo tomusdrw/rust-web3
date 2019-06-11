@@ -66,12 +66,12 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
-    serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse bytes slice into JSON-RPC notification.
 pub fn to_notification_from_slice(notification: &[u8]) -> Result<rpc::Notification, Error> {
-    serde_json::from_slice(notification).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(notification).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
@@ -83,7 +83,7 @@ pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<r
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
     match output {
         rpc::Output::Success(success) => Ok(success.result),
-        rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error).into()),
+        rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error)),
     }
 }
 

@@ -257,7 +257,7 @@ mod tests {
 
     use crate::api::Namespace;
     use crate::helpers::tests::TestTransport;
-    use crate::types::{Bytes, FilterBuilder, Log};
+    use crate::types::{Address, Bytes, FilterBuilder, Log, H256};
 
     use super::EthFilter;
 
@@ -284,12 +284,12 @@ mod tests {
     fn logs_filter_get_logs() {
         // given
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -305,7 +305,7 @@ mod tests {
 
             // when
             let filter = FilterBuilder::default()
-                .topics(None, Some(vec![2.into()]), None, None)
+                .topics(None, Some(vec![H256::from_low_u64_be(2)]), None, None)
                 .build();
             let filter = eth.create_logs_filter(filter).wait().unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
@@ -326,12 +326,12 @@ mod tests {
     fn logs_filter_poll() {
         // given
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -346,7 +346,9 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = FilterBuilder::default().address(vec![2.into()]).build();
+            let filter = FilterBuilder::default()
+                .address(vec![Address::from_low_u64_be(2)])
+                .build();
             let filter = eth.create_logs_filter(filter).wait().unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
             filter.poll().wait()
@@ -398,7 +400,7 @@ mod tests {
         };
 
         // then
-        assert_eq!(result, Ok(Some(vec![0x456.into()])));
+        assert_eq!(result, Ok(Some(vec![H256::from_low_u64_be(0x456)])));
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_no_more_requests();
@@ -428,7 +430,14 @@ mod tests {
         };
 
         // then
-        assert_eq!(result, Ok(vec![0x456.into(), 0x457.into(), 0x458.into(), 0x459.into()]));
+        assert_eq!(
+            result,
+            Ok([0x456, 0x457, 0x458, 0x459]
+                .iter()
+                .copied()
+                .map(H256::from_low_u64_be)
+                .collect::<Vec<_>>())
+        );
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
@@ -471,7 +480,7 @@ mod tests {
         };
 
         // then
-        assert_eq!(result, Ok(Some(vec![0x456.into()])));
+        assert_eq!(result, Ok(Some(vec![H256::from_low_u64_be(0x456)])));
         transport.assert_request("eth_newPendingTransactionFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_no_more_requests();
