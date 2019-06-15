@@ -2,20 +2,20 @@
 
 use ethabi;
 
-use std::time;
-use api::{Eth, Namespace};
-use confirm;
-use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
-use Transport;
+use crate::api::{Eth, Namespace};
+use crate::confirm;
+use crate::contract::tokens::{Detokenize, Tokenize};
+use crate::types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
+use crate::Transport;
+use std::{collections::HashMap, hash::Hash, time};
 
+pub mod deploy;
 mod error;
 mod result;
-pub mod deploy;
 pub mod tokens;
 
-pub use contract::result::{CallFuture, QueryResult};
-pub use contract::error::{Error, ErrorKind};
+pub use crate::contract::error::Error;
+pub use crate::contract::result::{CallFuture, QueryResult};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -62,6 +62,28 @@ impl<T: Transport> Contract<T> {
             options: Options::default(),
             confirmations: 1,
             poll_interval: time::Duration::from_secs(7),
+            linker: HashMap::default(),
+        })
+    }
+
+    /// test
+    pub fn deploy_from_truffle<S>(
+        eth: Eth<T>,
+        json: &[u8],
+        linker: HashMap<S, Address>,
+    ) -> Result<deploy::Builder<T>, ethabi::Error>
+    where
+        S: AsRef<str> + Eq + Hash,
+    {
+        let abi = ethabi::Contract::load(json)?;
+        let linker: HashMap<String, Address> = linker.into_iter().map(|(s, a)| (s.as_ref().to_string(), a)).collect();
+        Ok(deploy::Builder {
+            eth,
+            abi,
+            options: Options::default(),
+            confirmations: 1,
+            poll_interval: time::Duration::from_secs(7),
+            linker,
         })
     }
 }
@@ -109,7 +131,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function and wait for confirmations
-    pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
+    pub fn call_with_confirmations<P>(
+        &self,
+        func: &str,
+        params: P,
+        from: Address,
+        options: Options,
+        confirmations: usize,
+    ) -> confirm::SendTransactionWithConfirmation<T>
     where
         P: Tokenize,
     {
@@ -142,7 +171,7 @@ impl<T: Transport> Contract<T> {
                 // `contract::Error` instead of more generic `Error`.
                 confirm::SendTransactionWithConfirmation::from_err(
                     self.eth.transport().clone(),
-                    ::error::ErrorKind::Decoder(format!("{:?}", e)),
+                    crate::error::Error::Decoder(format!("{:?}", e)),
                 )
             })
     }
@@ -174,7 +203,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Call constant function
-    pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out>
+    pub fn query<R, A, B, P>(
+        &self,
+        func: &str,
+        params: P,
+        from: A,
+        options: Options,
+        block: B,
+    ) -> QueryResult<R, T::Out>
     where
         R: Detokenize,
         A: Into<Option<Address>>,
@@ -208,13 +244,13 @@ impl<T: Transport> Contract<T> {
 
 #[cfg(test)]
 mod tests {
-    use api::{self, Namespace};
-    use futures::Future;
-    use helpers::tests::TestTransport;
-    use rpc;
-    use types::{Address, BlockNumber, H256, U256};
-    use Transport;
     use super::{Contract, Options};
+    use crate::api::{self, Namespace};
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc;
+    use crate::types::{Address, BlockNumber, H256, U256};
+    use crate::Transport;
+    use futures::Future;
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);
@@ -225,9 +261,7 @@ mod tests {
     fn should_call_constant_function() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String(
-            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into(),
-        ));
+        transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
 
         let result: String = {
             let token = contract(&transport);
@@ -255,9 +289,7 @@ mod tests {
     fn should_query_with_params() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String(
-            "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into(),
-        ));
+        transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
 
         let result: String = {
             let token = contract(&transport);
@@ -278,13 +310,7 @@ mod tests {
         };
 
         // then
-        transport.assert_request(
-            "eth_call",
-            &[
-                "{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"gasPrice\":\"0x989680\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-                "\"latest\"".into(),
-            ],
-        );
+        transport.assert_request("eth_call", &["{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"gasPrice\":\"0x989680\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"latest\"".into()]);
         transport.assert_no_more_requests();
         assert_eq!(result, "Hello World!".to_owned());
     }
@@ -299,19 +325,11 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
-                .call("name", (), 5.into(), Options::default())
-                .wait()
-                .unwrap()
+            token.call("name", (), 5.into(), Options::default()).wait().unwrap()
         };
 
         // then
-        transport.assert_request(
-            "eth_sendTransaction",
-            &[
-                "{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-            ],
-        );
+        transport.assert_request("eth_sendTransaction", &["{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into()]);
         transport.assert_no_more_requests();
         assert_eq!(result, 5.into());
     }
@@ -333,13 +351,7 @@ mod tests {
         };
 
         // then
-        transport.assert_request(
-            "eth_estimateGas",
-            &[
-                "{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-                "\"latest\"".into(),
-            ],
-        );
+        transport.assert_request("eth_estimateGas", &["{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"latest\"".into()]);
         transport.assert_no_more_requests();
         assert_eq!(result, 5.into());
     }
@@ -357,25 +369,13 @@ mod tests {
 
             // when
             token
-                .query(
-                    "balanceOf",
-                    Address::from(5),
-                    None,
-                    Options::default(),
-                    None,
-                )
+                .query("balanceOf", Address::from(5), None, Options::default(), None)
                 .wait()
                 .unwrap()
         };
 
         // then
-        transport.assert_request(
-            "eth_call",
-            &[
-                "{\"data\":\"0x70a082310000000000000000000000000000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
-                "\"latest\"".into(),
-            ],
-        );
+        transport.assert_request("eth_call", &["{\"data\":\"0x70a082310000000000000000000000000000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"latest\"".into()]);
         transport.assert_no_more_requests();
         assert_eq!(result, 0x20.into());
     }

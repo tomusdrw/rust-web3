@@ -2,11 +2,12 @@
 
 use std::marker::PhantomData;
 
-use rpc;
+use crate::rpc;
 use futures::{Async, Future, Poll};
 use serde;
 use serde_json;
-use {Error, ErrorKind};
+
+use crate::error::Error;
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
@@ -21,7 +22,7 @@ impl<T, F> CallFuture<T, F> {
     /// Create a new CallFuture wrapping the inner future.
     pub fn new(inner: F) -> Self {
         CallFuture {
-            inner: inner,
+            inner,
             _marker: PhantomData,
         }
     }
@@ -36,9 +37,7 @@ where
 
     fn poll(&mut self) -> Poll<T, Error> {
         match self.inner.poll() {
-            Ok(Async::Ready(x)) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
+            Ok(Async::Ready(x)) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }
@@ -60,19 +59,19 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
     rpc::Call::MethodCall(rpc::MethodCall {
         jsonrpc: Some(rpc::Version::V2),
         method: method.into(),
-        params: Some(rpc::Params::Array(params)),
+        params: rpc::Params::Array(params),
         id: rpc::Id::Num(id as u64),
     })
 }
 
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
-    serde_json::from_slice(response).map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse bytes slice into JSON-RPC notification.
 pub fn to_notification_from_slice(notification: &[u8]) -> Result<rpc::Notification, Error> {
-    serde_json::from_slice(notification).map_err(|e| ErrorKind::InvalidResponse(format!("{:?}", e)).into())
+    serde_json::from_slice(notification).map_err(|e| Error::InvalidResponse(format!("{:?}", e)).into())
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
@@ -84,20 +83,21 @@ pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<r
 pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
     match output {
         rpc::Output::Success(success) => Ok(success.result),
-        rpc::Output::Failure(failure) => Err(ErrorKind::Rpc(failure.error).into()),
+        rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error).into()),
     }
 }
 
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
+    use crate::error::Error;
+    use crate::rpc;
+    use crate::{RequestId, Result, Transport};
+    use futures;
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use futures;
-    use rpc;
-    use {ErrorKind, RequestId, Result, Transport};
 
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
@@ -120,7 +120,7 @@ pub mod tests {
                 Some(response) => Box::new(futures::finished(response)),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
-                    Box::new(futures::failed(ErrorKind::Unreachable.into()))
+                    Box::new(futures::failed(Error::Unreachable))
                 }
             }
         }
@@ -139,15 +139,9 @@ pub mod tests {
             let idx = self.asserted;
             self.asserted += 1;
 
-            let (m, p) = self.requests
-                .borrow()
-                .get(idx)
-                .expect("Expected result.")
-                .clone();
+            let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
             assert_eq!(&m, method);
-            let p: Vec<String> = p.into_iter()
-                .map(|p| serde_json::to_string(&p).unwrap())
-                .collect();
+            let p: Vec<String> = p.into_iter().map(|p| serde_json::to_string(&p).unwrap()).collect();
             assert_eq!(p, params);
         }
 

@@ -2,13 +2,13 @@
 
 use std::marker::PhantomData;
 
-use api::Namespace;
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
+use crate::{DuplexTransport, Error};
 use futures::{Async, Future, Poll, Stream};
-use helpers::{self, CallFuture};
 use serde;
 use serde_json;
-use types::{BlockHeader, Filter, H256, Log, SyncState};
-use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]
@@ -84,9 +84,7 @@ where
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match self.rx.poll() {
-            Ok(Async::Ready(Some(x))) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
+            Ok(Async::Ready(Some(x))) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
             Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
@@ -149,10 +147,7 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     pub fn subscribe_logs(&self, filter: Filter) -> SubscriptionResult<T, Log> {
         let subscription = helpers::serialize(&&"logs");
         let filter = helpers::serialize(&filter);
-        let id_future = CallFuture::new(
-            self.transport
-                .execute("eth_subscribe", vec![subscription, filter]),
-        );
+        let id_future = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription, filter]));
         SubscriptionResult::new(self.transport().clone(), id_future)
     }
 

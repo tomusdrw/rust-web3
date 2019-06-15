@@ -9,11 +9,8 @@ fn main() {
     let mut event_loop = tokio_core::reactor::Core::new().unwrap();
 
     let web3 = web3::Web3::new(
-        web3::transports::Http::with_event_loop(
-            "http://localhost:8545",
-            &event_loop.handle(),
-            MAX_PARALLEL_REQUESTS,
-        ).unwrap(),
+        web3::transports::Http::with_event_loop("http://localhost:8545", &event_loop.handle(), MAX_PARALLEL_REQUESTS)
+            .unwrap(),
     );
     let accounts = web3.eth().accounts().map(|accounts| {
         println!("Accounts: {:?}", accounts);

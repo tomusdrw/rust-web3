@@ -80,6 +80,7 @@ For more see [examples folder](./examples).
 - [ ] Parity read-only: `parity_*`
 - [ ] Parity accounts: `parity_*` (partially implemented)
 - [ ] Parity set: `parity_*`
+- [x] Parity set: `parity_*`
 - [ ] `signer_*`
 
 - [x] Own APIs (Extendable)

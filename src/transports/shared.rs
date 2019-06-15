@@ -1,10 +1,10 @@
-use std::{fmt, mem, thread};
-use std::sync::{self, atomic, Arc};
-use futures::{self, Future};
+use crate::transports::tokio_core::reactor;
+use crate::transports::Result;
+use crate::{Error, RequestId};
 use futures::sync::oneshot;
-use transports::Result;
-use transports::tokio_core::reactor;
-use {Error, ErrorKind, RequestId};
+use futures::{self, Future};
+use std::sync::{self, atomic, Arc};
+use std::{fmt, mem, thread};
 
 /// Event Loop Handle.
 /// NOTE: Event loop is stopped when handle is dropped!
@@ -51,18 +51,16 @@ impl EventLoopHandle {
             }
         });
 
-        rx.recv()
-            .expect("Thread is always spawned.")
-            .map(|(http, remote)| {
-                (
-                    EventLoopHandle {
-                        thread: Some(eloop),
-                        remote,
-                        done,
-                    },
-                    http,
-                )
-            })
+        rx.recv().expect("Thread is always spawned.").map(|(http, remote)| {
+            (
+                EventLoopHandle {
+                    thread: Some(eloop),
+                    remote,
+                    done,
+                },
+                http,
+            )
+        })
     }
 
     /// Returns event loop remote.
@@ -122,22 +120,19 @@ where
             let extract = &self.extract;
             match self.state {
                 RequestState::Sending(ref mut result, _) => {
-                    trace!("[{}] Request pending.", self.id);
+                    log::trace!("[{}] Request pending.", self.id);
                     if let Some(Err(e)) = result.take() {
                         return Err(e);
                     }
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
-                    trace!("[{}] Checking response.", self.id);
-                    let result = try_ready!(
-                        rx.poll()
-                            .map_err(|_| Error::from(ErrorKind::Io(::std::io::ErrorKind::TimedOut.into())))
-                    );
-                    trace!("[{}] Extracting result.", self.id);
+                    log::trace!("[{}] Checking response.", self.id);
+                    let result = try_ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
+                    log::trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Async::Ready);
                 }
                 RequestState::Done => {
-                    return Err(ErrorKind::Unreachable.into());
+                    return Err(Error::Unreachable);
                 }
             }
             // Proceeed to the next state

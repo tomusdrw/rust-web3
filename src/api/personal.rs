@@ -1,10 +1,10 @@
 //! `Personal` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Address, H256, TransactionRequest, RawTransaction};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, RawTransaction, TransactionRequest, H256};
 
-use Transport;
+use crate::Transport;
 
 /// `Personal` namespace
 #[derive(Debug, Clone)]
@@ -35,10 +35,7 @@ impl<T: Transport> Personal<T> {
     /// Returns the address of created account.
     pub fn new_account(&self, password: &str) -> CallFuture<Address, T::Out> {
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_newAccount", vec![password]),
-        )
+        CallFuture::new(self.transport.execute("personal_newAccount", vec![password]))
     }
 
     /// Unlocks the account with given password for some period of time (or single transaction).
@@ -67,7 +64,11 @@ impl<T: Transport> Personal<T> {
     /// Signs a transaction without dispatching it to the network.
     /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
     /// Returns a signed transaction in raw bytes along with it's details.
-    pub fn sign_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<RawTransaction, T::Out> {
+    pub fn sign_transaction(
+        &self,
+        transaction: TransactionRequest,
+        password: &str,
+    ) -> CallFuture<RawTransaction, T::Out> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
         CallFuture::new(
@@ -81,9 +82,9 @@ impl<T: Transport> Personal<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use rpc::Value;
-    use types::{TransactionRequest, RawTransaction};
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Address, RawTransaction, TransactionRequest};
     use rustc_hex::FromHex;
 
     use super::Personal;
@@ -112,7 +113,7 @@ mod tests {
 
     rpc_test! (
     Personal:new_account, "hunter2" => "personal_newAccount", vec![r#""hunter2""#];
-    Value::String("0x0000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
   );
 
     rpc_test! (
@@ -131,17 +132,17 @@ mod tests {
     }, "hunter2"
     =>
     "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
   );
 
     rpc_test! (
     Personal:sign_transaction, TransactionRequest {
-      from: "0x407d73d8a49eeb85d32cf465507dd71d507100c1".into(),
-      to: Some("0x853f43d8a49eeb85d32cf465507dd71d507100c1".into()),
+      from: "407d73d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap(),
+      to: Some("853f43d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap()),
       gas: Some(0x7f110.into()),
       gas_price: Some(0x09184e72a000u64.into()),
       value: Some(0x7f110.into()),
-      data: Some(FromHex::from_hex("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").unwrap().into()),
+      data: Some(FromHex::from_hex::<Vec<u8>>("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").unwrap().into()),
       nonce: Some(0x0.into()),
       condition: None,
     }, "hunter2"
