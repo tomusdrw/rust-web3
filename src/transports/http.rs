@@ -9,51 +9,51 @@ extern crate hyper_tls;
 extern crate native_tls;
 
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
+use std::sync::Arc;
 
+use self::hyper::header::HeaderValue;
+use self::url::Url;
+use crate::helpers;
+use crate::rpc;
+use crate::transports::shared::{EventLoopHandle, Response};
+use crate::transports::tokio_core::reactor;
+use crate::transports::Result;
+use crate::{BatchTransport, Error, RequestId, Transport};
+use base64;
 use futures::sync::{mpsc, oneshot};
 use futures::{self, future, Future, Stream};
-use self::hyper::header::HeaderValue;
-use helpers;
-use rpc;
 use serde_json;
-use base64;
-use transports::Result;
-use transports::shared::{EventLoopHandle, Response};
-use transports::tokio_core::reactor;
-use self::url::Url;
-use {BatchTransport, Error, ErrorKind, RequestId, Transport};
 
 impl From<hyper::Error> for Error {
     fn from(err: hyper::Error) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 impl From<hyper::http::uri::InvalidUri> for Error {
     fn from(err: hyper::http::uri::InvalidUri) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 impl From<hyper::header::InvalidHeaderValue> for Error {
     fn from(err: hyper::header::InvalidHeaderValue) -> Self {
-        ErrorKind::Transport(format!("{}", err)).into()
+        Error::Transport(format!("{}", err))
     }
 }
 
 #[cfg(all(feature = "http", not(feature = "ws")))]
 impl From<self::url::ParseError> for Error {
     fn from(err: self::url::ParseError) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 #[cfg(feature = "tls")]
 impl From<native_tls::Error> for Error {
     fn from(err: native_tls::Error) -> Self {
-        ErrorKind::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err)).into()
     }
 }
 
@@ -94,8 +94,7 @@ impl Http {
         let (write_sender, write_receiver) = mpsc::unbounded();
 
         #[cfg(feature = "tls")]
-        let client = hyper::Client::builder()
-          .build::<_, hyper::Body>(hyper_tls::HttpsConnector::new(4)?);
+        let client = hyper::Client::builder().build::<_, hyper::Body>(hyper_tls::HttpsConnector::new(4)?);
 
         #[cfg(not(feature = "tls"))]
         let client = hyper::Client::new();
@@ -103,29 +102,26 @@ impl Http {
         handle.spawn(
             write_receiver
                 .map(move |(request, tx): (_, Pending)| {
-                    client
-                        .request(request)
-                        .then(move |response| Ok((response, tx)))
+                    client.request(request).then(move |response| Ok((response, tx)))
                 })
                 .buffer_unordered(max_parallel)
                 .for_each(|(response, tx)| {
                     use futures::future::Either::{A, B};
                     let future = match response {
                         Ok(ref res) if !res.status().is_success() => A(future::err(
-                            ErrorKind::Transport(format!("Unexpected response status code: {}", res.status())).into(),
+                            Error::Transport(format!("Unexpected response status code: {}", res.status())).into(),
                         )),
                         Ok(res) => B(res.into_body().concat2().map_err(Into::into)),
                         Err(err) => A(future::err(err.into())),
                     };
                     future.then(move |result| {
                         if let Err(err) = tx.send(result) {
-                            warn!("Error resuming asynchronous request: {:?}", err);
+                            log::warn!("Error resuming asynchronous request: {:?}", err);
                         }
                         Ok(())
                     })
                 }),
         );
-
 
         let basic_auth = {
             let url = Url::parse(url)?;
@@ -134,7 +130,7 @@ impl Http {
             if user.len() > 0 {
                 let auth = match url.password() {
                     Some(pass) => format!("{}:{}", user, pass),
-                    None => format!("{}:", user)
+                    None => format!("{}:", user),
                 };
                 Some(HeaderValue::from_str(&format!("Basic {}", base64::encode(&auth)))?)
             } else {
@@ -155,13 +151,17 @@ impl Http {
         F: Fn(hyper::Chunk) -> O,
     {
         let request = helpers::to_string(&request);
-        debug!("[{}] Sending: {} to {}", id, request, self.url);
+        log::debug!("[{}] Sending: {} to {}", id, request, self.url);
         let len = request.len();
         let mut req = hyper::Request::new(hyper::Body::from(request));
         *req.method_mut() = hyper::Method::POST;
         *req.uri_mut() = self.url.clone();
-        req.headers_mut().insert(hyper::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        req.headers_mut().insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
+        req.headers_mut().insert(
+            hyper::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        req.headers_mut()
+            .insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
 
         // Don't send chunked request
         if len < MAX_SINGLE_CHUNK {
@@ -169,12 +169,14 @@ impl Http {
         }
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut().insert(hyper::header::AUTHORIZATION, basic_auth.clone());
+            req.headers_mut()
+                .insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
         let (tx, rx) = futures::oneshot();
-        let result = self.write_sender
+        let result = self
+            .write_sender
             .unbounded_send((req, tx))
-            .map_err(|_| ErrorKind::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
+            .map_err(|_| Error::Io(::std::io::ErrorKind::BrokenPipe.into()).into());
 
         Response::new(id, result, rx, extract)
     }
@@ -203,9 +205,7 @@ impl BatchTransport for Http {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
 
         self.send_request(id, rpc::Request::Batch(requests), batch_response)
@@ -214,23 +214,22 @@ impl BatchTransport for Http {
 
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Single(output) => helpers::to_result_from_output(output),
-        _ => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
+        _ => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
     }
 }
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target = [u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(Error::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
-        rpc::Response::Batch(outputs) => Ok(outputs
-            .into_iter()
-            .map(helpers::to_result_from_output)
-            .collect()),
-        _ => Err(ErrorKind::InvalidResponse("Expected batch, got single.".into()).into()),
+        rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
+        _ => Err(Error::InvalidResponse("Expected batch, got single.".into()).into()),
     }
 }

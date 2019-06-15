@@ -14,11 +14,15 @@ matrix:
   - rust: nightly
 
 before_script:
-  - rustup toolchain install stable
-  - rustup component add rustfmt-preview --toolchain=stable
+  - if [[ "${TRAVIS_RUST_VERSION}" == stable ]]; then
+      rustup component add rustfmt;
+    fi
 
 script:
-  # - cargo +stable fmt --all -- --write-mode=diff
+  - if [[ "${TRAVIS_RUST_VERSION}" == "stable" ]]; then
+      cargo fmt -- --check;
+    fi
+  - cargo check
   - cargo build
   - cargo test
 

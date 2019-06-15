@@ -1,10 +1,10 @@
 //! `Web3` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Bytes, H256};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Bytes, H256};
 
-use Transport;
+use crate::Transport;
 
 /// `Web3` namespace
 #[derive(Debug, Clone)]
@@ -42,9 +42,9 @@ impl<T: Transport> Web3<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use types::Bytes;
-    use rpc::Value;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::Bytes;
 
     use super::Web3;
 

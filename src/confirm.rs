@@ -2,12 +2,12 @@
 
 use std::time::Duration;
 
-use futures::{Future, IntoFuture, Poll, Stream};
+use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
+use crate::helpers::CallFuture;
+use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U256};
+use crate::{Error, Transport};
 use futures::stream::Skip;
-use api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
-use types::{Bytes, H256, TransactionReceipt, TransactionRequest, U256};
-use helpers::CallFuture;
-use {Error, Transport};
+use futures::{Future, IntoFuture, Poll, Stream};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -70,7 +70,10 @@ where
                     }
                     None => WaitForConfirmationsState::WaitForNextBlock,
                 },
-                WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
+                WaitForConfirmationsState::CompareConfirmations(
+                    confirmation_block_number,
+                    ref mut block_number_future,
+                ) => {
                     let block_number = try_ready!(block_number_future.poll()).low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
                         return Ok(().into());
@@ -133,9 +136,7 @@ where
                     let future = WaitForConfirmations {
                         eth: create.eth.take().expect("future polled after ready; qed"),
                         state: WaitForConfirmationsState::WaitForNextBlock,
-                        filter_stream: filter
-                            .stream(create.poll_interval)
-                            .skip(create.confirmations as u64),
+                        filter_stream: filter.stream(create.poll_interval).skip(create.confirmations as u64),
                         confirmation_check: create
                             .confirmation_check
                             .take()
@@ -152,7 +153,13 @@ where
 }
 
 /// Should be used to wait for confirmations
-pub fn wait_for_confirmations<T, V, F>(eth: Eth<T>, eth_filter: EthFilter<T>, poll_interval: Duration, confirmations: usize, check: V) -> Confirmations<T, V, F::Future>
+pub fn wait_for_confirmations<T, V, F>(
+    eth: Eth<T>,
+    eth_filter: EthFilter<T>,
+    poll_interval: Duration,
+    confirmations: usize,
+    check: V,
+) -> Confirmations<T, V, F::Future>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
@@ -258,7 +265,8 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
                     let hash = try_ready!(future.poll());
                     if self.confirmations > 0 {
-                        let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
+                        let confirmation_check =
+                            TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
                         let eth = Eth::new(self.transport.clone());
                         let eth_filter = EthFilter::new(self.transport.clone());
                         let wait = wait_for_confirmations(
@@ -280,7 +288,8 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
                 }
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = try_ready!(Future::poll(future)).expect("receipt can't be null after wait for confirmations; qed");
+                    let receipt = try_ready!(Future::poll(future))
+                        .expect("receipt can't be null after wait for confirmations; qed");
                     return Ok(receipt.into());
                 }
             };
@@ -290,7 +299,12 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
 }
 
 /// Sends transaction and returns future resolved after transaction is confirmed
-pub fn send_transaction_with_confirmation<T>(transport: T, tx: TransactionRequest, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmation<T>
+pub fn send_transaction_with_confirmation<T>(
+    transport: T,
+    tx: TransactionRequest,
+    poll_interval: Duration,
+    confirmations: usize,
+) -> SendTransactionWithConfirmation<T>
 where
     T: Transport,
 {
@@ -298,7 +312,12 @@ where
 }
 
 /// Sends raw transaction and returns future resolved after transaction is confirmed
-pub fn send_raw_transaction_with_confirmation<T>(transport: T, tx: Bytes, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmation<T>
+pub fn send_raw_transaction_with_confirmation<T>(
+    transport: T,
+    tx: Bytes,
+    poll_interval: Duration,
+    confirmations: usize,
+) -> SendTransactionWithConfirmation<T>
 where
     T: Transport,
 {
@@ -307,12 +326,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-    use futures::Future;
-    use helpers::tests::TestTransport;
-    use types::{TransactionReceipt, TransactionRequest};
     use super::send_transaction_with_confirmation;
-    use rpc::Value;
+    use crate::helpers::tests::TestTransport;
+    use crate::rpc::Value;
+    use crate::types::{TransactionReceipt, TransactionRequest};
+    use futures::Future;
+    use serde_json::json;
+    use std::time::Duration;
 
     #[test]
     fn test_send_transaction_with_confirmation() {
@@ -339,7 +359,7 @@ mod tests {
             contract_address: None,
             logs: vec![],
             status: Some(1.into()),
-            logs_bloom: 0.into(),
+            logs_bloom: Default::default(),
         };
 
         let poll_interval = Duration::from_secs(0);
@@ -351,12 +371,12 @@ mod tests {
             Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into()),
             Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into()),
         ]));
-        transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into()),
-        ]));
-        transport.add_response(Value::Array(vec![
-            Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into()),
-        ]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000458"#.into(),
+        )]));
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into(),
+        )]));
         transport.add_response(Value::Null);
         transport.add_response(Value::Array(vec![
             Value::String(r#"0x0000000000000000000000000000000000000000000000000000000000000460"#.into()),
@@ -369,50 +389,33 @@ mod tests {
         transport.add_response(Value::Bool(true));
 
         let confirmation = {
-            let future = send_transaction_with_confirmation(
-                &transport,
-                transaction_request,
-                poll_interval,
-                confirmations,
-            );
+            let future =
+                send_transaction_with_confirmation(&transport, transaction_request, poll_interval, confirmations);
             future.wait()
         };
 
-        transport.assert_request(
-            "eth_sendTransaction",
-            &[
-                r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into(),
-            ],
-        );
+        transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into()]);
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request(
             "eth_getTransactionReceipt",
-            &[
-                r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into(),
-            ],
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
         );
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request(
             "eth_getTransactionReceipt",
-            &[
-                r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into(),
-            ],
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
         );
         transport.assert_request(
             "eth_getTransactionReceipt",
-            &[
-                r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into(),
-            ],
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
         );
         transport.assert_request("eth_blockNumber", &[]);
         transport.assert_request(
             "eth_getTransactionReceipt",
-            &[
-                r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into(),
-            ],
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
         );
         transport.assert_no_more_requests();
         assert_eq!(confirmation, Ok(transaction_receipt));
