@@ -32,13 +32,15 @@ fn main() {
 
     println!("{}", contract.address());
 
+
+    //Change state of the contract
+    let result_set = contract.call("set", (42,), accounts[0], Options::default()).wait().unwrap();
+    println!(".call return {}", result_set);
+
     //interact with the contract
     let result = contract.query("get", (), None, Options::default(), None);
     let storage: U256 = result.wait().unwrap();
-    println!("{}", storage);
-
-    //Change state of the contract
-    contract.call("set", (42,), accounts[0], Options::default());
+    println!(".query return {}", storage);
 
     //View changes made
     let result = contract.query("get", (), None, Options::default(), None);
