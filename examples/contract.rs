@@ -17,7 +17,7 @@ fn main() {
     // Deploying a contract
     let contract = Contract::deploy(web3.eth(), include_bytes!("../src/contract/res/token.json"))
         .unwrap()
-        .confirmations(4)
+        .confirmations(0)
         .options(Options::with(|opt| {
             opt.value = Some(5.into());
             opt.gas_price = Some(5.into());
