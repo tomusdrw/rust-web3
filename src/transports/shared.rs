@@ -54,10 +54,7 @@ impl EventLoopHandle {
             (
                 EventLoopHandle {
                     thread: Some(eloop),
-                    remote: Some(Remote {
-                        remote,
-                        done,
-                    }),
+                    remote: Some(Remote { remote, done }),
                 },
                 http,
             )
@@ -66,7 +63,8 @@ impl EventLoopHandle {
 
     /// Returns event loop remote.
     pub fn remote(&self) -> &reactor::Remote {
-        self.remote.as_ref()
+        self.remote
+            .as_ref()
             .map(|remote| &remote.remote)
             .expect("Remote is available when EventLoopHandle is alive.")
     }
