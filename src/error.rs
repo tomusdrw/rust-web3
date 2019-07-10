@@ -43,7 +43,7 @@ impl std::error::Error for Error {
 
 impl From<SerdeError> for Error {
     fn from(err: SerdeError) -> Self {
-        Error::Decoder(format!("{:?}", err)).into()
+        Error::Decoder(format!("{:?}", err))
     }
 }
 
@@ -56,7 +56,7 @@ impl Clone for Error {
             InvalidResponse(s) => InvalidResponse(s.clone()),
             Transport(s) => Transport(s.clone()),
             Rpc(e) => Rpc(e.clone()),
-            Io(e) => Io(IoError::from(e.kind().clone())),
+            Io(e) => Io(IoError::from(e.kind())),
             Internal => Internal,
         }
     }

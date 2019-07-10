@@ -1,5 +1,12 @@
 //! Ethereum JSON-RPC client (Web3).
 
+#![allow(
+    clippy::type_complexity,
+    clippy::wrong_self_convention,
+    clippy::single_match,
+    clippy::let_unit_value,
+    clippy::match_wild_err_arm
+)]
 #![warn(missing_docs)]
 
 use jsonrpc_core as rpc;
@@ -25,7 +32,7 @@ pub use crate::api::Web3;
 pub use crate::error::Error;
 
 /// RPC result
-pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
+pub type Result<T> = Box<dyn futures::Future<Item = T, Error = Error> + Send + 'static>;
 
 /// Assigned RequestId
 pub type RequestId = usize;
@@ -134,7 +141,7 @@ mod tests {
     #[derive(Debug, Clone)]
     struct FakeTransport;
     impl Transport for FakeTransport {
-        type Out = Box<Future<Item = rpc::Value, Error = Error> + Send + 'static>;
+        type Out = Box<dyn Future<Item = rpc::Value, Error = Error> + Send + 'static>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

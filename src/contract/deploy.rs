@@ -67,12 +67,12 @@ impl<T: Transport> Builder<T> {
             code_hex = code_hex.replacen(&replace, &address, 1);
         }
         code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.from_hex().map_err(|e| ethabi::ErrorKind::Hex(e))?;
+        let code = code_hex.from_hex().map_err(ethabi::ErrorKind::Hex)?;
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
             (None, false) => {
-                return Err(ethabi::ErrorKind::Msg(format!("Constructor is not defined in the ABI.")).into());
+                return Err(ethabi::ErrorKind::Msg("Constructor is not defined in the ABI.".into()).into());
             }
             (None, true) => code,
             (Some(constructor), _) => constructor.encode_input(code, &params)?,
@@ -122,7 +122,7 @@ impl<T: Transport> Future for PendingContract<T> {
 
         match receipt.contract_address {
             Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
-            None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash).into()),
+            None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
         }
     }
 }
@@ -133,7 +133,7 @@ mod tests {
     use crate::contract::{Contract, Options};
     use crate::helpers::tests::TestTransport;
     use crate::rpc;
-    use crate::types::U256;
+    use crate::types::{Address, U256};
     use futures::Future;
     use serde_json::Value;
     use std::collections::HashMap;
@@ -175,7 +175,7 @@ mod tests {
                 .execute(
                     "0x01020304",
                     (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
-                    5.into(),
+                    Address::from_low_u64_be(5),
                 )
                 .unwrap()
                 .wait()
@@ -237,7 +237,7 @@ mod tests {
         {
             let builder = Contract::deploy(api::Eth::new(&transport), &lib_abi).unwrap();
             lib_address = builder
-                .execute(lib_code, (), 0.into())
+                .execute(lib_code, (), Address::zero())
                 .unwrap()
                 .wait()
                 .unwrap()
@@ -267,7 +267,7 @@ mod tests {
                 linker
             })
             .unwrap();
-            let _ = builder.execute(main_code, (), 0.into()).unwrap().wait().unwrap();
+            let _ = builder.execute(main_code, (), Address::zero()).unwrap().wait().unwrap();
         }
 
         transport.assert_request("eth_sendTransaction", &[

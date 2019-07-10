@@ -11,6 +11,6 @@ fn main() {
     println!("Accounts: {:?}", accounts);
 
     println!("Calling balance.");
-    let balance = web3.eth().balance(0.into(), None).wait().unwrap();
+    let balance = web3.eth().balance("0x0".parse().unwrap(), None).wait().unwrap();
     println!("Balance: {}", balance);
 }

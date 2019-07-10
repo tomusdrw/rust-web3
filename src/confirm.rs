@@ -198,7 +198,7 @@ impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
 
     fn check(&self) -> Self::Check {
         TransactionReceiptBlockNumber {
-            future: self.eth.transaction_receipt(self.hash.clone()),
+            future: self.eth.transaction_receipt(self.hash),
         }
     }
 }
@@ -266,7 +266,7 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     let hash = try_ready!(future.poll());
                     if self.confirmations > 0 {
                         let confirmation_check =
-                            TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
+                            TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash);
                         let eth = Eth::new(self.transport.clone());
                         let eth_filter = EthFilter::new(self.transport.clone());
                         let wait = wait_for_confirmations(
@@ -329,7 +329,7 @@ mod tests {
     use super::send_transaction_with_confirmation;
     use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
-    use crate::types::{TransactionReceipt, TransactionRequest};
+    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U128};
     use futures::Future;
     use serde_json::json;
     use std::time::Duration;
@@ -339,8 +339,8 @@ mod tests {
         let mut transport = TestTransport::default();
         let confirmations = 3;
         let transaction_request = TransactionRequest {
-            from: 0x123.into(),
-            to: Some(0x123.into()),
+            from: Address::from_low_u64_be(0x123),
+            to: Some(Address::from_low_u64_be(0x123)),
             gas: None,
             gas_price: Some(1.into()),
             value: Some(1.into()),
@@ -350,9 +350,9 @@ mod tests {
         };
 
         let transaction_receipt = TransactionReceipt {
-            transaction_hash: 0.into(),
-            transaction_index: 0.into(),
-            block_hash: Some(0.into()),
+            transaction_hash: H256::zero(),
+            transaction_index: U128::zero(),
+            block_hash: Some(H256::zero()),
             block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),
             gas_used: Some(0.into()),

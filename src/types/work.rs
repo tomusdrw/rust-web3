@@ -32,10 +32,10 @@ impl<'a> Deserialize<'a> for Work {
             .map_err(|e| D::Error::custom(format!("Cannot deserialize Work: {:?}", e)))?;
 
         Ok(Work {
-            pow_hash: pow_hash,
-            seed_hash: seed_hash,
-            target: target,
-            number: number,
+            pow_hash,
+            seed_hash,
+            target,
+            number,
         })
     }
 }
