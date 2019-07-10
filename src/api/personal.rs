@@ -108,7 +108,7 @@ mod tests {
 
     rpc_test! (
     Personal:list_accounts => "personal_listAccounts";
-    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![0x123.into()]
+    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![Address::from_low_u64_be(0x123)]
   );
 
     rpc_test! (
@@ -117,7 +117,7 @@ mod tests {
   );
 
     rpc_test! (
-    Personal:unlock_account, 0x123, "hunter2", None
+    Personal:unlock_account, Address::from_low_u64_be(0x123), "hunter2", None
     =>
     "personal_unlockAccount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""hunter2""#, r#"null"#];
     Value::Bool(true) => true
@@ -125,7 +125,7 @@ mod tests {
 
     rpc_test! (
     Personal:send_transaction, TransactionRequest {
-      from: 0x123.into(), to: Some(0x123.into()),
+      from: Address::from_low_u64_be(0x123), to: Some(Address::from_low_u64_be(0x123)),
       gas: None, gas_price: Some(0x1.into()),
       value: Some(0x1.into()), data: None,
       nonce: None, condition: None,

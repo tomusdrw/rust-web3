@@ -20,13 +20,13 @@ use parking_lot::Mutex;
 
 impl From<websocket::WebSocketError> for Error {
     fn from(err: websocket::WebSocketError) -> Self {
-        Error::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
 impl From<websocket::client::ParseError> for Error {
     fn from(err: websocket::client::ParseError) -> Self {
-        Error::Transport(format!("{:?}", err)).into()
+        Error::Transport(format!("{:?}", err))
     }
 }
 
@@ -80,10 +80,10 @@ impl WebSocket {
                         match message {
                             OwnedMessage::Close(e) => write_sender_
                                 .unbounded_send(OwnedMessage::Close(e))
-                                .map_err(|_| Error::Transport("Error sending close message".into()).into()),
+                                .map_err(|_| Error::Transport("Error sending close message".into())),
                             OwnedMessage::Ping(d) => write_sender_
                                 .unbounded_send(OwnedMessage::Pong(d))
-                                .map_err(|_| Error::Transport("Error sending pong message".into()).into()),
+                                .map_err(|_| Error::Transport("Error sending pong message".into())),
                             OwnedMessage::Text(t) => {
                                 if let Ok(notification) = helpers::to_notification_from_slice(t.as_bytes()) {
                                     if let rpc::Params::Map(params) = notification.params {
@@ -94,7 +94,7 @@ impl WebSocket {
                                             let id: SubscriptionId = id.clone().into();
                                             if let Some(stream) = subscriptions_.lock().get(&id) {
                                                 return stream.unbounded_send(result.clone()).map_err(|_| {
-                                                    Error::Transport("Error sending notification".into()).into()
+                                                    Error::Transport("Error sending notification".into())
                                                 });
                                             } else {
                                                 log::warn!("Got notification for unknown subscription (id: {:?})", id);
@@ -154,7 +154,7 @@ impl WebSocket {
 
         Ok(Self {
             id: Arc::new(atomic::AtomicUsize::new(1)),
-            url: url,
+            url,
             pending,
             subscriptions,
             write_sender,
@@ -173,7 +173,7 @@ impl WebSocket {
         let result = self
             .write_sender
             .unbounded_send(OwnedMessage::Text(request))
-            .map_err(|_| Error::Transport("Error sending request".into()).into());
+            .map_err(|_| Error::Transport("Error sending request".into()));
 
         Response::new(id, result, rx, extract)
     }
@@ -193,7 +193,7 @@ impl Transport for WebSocket {
         self.send_request(id, rpc::Request::Single(request), |response| {
             match response.into_iter().next() {
                 Some(res) => res,
-                None => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
+                None => Err(Error::InvalidResponse("Expected single, got batch.".into())),
             }
         })
     }
@@ -214,14 +214,14 @@ impl BatchTransport for WebSocket {
 }
 
 impl DuplexTransport for WebSocket {
-    type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
+    type NotificationStream = Box<dyn Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
 
     fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
             log::warn!("Replacing already-registered subscription with id {:?}", id)
         }
-        Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
+        Box::new(rx.map_err(|()| Error::Transport("No data available".into())))
     }
 
     fn unsubscribe(&self, id: &SubscriptionId) {

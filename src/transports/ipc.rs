@@ -129,7 +129,7 @@ impl Ipc {
         let result = self
             .write_sender
             .unbounded_send(request.into_bytes())
-            .map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()).into());
+            .map_err(|_| Error::Io(io::ErrorKind::BrokenPipe.into()));
 
         Response::new(id, result, rx, extract)
     }
@@ -153,7 +153,7 @@ impl Transport for Ipc {
 fn single_response(response: Vec<Result<rpc::Value>>) -> Result<rpc::Value> {
     match response.into_iter().next() {
         Some(res) => res,
-        None => Err(Error::InvalidResponse("Expected single, got batch.".into()).into()),
+        None => Err(Error::InvalidResponse("Expected single, got batch.".into())),
     }
 }
 
@@ -172,14 +172,14 @@ impl BatchTransport for Ipc {
 }
 
 impl DuplexTransport for Ipc {
-    type NotificationStream = Box<Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
+    type NotificationStream = Box<dyn Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
 
     fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
             log::warn!("Replacing already-registered subscription with id {:?}", id)
         }
-        Box::new(rx.map_err(|()| Error::Transport("No data available".into()).into()))
+        Box::new(rx.map_err(|()| Error::Transport("No data available".into())))
     }
 
     fn unsubscribe(&self, id: &SubscriptionId) {
@@ -418,7 +418,7 @@ mod tests {
                 }
             }
 
-            Task { server: server }
+            Task { server }
         });
 
         // when

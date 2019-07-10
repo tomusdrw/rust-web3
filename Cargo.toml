@@ -13,19 +13,19 @@ edition = "2018"
 
 [dependencies]
 arrayvec = "0.4.10"
-ethabi = "7.0.0"
-ethereum-types = "0.5.2"
+ethabi = "8.0.0"
+ethereum-types = "0.6.0"
 futures = "0.1.26"
 jsonrpc-core = "11.0.0"
 log = "0.4.6"
-parking_lot = "0.7.1"
+parking_lot = "0.8.0"
 rustc-hex = "2.0.1"
-serde = { version="1.0.90", features = ["derive"] }
+serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tokio-timer = "0.1"
 url = "1.7.2"
 base64 = "0.10.1"
-derive_more = "0.14.0"
+derive_more = "0.15.0"
 # Optional deps
 hyper = { version = "0.12.25", optional = true }
 hyper-tls = { version = "0.3.2", optional = true }

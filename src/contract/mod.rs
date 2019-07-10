@@ -111,19 +111,27 @@ impl<T: Transport> Contract<T> {
         P: Tokenize,
     {
         self.abi
-            .function(func.into())
+            .function(func)
             .and_then(|function| function.encode_input(&params.into_tokens()))
             .map(move |data| {
+                let Options {
+                    gas,
+                    gas_price,
+                    value,
+                    nonce,
+                    condition,
+                } = options;
+
                 self.eth
                     .send_transaction(TransactionRequest {
-                        from: from,
-                        to: Some(self.address.clone()),
-                        gas: options.gas,
-                        gas_price: options.gas_price,
-                        value: options.value,
-                        nonce: options.nonce,
+                        from,
+                        to: Some(self.address),
+                        gas,
+                        gas_price,
+                        value,
+                        nonce,
                         data: Some(Bytes(data)),
-                        condition: options.condition,
+                        condition,
                     })
                     .into()
             })
@@ -145,12 +153,12 @@ impl<T: Transport> Contract<T> {
         let poll_interval = time::Duration::from_secs(1);
 
         self.abi
-            .function(func.into())
+            .function(func)
             .and_then(|function| function.encode_input(&params.into_tokens()))
             .map(|fn_data| {
                 let transaction_request = TransactionRequest {
-                    from: from,
-                    to: Some(self.address.clone()),
+                    from,
+                    to: Some(self.address),
                     gas: options.gas,
                     gas_price: options.gas_price,
                     value: options.value,
@@ -182,14 +190,14 @@ impl<T: Transport> Contract<T> {
         P: Tokenize,
     {
         self.abi
-            .function(func.into())
+            .function(func)
             .and_then(|function| function.encode_input(&params.into_tokens()))
             .map(|data| {
                 self.eth
                     .estimate_gas(
                         CallRequest {
                             from: Some(from),
-                            to: self.address.clone(),
+                            to: self.address,
                             gas: options.gas,
                             gas_price: options.gas_price,
                             value: options.value,
@@ -218,7 +226,7 @@ impl<T: Transport> Contract<T> {
         P: Tokenize,
     {
         self.abi
-            .function(func.into())
+            .function(func)
             .and_then(|function| {
                 function
                     .encode_input(&params.into_tokens())
@@ -228,7 +236,7 @@ impl<T: Transport> Contract<T> {
                 let result = self.eth.call(
                     CallRequest {
                         from: from.into(),
-                        to: self.address.clone(),
+                        to: self.address,
                         gas: options.gas,
                         gas_price: options.gas_price,
                         value: options.value,
@@ -254,7 +262,7 @@ mod tests {
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);
-        Contract::from_json(eth, 1.into(), include_bytes!("./res/token.json")).unwrap()
+        Contract::from_json(eth, Address::from_low_u64_be(1), include_bytes!("./res/token.json")).unwrap()
     }
 
     #[test]
@@ -299,7 +307,7 @@ mod tests {
                 .query(
                     "name",
                     (),
-                    Address::from(5),
+                    Address::from_low_u64_be(5),
                     Options::with(|options| {
                         options.gas_price = Some(10_000_000.into());
                     }),
@@ -319,19 +327,22 @@ mod tests {
     fn should_call_a_contract_function() {
         // given
         let mut transport = TestTransport::default();
-        transport.set_response(rpc::Value::String(format!("{:?}", H256::from(5))));
+        transport.set_response(rpc::Value::String(format!("{:?}", H256::from_low_u64_be(5))));
 
         let result = {
             let token = contract(&transport);
 
             // when
-            token.call("name", (), 5.into(), Options::default()).wait().unwrap()
+            token
+                .call("name", (), Address::from_low_u64_be(5), Options::default())
+                .wait()
+                .unwrap()
         };
 
         // then
         transport.assert_request("eth_sendTransaction", &["{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into()]);
         transport.assert_no_more_requests();
-        assert_eq!(result, 5.into());
+        assert_eq!(result, H256::from_low_u64_be(5));
     }
 
     #[test]
@@ -345,7 +356,7 @@ mod tests {
 
             // when
             token
-                .estimate_gas("name", (), 5.into(), Options::default())
+                .estimate_gas("name", (), Address::from_low_u64_be(5), Options::default())
                 .wait()
                 .unwrap()
         };
@@ -369,7 +380,7 @@ mod tests {
 
             // when
             token
-                .query("balanceOf", Address::from(5), None, Options::default(), None)
+                .query("balanceOf", Address::from_low_u64_be(5), None, Options::default(), None)
                 .wait()
                 .unwrap()
         };

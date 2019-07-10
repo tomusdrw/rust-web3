@@ -408,7 +408,7 @@ mod tests {
 
     rpc_test! (
     Eth:accounts => "eth_accounts";
-    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![0x123.into()]
+    Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![Address::from_low_u64_be(0x123)]
   );
 
     rpc_test! (
@@ -418,7 +418,7 @@ mod tests {
 
     rpc_test! (
     Eth:call, CallRequest {
-      from: None, to: 0x123.into(),
+      from: None, to: Address::from_low_u64_be(0x123),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
     }, None
@@ -429,7 +429,7 @@ mod tests {
 
     rpc_test! (
     Eth:coinbase => "eth_coinbase";
-    Value::String("0x0000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
   );
 
     rpc_test! (
@@ -449,7 +449,7 @@ mod tests {
 
     rpc_test! (
     Eth:estimate_gas, CallRequest {
-      from: None, to: 0x123.into(),
+      from: None, to: Address::from_low_u64_be(0x123),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
     }, None
@@ -464,7 +464,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:balance, 0x123, None
+    Eth:balance, Address::from_low_u64_be(0x123), None
     =>
     "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
@@ -477,7 +477,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:block:block_by_hash, BlockId::Hash(0x123.into())
+    Eth:block:block_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
     =>
     "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"false"#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
@@ -501,7 +501,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(0x123.into())
+    Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
     =>
     "eth_getBlockTransactionCountByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into()) => Some(0x123.into())
@@ -515,7 +515,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:code, 0x123, Some(BlockNumber::Pending)
+    Eth:code, H256::from_low_u64_be(0x123), Some(BlockNumber::Pending)
     =>
     "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
     Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
@@ -527,7 +527,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:storage, 0x123, 0x456, None
+    Eth:storage, Address::from_low_u64_be(0x123), 0x456, None
     =>
     "eth_getStorageAt", vec![
       r#""0x0000000000000000000000000000000000000123""#,
@@ -538,14 +538,14 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:transaction_count, 0x123, None
+    Eth:transaction_count, Address::from_low_u64_be(0x123), None
     =>
     "eth_getTransactionCount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
     Value::String("0x123".into()) => 0x123
   );
 
     rpc_test! (
-    Eth:transaction:tx_by_hash, TransactionId::Hash(0x123.into())
+    Eth:transaction:tx_by_hash, TransactionId::Hash(H256::from_low_u64_be(0x123))
     =>
     "eth_getTransactionByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     ::serde_json::from_str(EXAMPLE_TX).unwrap()
@@ -554,7 +554,7 @@ mod tests {
 
     rpc_test! (
     Eth:transaction:tx_by_block_hash_and_index, TransactionId::Block(
-      BlockId::Hash(0x123.into()),
+      BlockId::Hash(H256::from_low_u64_be(0x123)),
       5.into()
     )
     =>
@@ -574,7 +574,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:transaction_receipt, 0x123
+    Eth:transaction_receipt, H256::from_low_u64_be(0x123)
     =>
     "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     ::serde_json::from_str(EXAMPLE_RECEIPT).unwrap()
@@ -582,7 +582,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:uncle:uncle_by_hash, BlockId::Hash(0x123.into()), 5
+    Eth:uncle:uncle_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
     =>
     "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
     ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
@@ -597,7 +597,7 @@ mod tests {
   );
 
     rpc_test! (
-    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(0x123.into())
+    Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
     =>
     "eth_getUncleCountByBlockHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
     Value::String("0x123".into())=> Some(0x123.into())
@@ -617,9 +617,9 @@ mod tests {
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
     ]) => Work {
-      pow_hash: 0x123.into(),
-      seed_hash: 0x456.into(),
-      target: 0x789.into(),
+      pow_hash: H256::from_low_u64_be(0x123),
+      seed_hash: H256::from_low_u64_be(0x456),
+      target: H256::from_low_u64_be(0x789),
       number: None,
     }
   );
@@ -632,9 +632,9 @@ mod tests {
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
       Value::Number(5.into()),
     ]) => Work {
-      pow_hash: 0x123.into(),
-      seed_hash: 0x456.into(),
-      target: 0x789.into(),
+      pow_hash: H256::from_low_u64_be(0x123),
+      seed_hash: H256::from_low_u64_be(0x456),
+      target: H256::from_low_u64_be(0x789),
       number: Some(5),
     }
   );
@@ -679,18 +679,18 @@ mod tests {
     }
     =>
     "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
   );
 
     rpc_test! (
-    Eth:sign, 0x123, Bytes(vec![1, 2, 3, 4])
+    Eth:sign, H256::from_low_u64_be(0x123), Bytes(vec![1, 2, 3, 4])
     =>
     "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => H520::from_low_u64_be(0x123)
   );
 
     rpc_test! (
-    Eth:submit_hashrate, 0x123, 0x456
+    Eth:submit_hashrate, 0x123, H256::from_low_u64_be(0x456)
     =>
     "eth_submitHashrate", vec![r#""0x123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#];
     Value::Bool(true) => true

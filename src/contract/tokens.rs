@@ -147,7 +147,7 @@ impl Tokenizable for String {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::String(s) => Ok(s),
-            other => Err(Error::InvalidOutputType(format!("Expected `String`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `String`, got {:?}", other))),
         }
     }
 
@@ -169,7 +169,7 @@ impl Tokenizable for H256 {
                 }
                 Ok(data.into())
             }
-            other => Err(Error::InvalidOutputType(format!("Expected `H256`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `H256`, got {:?}", other))),
         }
     }
 
@@ -182,7 +182,7 @@ impl Tokenizable for Address {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::Address(data) => Ok(data),
-            other => Err(Error::InvalidOutputType(format!("Expected `Address`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `Address`, got {:?}", other))),
         }
     }
 
@@ -196,7 +196,7 @@ macro_rules! uint_tokenizable {
         impl Tokenizable for $uint {
             fn from_token(token: Token) -> Result<Self, Error> {
                 match token {
-                    Token::Int(data) | Token::Uint(data) => Ok(data.into()),
+                    Token::Int(data) | Token::Uint(data) => Ok(::std::convert::TryInto::try_into(data).unwrap()),
                     other => Err(Error::InvalidOutputType(format!("Expected `{}`, got {:?}", $name, other)).into()),
                 }
             }
@@ -215,7 +215,7 @@ impl Tokenizable for u64 {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::Int(data) | Token::Uint(data) => Ok(data.low_u64()),
-            other => Err(Error::InvalidOutputType(format!("Expected `u64`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `u64`, got {:?}", other))),
         }
     }
 
@@ -228,7 +228,7 @@ impl Tokenizable for bool {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::Bool(data) => Ok(data),
-            other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `bool`, got {:?}", other))),
         }
     }
     fn into_token(self) -> Token {
@@ -241,7 +241,7 @@ impl Tokenizable for Vec<u8> {
         match token {
             Token::Bytes(data) => Ok(data),
             Token::FixedBytes(data) => Ok(data),
-            other => Err(Error::InvalidOutputType(format!("Expected `bytes`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `bytes`, got {:?}", other))),
         }
     }
     fn into_token(self) -> Token {
@@ -255,7 +255,7 @@ impl<T: Tokenizable> Tokenizable for Vec<T> {
             Token::FixedArray(tokens) | Token::Array(tokens) => {
                 tokens.into_iter().map(Tokenizable::from_token).collect()
             }
-            other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other)).into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other))),
         }
     }
 
