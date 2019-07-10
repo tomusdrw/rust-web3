@@ -10,9 +10,8 @@ use std::{fmt, mem, thread};
 /// NOTE: Event loop is stopped when handle is dropped!
 #[derive(Debug)]
 pub struct EventLoopHandle {
+    remote: Option<Remote>,
     thread: Option<thread::JoinHandle<()>>,
-    remote: reactor::Remote,
-    done: Arc<atomic::AtomicBool>,
 }
 
 impl EventLoopHandle {
@@ -55,8 +54,7 @@ impl EventLoopHandle {
             (
                 EventLoopHandle {
                     thread: Some(eloop),
-                    remote,
-                    done,
+                    remote: Some(Remote { remote, done }),
                 },
                 http,
             )
@@ -65,19 +63,53 @@ impl EventLoopHandle {
 
     /// Returns event loop remote.
     pub fn remote(&self) -> &reactor::Remote {
-        &self.remote
+        self.remote
+            .as_ref()
+            .map(|remote| &remote.remote)
+            .expect("Remote is available when EventLoopHandle is alive.")
+    }
+
+    /// Convert this handle into a `Remote`.
+    ///
+    /// Note while dropping `EventLoopHandle` will stop
+    /// the underlying event loop, dropping the `Remote` will not.
+    /// You need manually call `Remote::stop` to stop the background thread.
+    pub fn into_remote(mut self) -> Remote {
+        self.remote.take().expect("Remote can be taken only once.")
     }
 }
 
 impl Drop for EventLoopHandle {
     fn drop(&mut self) {
-        self.done.store(true, atomic::Ordering::Relaxed);
-        self.remote.spawn(|_| Ok(()));
+        if let Some(remote) = self.remote.take() {
+            remote.stop();
+        }
+
         self.thread
             .take()
             .expect("We never touch thread except for drop; drop happens only once; qed")
             .join()
             .expect("Thread should shut down cleanly.");
+    }
+}
+
+/// A remote to event loop running in the background.
+#[derive(Debug)]
+pub struct Remote {
+    remote: reactor::Remote,
+    done: Arc<atomic::AtomicBool>,
+}
+
+impl Remote {
+    /// Returns the underlying event loop remote.
+    pub fn remote(&self) -> &reactor::Remote {
+        &self.remote
+    }
+
+    /// Stop the background event loop.
+    pub fn stop(self) {
+        self.done.store(true, atomic::Ordering::Relaxed);
+        self.remote.spawn(|_| Ok(()));
     }
 }
 
