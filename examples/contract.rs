@@ -8,7 +8,10 @@ use web3::types::{Address, U256};
 
 fn main() {
     env_logger::init();
-    let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
+    let (eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
+    // run the event loop in the background
+    eloop.into_remote();
+
     let web3 = web3::Web3::new(http);
 
     let my_account: Address = "d028d24f16a8893bd078259d413372ac01580769".parse().unwrap();
