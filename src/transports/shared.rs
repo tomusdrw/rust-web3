@@ -83,13 +83,13 @@ impl Drop for EventLoopHandle {
     fn drop(&mut self) {
         if let Some(remote) = self.remote.take() {
             remote.stop();
-        }
 
-        self.thread
-            .take()
-            .expect("We never touch thread except for drop; drop happens only once; qed")
-            .join()
-            .expect("Thread should shut down cleanly.");
+            self.thread
+                .take()
+                .expect("We never touch thread except for drop; drop happens only once; qed")
+                .join()
+                .expect("Thread should shut down cleanly.");
+        }
     }
 }
 
