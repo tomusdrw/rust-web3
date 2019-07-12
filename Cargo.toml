@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.7.0"
+version = "0.8.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
