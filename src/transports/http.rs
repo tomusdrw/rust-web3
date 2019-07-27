@@ -284,7 +284,7 @@ mod tests {
                 assert!(transport.basic_auth.is_some());
                 assert_eq!(
                     transport.basic_auth,
-                    Some(HeaderValue::from_static("Basic dXNlcm5hbWU6"))
+                    Some(HeaderValue::from_static("Basic OnBhc3N3b3Jk"))
                 )
             }
             Err(_) => assert!(false, ""),
