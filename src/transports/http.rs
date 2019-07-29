@@ -127,18 +127,8 @@ impl Http {
         let basic_auth = {
             let url = Url::parse(url)?;
             let user = url.username();
-
-            let auth = match url.password() {
-                Some(pass) => format!("{}:{}", user, pass),
-                None => {
-                    if !user.is_empty() {
-                        format!("{}:", user)
-                    } else {
-                        String::default()
-                    }
-                }
-            };
-            if auth.is_empty() {
+            let auth = format!("{}:{}", user, url.password().unwrap_or_default());
+            if &auth == ":" {
                 None
             } else {
                 Some(HeaderValue::from_str(&format!("Basic {}", base64::encode(&auth)))?)
