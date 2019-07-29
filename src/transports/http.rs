@@ -127,15 +127,11 @@ impl Http {
         let basic_auth = {
             let url = Url::parse(url)?;
             let user = url.username();
-
-            if !user.is_empty() {
-                let auth = match url.password() {
-                    Some(pass) => format!("{}:{}", user, pass),
-                    None => format!("{}:", user),
-                };
-                Some(HeaderValue::from_str(&format!("Basic {}", base64::encode(&auth)))?)
-            } else {
+            let auth = format!("{}:{}", user, url.password().unwrap_or_default());
+            if &auth == ":" {
                 None
+            } else {
+                Some(HeaderValue::from_str(&format!("Basic {}", base64::encode(&auth)))?)
             }
         };
 
@@ -230,5 +226,58 @@ fn batch_response<T: Deref<Target = [u8]>>(response: T) -> Result<Vec<Result<rpc
     match response {
         rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
         _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn http_supports_basic_auth_with_user_and_password() {
+        let http = Http::new("https://user:password@127.0.0.1:8545");
+        assert!(http.is_ok());
+        match http {
+            Ok((_, transport)) => {
+                assert!(transport.basic_auth.is_some());
+                assert_eq!(
+                    transport.basic_auth,
+                    Some(HeaderValue::from_static("Basic dXNlcjpwYXNzd29yZA=="))
+                )
+            }
+            Err(_) => assert!(false, ""),
+        }
+    }
+
+    #[test]
+    fn http_supports_basic_auth_with_user_no_password() {
+        let http = Http::new("https://username:@127.0.0.1:8545");
+        assert!(http.is_ok());
+        match http {
+            Ok((_, transport)) => {
+                assert!(transport.basic_auth.is_some());
+                assert_eq!(
+                    transport.basic_auth,
+                    Some(HeaderValue::from_static("Basic dXNlcm5hbWU6"))
+                )
+            }
+            Err(_) => assert!(false, ""),
+        }
+    }
+
+    #[test]
+    fn http_supports_basic_auth_with_only_password() {
+        let http = Http::new("https://:password@127.0.0.1:8545");
+        assert!(http.is_ok());
+        match http {
+            Ok((_, transport)) => {
+                assert!(transport.basic_auth.is_some());
+                assert_eq!(
+                    transport.basic_auth,
+                    Some(HeaderValue::from_static("Basic OnBhc3N3b3Jk"))
+                )
+            }
+            Err(_) => assert!(false, ""),
+        }
     }
 }
