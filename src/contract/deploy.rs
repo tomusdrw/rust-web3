@@ -13,7 +13,6 @@ use crate::types::{Address, Bytes, TransactionRequest};
 use crate::Transport;
 
 pub use crate::contract::error::deploy::Error;
-use crate::error::Error as ApiError;
 
 /// A configuration builder for contract deployment.
 #[derive(Debug)]
@@ -121,18 +120,14 @@ impl<T: Transport> Future for PendingContract<T> {
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");
 
-        let status = receipt.status.ok_or(Error::Api(ApiError::InvalidResponse(String::from(
-            "receipt 'status' field not set",
-        ))))?;
-        if status == 1.into() {
-            match receipt.contract_address {
+        match receipt.status {
+            Some(status) if status == 0.into() => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
+            // If the `status` field is not present we use the presence of `contract_address` to
+            // determine if deployment was successfull.
+            _ => match receipt.contract_address {
                 Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
-                None => Err(Error::Api(ApiError::InvalidResponse(String::from(
-                    "receipt 'contractAddress' field not set",
-                )))),
-            }
-        } else {
-            Err(Error::ContractDeploymentFailure(receipt.transaction_hash))
+                None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
+            },
         }
     }
 }
