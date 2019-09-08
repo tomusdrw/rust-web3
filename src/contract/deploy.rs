@@ -102,6 +102,84 @@ impl<T: Transport> Builder<T> {
             waiting,
         })
     }
+
+    /// Execute deployment passing code and contructor parameters.
+    ///
+    /// Unlike the above `execute`, this method uses
+    /// `sign_raw_transaction_with_confirmation` instead of
+    /// `sign_transaction_with_confirmation`, which requires the account from
+    /// which the transaction is sent to be unlocked.
+    pub fn execute_no_unlock<P, V>(
+        self,
+        code: V,
+        params: P,
+        from: Address,
+        password: &str,
+        web3: crate::Web3<T>,
+    ) -> Result<PendingContract<T>, ethabi::Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        T: Transport,
+    {
+        let options = self.options;
+        let eth = self.eth;
+        let abi = self.abi;
+
+        let mut code_hex = code.as_ref().to_string();
+
+        for (lib, address) in self.linker {
+            if lib.len() > 38 {
+                return Err(
+                    ethabi::ErrorKind::Msg(String::from("The library name should be under 39 characters.")).into(),
+                );
+            }
+            let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
+            let address: String = address.as_ref().to_hex();
+            code_hex = code_hex.replacen(&replace, &address, 1);
+        }
+        code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
+        let code = code_hex.from_hex().map_err(ethabi::ErrorKind::Hex)?;
+
+        let params = params.into_tokens();
+        let data = match (abi.constructor(), params.is_empty()) {
+            (None, false) => {
+                return Err(ethabi::ErrorKind::Msg("Constructor is not defined in the ABI.".into()).into());
+            }
+            (None, true) => code,
+            (Some(constructor), _) => constructor.encode_input(code, &params)?,
+        };
+
+        let tx = TransactionRequest {
+            from,
+            to: None,
+            gas: options.gas,
+            gas_price: options.gas_price,
+            value: options.value,
+            nonce: options.nonce,
+            data: Some(Bytes(data)),
+            condition: options.condition,
+        };
+
+        let raw_tx = web3
+            .personal()
+            .sign_transaction(tx, password)
+            .wait()
+            .expect("Transaction signing failed");
+
+        let waiting = confirm::send_raw_transaction_with_confirmation(
+            eth.transport().clone(),
+            raw_tx.raw,
+            self.poll_interval,
+            self.confirmations,
+        );
+
+        Ok(PendingContract {
+            eth: Some(eth),
+            abi: Some(abi),
+            waiting,
+        })
+    }
 }
 
 /// Contract being deployed.
