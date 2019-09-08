@@ -1,5 +1,5 @@
 use rustc_hex::{FromHex, ToHex};
-use serde::de::{Error, Visitor};
+use serde::de::{Error, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
@@ -46,12 +46,11 @@ impl<'a> Visitor<'a> for BytesVisitor {
     where
         E: Error,
     {
-        if value.len() >= 2 && &value[0..2] == "0x" && value.len() & 1 == 0 {
-            Ok(Bytes(
-                FromHex::from_hex(&value[2..]).map_err(|_| Error::custom("invalid hex"))?,
-            ))
+        if value.len() >= 2 && &value[0..2] == "0x" {
+            let bytes = FromHex::from_hex(&value[2..]).map_err(|e| Error::custom(format!("Invalid hex: {}", e)))?;
+            Ok(Bytes(bytes))
         } else {
-            Err(Error::custom("invalid format"))
+            Err(Error::invalid_value(Unexpected::Str(value), &"0x prefix"))
         }
     }
 
