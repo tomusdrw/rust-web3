@@ -44,11 +44,12 @@ impl<T: Transport> Builder<T> {
         self
     }
 
-    /// Execute deployment passing code and contructor parameters.
-    pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
+    fn execute_core<P, V, F>(self, code: V, params: P, from: Address, f: F) -> Result<PendingContract<T>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
+        T: Transport,
+        F: Fn(TransactionRequest, T, core::time::Duration, usize) -> confirm::SendTransactionWithConfirmation<T>,
     {
         let options = self.options;
         let eth = self.eth;
@@ -89,11 +90,11 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let waiting = confirm::send_transaction_with_confirmation(
-            eth.transport().clone(),
+        let waiting = f(
             tx,
-            self.poll_interval,
-            self.confirmations,
+            eth.transport().clone(),
+            self.poll_interval.clone(),
+            self.confirmations.clone(),
         );
 
         Ok(PendingContract {
@@ -101,6 +102,19 @@ impl<T: Transport> Builder<T> {
             abi: Some(abi),
             waiting,
         })
+    }
+
+    /// Execute deployment passing code and contructor parameters.
+    pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        T: Transport,
+    {
+        let f = |tx, eth: T, poll_interval, confirmations| {
+            confirm::send_transaction_with_confirmation(eth, tx, poll_interval, confirmations)
+        };
+        self.execute_core(code, params, from, f)
     }
 
     /// Execute deployment passing code and contructor parameters.
@@ -122,63 +136,16 @@ impl<T: Transport> Builder<T> {
         V: AsRef<str>,
         T: Transport,
     {
-        let options = self.options;
-        let eth = self.eth;
-        let abi = self.abi;
+        let f = |tx, eth: T, poll_interval, confirmations| {
+            let raw_tx = web3
+                .personal()
+                .sign_transaction(tx, password)
+                .wait()
+                .expect("Transaction signing failed");
 
-        let mut code_hex = code.as_ref().to_string();
-
-        for (lib, address) in self.linker {
-            if lib.len() > 38 {
-                return Err(
-                    ethabi::ErrorKind::Msg(String::from("The library name should be under 39 characters.")).into(),
-                );
-            }
-            let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
-            let address: String = address.as_ref().to_hex();
-            code_hex = code_hex.replacen(&replace, &address, 1);
-        }
-        code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.from_hex().map_err(ethabi::ErrorKind::Hex)?;
-
-        let params = params.into_tokens();
-        let data = match (abi.constructor(), params.is_empty()) {
-            (None, false) => {
-                return Err(ethabi::ErrorKind::Msg("Constructor is not defined in the ABI.".into()).into());
-            }
-            (None, true) => code,
-            (Some(constructor), _) => constructor.encode_input(code, &params)?,
+            confirm::send_raw_transaction_with_confirmation(eth, raw_tx.raw, poll_interval, confirmations)
         };
-
-        let tx = TransactionRequest {
-            from,
-            to: None,
-            gas: options.gas,
-            gas_price: options.gas_price,
-            value: options.value,
-            nonce: options.nonce,
-            data: Some(Bytes(data)),
-            condition: options.condition,
-        };
-
-        let raw_tx = web3
-            .personal()
-            .sign_transaction(tx, password)
-            .wait()
-            .expect("Transaction signing failed");
-
-        let waiting = confirm::send_raw_transaction_with_confirmation(
-            eth.transport().clone(),
-            raw_tx.raw,
-            self.poll_interval,
-            self.confirmations,
-        );
-
-        Ok(PendingContract {
-            eth: Some(eth),
-            abi: Some(abi),
-            waiting,
-        })
+        self.execute_core(code, params, from, f)
     }
 }
 
