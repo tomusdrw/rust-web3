@@ -4,7 +4,7 @@ use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{
     Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
-    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U64, U256,
+    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
 };
 use crate::Transport;
 
