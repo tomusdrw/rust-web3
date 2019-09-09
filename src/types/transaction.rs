@@ -1,4 +1,4 @@
-use crate::types::{Bytes, Index, Log, H160, H2048, H256, U128, U256, U64};
+use crate::types::{Bytes, Index, Log, H160, H2048, H256, U256, U64};
 use serde::{Deserialize, Serialize};
 
 /// Description of a Transaction, pending or in the chain.
@@ -46,7 +46,7 @@ pub struct Receipt {
     pub block_hash: Option<H256>,
     /// Number of the block this transaction was included within.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U128>,
+    pub block_number: Option<U64>,
     /// Cumulative gas used within the block after this was executed.
     #[serde(rename = "cumulativeGasUsed")]
     pub cumulative_gas_used: U256,
