@@ -120,11 +120,11 @@ pub enum BlockNumber {
     /// Pending block (not yet part of the blockchain)
     Pending,
     /// Block by number from canon chain
-    Number(u64),
+    Number(U64),
 }
 
-impl From<u64> for BlockNumber {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockNumber {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num)
     }
 }
@@ -164,8 +164,8 @@ impl Serialize for BlockId {
     }
 }
 
-impl From<u64> for BlockId {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockId {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num).into()
     }
 }
