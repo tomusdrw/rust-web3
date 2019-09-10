@@ -1,4 +1,4 @@
-use crate::types::{Bytes, H160, H2048, H256, H64, U128, U256};
+use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
@@ -25,7 +25,7 @@ pub struct BlockHeader {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -74,7 +74,7 @@ pub struct Block<TX> {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,

@@ -13,7 +13,7 @@ pub struct Transaction {
     pub block_hash: Option<H256>,
     /// Block number. None when pending.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Transaction Index. None when pending.
     #[serde(rename = "transactionIndex")]
     pub transaction_index: Option<Index>,
@@ -88,7 +88,7 @@ pub struct RawTransactionDetails {
     pub block_hash: Option<H256>,
     /// Block number. None when pending.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Transaction Index. None when pending.
     #[serde(rename = "transactionIndex")]
     pub transaction_index: Option<Index>,
