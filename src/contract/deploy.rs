@@ -9,7 +9,7 @@ use crate::api::{Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::Tokenize;
 use crate::contract::{Contract, Options};
-use crate::types::{Address, Bytes, TransactionRequest};
+use crate::types::{Address, Bytes, TransactionReceipt, TransactionRequest};
 use crate::Transport;
 
 pub use crate::contract::error::deploy::Error;
@@ -109,18 +109,19 @@ impl<T: Transport> Builder<T> {
     /// `sign_raw_transaction_with_confirmation` instead of
     /// `sign_transaction_with_confirmation`, which requires the account from
     /// which the transaction is sent to be unlocked.
-    pub fn execute_no_unlock<P, V>(
+    pub fn sign_and_execute<P, V, Ft>(
         self,
         code: V,
         params: P,
         from: Address,
         password: &str,
         web3: crate::Web3<T>,
-    ) -> Result<PendingContract<T>, ethabi::Error>
+    ) -> Result<PendingContract<T, Ft>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
         T: Transport,
+        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
     {
         let options = self.options;
         let eth = self.eth;
@@ -161,18 +162,14 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let raw_tx = web3
-            .personal()
-            .sign_transaction(tx, password)
-            .wait()
-            .expect("Transaction signing failed");
-
-        let waiting = confirm::send_raw_transaction_with_confirmation(
-            eth.transport().clone(),
-            raw_tx.raw,
-            self.poll_interval,
-            self.confirmations,
-        );
+        let waiting = web3.personal().sign_transaction(tx, password).and_then(|signed_tx| {
+            confirm::send_raw_transaction_with_confirmation(
+                eth.transport().clone(),
+                signed_tx.raw,
+                self.poll_interval,
+                self.confirmations,
+            )
+        });
 
         Ok(PendingContract {
             eth: Some(eth),
@@ -183,10 +180,13 @@ impl<T: Transport> Builder<T> {
 }
 
 /// Contract being deployed.
-pub struct PendingContract<T: Transport> {
+pub struct PendingContract<
+    T: Transport,
+    F: Future<Item = TransactionReceipt, Error = crate::error::Error> = confirm::SendTransactionWithConfirmation<T>,
+> {
     eth: Option<Eth<T>>,
     abi: Option<ethabi::Contract>,
-    waiting: confirm::SendTransactionWithConfirmation<T>,
+    waiting: F,
 }
 
 impl<T: Transport> Future for PendingContract<T> {
