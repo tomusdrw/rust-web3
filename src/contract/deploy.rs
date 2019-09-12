@@ -116,12 +116,14 @@ impl<T: Transport> Builder<T> {
         from: Address,
         password: &str,
         web3: crate::Web3<T>,
-    ) -> Result<PendingContract<T, Ft>, ethabi::Error>
+    ) -> Result<
+        PendingContract<T, Box<dyn Future<Item = TransactionReceipt, Error = crate::error::Error>>>,
+        ethabi::Error,
+    >
     where
         P: Tokenize,
         V: AsRef<str>,
-        T: Transport,
-        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
+        T: Transport + 'static,
     {
         let options = self.options;
         let eth = self.eth;
@@ -162,19 +164,20 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let waiting = web3.personal().sign_transaction(tx, password).and_then(|signed_tx| {
-            confirm::send_raw_transaction_with_confirmation(
-                eth.transport().clone(),
-                signed_tx.raw,
-                self.poll_interval,
-                self.confirmations,
-            )
-        });
+        let transport = eth.transport().clone();
+        let poll_interval = self.poll_interval.clone();
+        let confirmations = self.confirmations.clone();
+        let waiting = web3
+            .personal()
+            .sign_transaction(tx, password)
+            .and_then(move |signed_tx| {
+                confirm::send_raw_transaction_with_confirmation(transport, signed_tx.raw, poll_interval, confirmations)
+            });
 
         Ok(PendingContract {
             eth: Some(eth),
             abi: Some(abi),
-            waiting,
+            waiting: Box::new(waiting),
         })
     }
 }
