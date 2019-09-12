@@ -45,64 +45,32 @@ impl<T: Transport> Builder<T> {
     }
 
     /// Execute deployment passing code and contructor parameters.
-    pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
+    pub fn execute<P, V>(
+        self,
+        code: V,
+        params: P,
+        from: Address,
+    ) -> Result<PendingContract<T>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
     {
-        let options = self.options;
-        let eth = self.eth;
-        let abi = self.abi;
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
 
-        let mut code_hex = code.as_ref().to_string();
-
-        for (lib, address) in self.linker {
-            if lib.len() > 38 {
-                return Err(
-                    ethabi::ErrorKind::Msg(String::from("The library name should be under 39 characters.")).into(),
-                );
-            }
-            let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
-            let address: String = address.as_ref().to_hex();
-            code_hex = code_hex.replacen(&replace, &address, 1);
-        }
-        code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.from_hex().map_err(ethabi::ErrorKind::Hex)?;
-
-        let params = params.into_tokens();
-        let data = match (abi.constructor(), params.is_empty()) {
-            (None, false) => {
-                return Err(ethabi::ErrorKind::Msg("Constructor is not defined in the ABI.".into()).into());
-            }
-            (None, true) => code,
-            (Some(constructor), _) => constructor.encode_input(code, &params)?,
-        };
-
-        let tx = TransactionRequest {
+        self.do_execute(
+            code,
+            params,
             from,
-            to: None,
-            gas: options.gas,
-            gas_price: options.gas_price,
-            value: options.value,
-            nonce: options.nonce,
-            data: Some(Bytes(data)),
-            condition: options.condition,
-        };
-
-        let waiting = confirm::send_transaction_with_confirmation(
-            eth.transport().clone(),
-            tx,
-            self.poll_interval,
-            self.confirmations,
-        );
-
-        Ok(PendingContract {
-            eth: Some(eth),
-            abi: Some(abi),
-            waiting,
-        })
+            move |tx| confirm::send_transaction_with_confirmation(
+                transport,
+                tx,
+                poll_interval,
+                confirmations
+            )
+        )
     }
-
     /// Execute deployment passing code and contructor parameters.
     ///
     /// Unlike the above `execute`, this method uses
@@ -115,15 +83,46 @@ impl<T: Transport> Builder<T> {
         params: P,
         from: Address,
         password: &str,
-        web3: crate::Web3<T>,
     ) -> Result<
-        PendingContract<T, Box<dyn Future<Item = TransactionReceipt, Error = crate::error::Error>>>,
+        PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>,
         ethabi::Error,
     >
     where
         P: Tokenize,
         V: AsRef<str>,
-        T: Transport + 'static,
+    {
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
+
+        self.do_execute(
+            code,
+            params,
+            from,
+            move |tx| crate::api::Personal::new(transport.clone())
+                .sign_transaction(tx, password)
+                .and_then(move |signed_tx| {
+                    confirm::send_raw_transaction_with_confirmation(
+                        transport,
+                        signed_tx.raw,
+                        poll_interval,
+                        confirmations
+                    )
+                })
+        )
+    }
+
+    fn do_execute<P, V, Ft>(
+        self,
+        code: V,
+        params: P,
+        from: Address,
+        send: impl FnOnce(TransactionRequest) -> Ft,
+    ) -> Result<PendingContract<T, Ft>, ethabi::Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
     {
         let options = self.options;
         let eth = self.eth;
@@ -164,20 +163,12 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let transport = eth.transport().clone();
-        let poll_interval = self.poll_interval.clone();
-        let confirmations = self.confirmations.clone();
-        let waiting = web3
-            .personal()
-            .sign_transaction(tx, password)
-            .and_then(move |signed_tx| {
-                confirm::send_raw_transaction_with_confirmation(transport, signed_tx.raw, poll_interval, confirmations)
-            });
+        let waiting = send(tx);
 
         Ok(PendingContract {
             eth: Some(eth),
             abi: Some(abi),
-            waiting: Box::new(waiting),
+            waiting,
         })
     }
 }
