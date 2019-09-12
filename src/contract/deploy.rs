@@ -164,7 +164,7 @@ pub struct PendingContract<
     waiting: F,
 }
 
-impl<T: Transport> Future for PendingContract<T> {
+impl<T: Transport, F: Future<Item = TransactionReceipt, Error = crate::error::Error>> Future for PendingContract<T, F> {
     type Item = Contract<T>;
     type Error = Error;
 
