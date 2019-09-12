@@ -45,12 +45,7 @@ impl<T: Transport> Builder<T> {
     }
 
     /// Execute deployment passing code and contructor parameters.
-    pub fn execute<P, V>(
-        self,
-        code: V,
-        params: P,
-        from: Address,
-    ) -> Result<PendingContract<T>, ethabi::Error>
+    pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -59,17 +54,9 @@ impl<T: Transport> Builder<T> {
         let poll_interval = self.poll_interval;
         let confirmations = self.confirmations;
 
-        self.do_execute(
-            code,
-            params,
-            from,
-            move |tx| confirm::send_transaction_with_confirmation(
-                transport,
-                tx,
-                poll_interval,
-                confirmations
-            )
-        )
+        self.do_execute(code, params, from, move |tx| {
+            confirm::send_transaction_with_confirmation(transport, tx, poll_interval, confirmations)
+        })
     }
     /// Execute deployment passing code and contructor parameters.
     ///
@@ -83,10 +70,7 @@ impl<T: Transport> Builder<T> {
         params: P,
         from: Address,
         password: &str,
-    ) -> Result<
-        PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>,
-        ethabi::Error,
-    >
+    ) -> Result<PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -95,21 +79,18 @@ impl<T: Transport> Builder<T> {
         let poll_interval = self.poll_interval;
         let confirmations = self.confirmations;
 
-        self.do_execute(
-            code,
-            params,
-            from,
-            move |tx| crate::api::Personal::new(transport.clone())
+        self.do_execute(code, params, from, move |tx| {
+            crate::api::Personal::new(transport.clone())
                 .sign_transaction(tx, password)
                 .and_then(move |signed_tx| {
                     confirm::send_raw_transaction_with_confirmation(
                         transport,
                         signed_tx.raw,
                         poll_interval,
-                        confirmations
+                        confirmations,
                     )
                 })
-        )
+        })
     }
 
     fn do_execute<P, V, Ft>(
