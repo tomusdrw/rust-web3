@@ -4,7 +4,7 @@ use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{
     Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
-    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
+    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
 };
 use crate::Transport;
 
@@ -34,7 +34,7 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get current block number
-    pub fn block_number(&self) -> CallFuture<U256, T::Out> {
+    pub fn block_number(&self) -> CallFuture<U64, T::Out> {
         CallFuture::new(self.transport.execute("eth_blockNumber", vec![]))
     }
 

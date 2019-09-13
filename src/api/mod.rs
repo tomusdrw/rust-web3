@@ -20,7 +20,7 @@ pub use self::personal::Personal;
 pub use self::traces::Traces;
 pub use self::web3::Web3 as Web3Api;
 
-use crate::types::{Bytes, TransactionRequest, U256};
+use crate::types::{Bytes, TransactionRequest, U64};
 use crate::{confirm, DuplexTransport, Error, Transport};
 use futures::IntoFuture;
 use std::time::Duration;
@@ -104,7 +104,7 @@ impl<T: Transport> Web3<T> {
         check: V,
     ) -> confirm::Confirmations<T, V, F::Future>
     where
-        F: IntoFuture<Item = Option<U256>, Error = Error>,
+        F: IntoFuture<Item = Option<U64>, Error = Error>,
         V: confirm::ConfirmationCheck<Check = F>,
     {
         confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)

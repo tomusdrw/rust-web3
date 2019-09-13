@@ -1,4 +1,4 @@
-use crate::types::{BlockNumber, Bytes, H160, H256, U256};
+use crate::types::{BlockNumber, Bytes, H160, H256, U256, U64};
 use ethabi;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -16,7 +16,7 @@ pub struct Log {
     pub block_hash: Option<H256>,
     /// Block Number
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Transaction Hash
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<H256>,

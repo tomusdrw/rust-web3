@@ -276,7 +276,7 @@ mod tests {
 
             // when
             token
-                .query("name", (), None, Options::default(), BlockNumber::Number(1))
+                .query("name", (), None, Options::default(), BlockNumber::Number(1.into()))
                 .wait()
                 .unwrap()
         };
