@@ -1,4 +1,4 @@
-use crate::types::{Bytes, H160, H2048, H256, H64, U128, U256};
+use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
@@ -25,7 +25,7 @@ pub struct BlockHeader {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -74,7 +74,7 @@ pub struct Block<TX> {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -120,11 +120,11 @@ pub enum BlockNumber {
     /// Pending block (not yet part of the blockchain)
     Pending,
     /// Block by number from canon chain
-    Number(u64),
+    Number(U64),
 }
 
-impl From<u64> for BlockNumber {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockNumber {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num)
     }
 }
@@ -164,8 +164,8 @@ impl Serialize for BlockId {
     }
 }
 
-impl From<u64> for BlockId {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockId {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num).into()
     }
 }

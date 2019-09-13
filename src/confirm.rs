@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use crate::helpers::CallFuture;
-use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U256};
+use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
 use crate::{Error, Transport};
 use futures::stream::Skip;
 use futures::{Future, IntoFuture, Poll, Stream};
@@ -12,7 +12,7 @@ use futures::{Future, IntoFuture, Poll, Stream};
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
     /// Future resolved when is known whether an event has been confirmed.
-    type Check: IntoFuture<Item = Option<U256>, Error = Error>;
+    type Check: IntoFuture<Item = Option<U64>, Error = Error>;
 
     /// Should be called to get future which resolves when confirmation state is known.
     fn check(&self) -> Self::Check;
@@ -21,7 +21,7 @@ pub trait ConfirmationCheck {
 impl<F, T> ConfirmationCheck for F
 where
     F: Fn() -> T,
-    T: IntoFuture<Item = Option<U256>, Error = Error>,
+    T: IntoFuture<Item = Option<U64>, Error = Error>,
 {
     type Check = T;
 
@@ -33,7 +33,7 @@ where
 enum WaitForConfirmationsState<F, O> {
     WaitForNextBlock,
     CheckConfirmation(F),
-    CompareConfirmations(u64, CallFuture<U256, O>),
+    CompareConfirmations(u64, CallFuture<U64, O>),
 }
 
 struct WaitForConfirmations<T, V, F>
@@ -51,7 +51,7 @@ impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U256>, Error = Error>,
+    F: IntoFuture<Item = Option<U64>, Error = Error>,
 {
     type Item = ();
     type Error = Error;
@@ -123,7 +123,7 @@ impl<T, V, F> Future for Confirmations<T, V, F::Future>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U256>, Error = Error>,
+    F: IntoFuture<Item = Option<U64>, Error = Error>,
 {
     type Item = ();
     type Error = Error;
@@ -163,7 +163,7 @@ pub fn wait_for_confirmations<T, V, F>(
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U256>, Error = Error>,
+    F: IntoFuture<Item = Option<U64>, Error = Error>,
 {
     Confirmations::new(eth, eth_filter, poll_interval, confirmations, check)
 }
@@ -173,7 +173,7 @@ struct TransactionReceiptBlockNumber<T: Transport> {
 }
 
 impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
-    type Item = Option<U256>;
+    type Item = Option<U64>;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

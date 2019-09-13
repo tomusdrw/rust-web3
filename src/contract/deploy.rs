@@ -293,5 +293,4 @@ mod tests {
         );
         transport.assert_no_more_requests();
     }
-
 }
