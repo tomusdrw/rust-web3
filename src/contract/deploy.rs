@@ -64,7 +64,7 @@ impl<T: Transport> Builder<T> {
     /// `sign_raw_transaction_with_confirmation` instead of
     /// `sign_transaction_with_confirmation`, which requires the account from
     /// which the transaction is sent to be unlocked.
-    pub fn sign_and_execute<P, V, Ft>(
+    pub fn sign_and_execute<P, V>(
         self,
         code: V,
         params: P,
