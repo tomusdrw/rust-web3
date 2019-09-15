@@ -9,7 +9,7 @@ use crate::api::{Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::Tokenize;
 use crate::contract::{Contract, Options};
-use crate::types::{Address, Bytes, TransactionRequest};
+use crate::types::{Address, Bytes, TransactionReceipt, TransactionRequest};
 use crate::Transport;
 
 pub use crate::contract::error::deploy::Error;
@@ -50,6 +50,61 @@ impl<T: Transport> Builder<T> {
         P: Tokenize,
         V: AsRef<str>,
     {
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
+
+        self.do_execute(code, params, from, move |tx| {
+            confirm::send_transaction_with_confirmation(transport, tx, poll_interval, confirmations)
+        })
+    }
+    /// Execute deployment passing code and contructor parameters.
+    ///
+    /// Unlike the above `execute`, this method uses
+    /// `sign_raw_transaction_with_confirmation` instead of
+    /// `sign_transaction_with_confirmation`, which requires the account from
+    /// which the transaction is sent to be unlocked.
+    pub fn sign_and_execute<P, V>(
+        self,
+        code: V,
+        params: P,
+        from: Address,
+        password: &str,
+    ) -> Result<PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>, ethabi::Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+    {
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
+
+        self.do_execute(code, params, from, move |tx| {
+            crate::api::Personal::new(transport.clone())
+                .sign_transaction(tx, password)
+                .and_then(move |signed_tx| {
+                    confirm::send_raw_transaction_with_confirmation(
+                        transport,
+                        signed_tx.raw,
+                        poll_interval,
+                        confirmations,
+                    )
+                })
+        })
+    }
+
+    fn do_execute<P, V, Ft>(
+        self,
+        code: V,
+        params: P,
+        from: Address,
+        send: impl FnOnce(TransactionRequest) -> Ft,
+    ) -> Result<PendingContract<T, Ft>, ethabi::Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
+    {
         let options = self.options;
         let eth = self.eth;
         let abi = self.abi;
@@ -89,12 +144,7 @@ impl<T: Transport> Builder<T> {
             condition: options.condition,
         };
 
-        let waiting = confirm::send_transaction_with_confirmation(
-            eth.transport().clone(),
-            tx,
-            self.poll_interval,
-            self.confirmations,
-        );
+        let waiting = send(tx);
 
         Ok(PendingContract {
             eth: Some(eth),
@@ -105,13 +155,16 @@ impl<T: Transport> Builder<T> {
 }
 
 /// Contract being deployed.
-pub struct PendingContract<T: Transport> {
+pub struct PendingContract<
+    T: Transport,
+    F: Future<Item = TransactionReceipt, Error = crate::error::Error> = confirm::SendTransactionWithConfirmation<T>,
+> {
     eth: Option<Eth<T>>,
     abi: Option<ethabi::Contract>,
-    waiting: confirm::SendTransactionWithConfirmation<T>,
+    waiting: F,
 }
 
-impl<T: Transport> Future for PendingContract<T> {
+impl<T: Transport, F: Future<Item = TransactionReceipt, Error = crate::error::Error>> Future for PendingContract<T, F> {
     type Item = Contract<T>;
     type Error = Error;
 
