@@ -260,6 +260,75 @@ mod tests {
     }
 
     #[test]
+    fn should_sign_and_deploy_a_contract() {
+        // given
+        let mut transport = TestTransport::default();
+        // Transaction Hash
+        transport.add_response(rpc::Value::String(
+            "0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1".into(),
+        ));
+        // BlockFilter
+        transport.add_response(rpc::Value::String("0x0".into()));
+        // getFilterChanges
+        transport.add_response(rpc::Value::Array(vec![rpc::Value::String(
+            "0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f".into(),
+        )]));
+        transport.add_response(rpc::Value::Array(vec![rpc::Value::String(
+            "0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c548790".into(),
+        )]));
+        // receipt
+        let receipt = ::serde_json::from_str::<rpc::Value>(
+        "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\", \"status\": \"0x1\"}"
+      ).unwrap();
+        transport.add_response(receipt.clone());
+        // block number
+        transport.add_response(rpc::Value::String("0x25a".into()));
+        // receipt again
+        transport.add_response(receipt);
+
+        {
+
+            let password = "";
+            let web3 = crate::api::Personal::new(transport.clone());
+            let addr = web3.new_account(password).wait().unwrap();
+
+            let builder = Contract::deploy(api::Eth::new(&transport), include_bytes!("./res/token.json")).unwrap();
+
+            // when
+            builder
+                .options(Options::with(|opt| opt.value = Some(5.into())))
+                .confirmations(1)
+                .sign_and_execute(
+                    "0x01020304",
+                    (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
+                    addr,
+                    password,
+                )
+                .unwrap()
+                .wait()
+                .unwrap();
+        };
+
+        // then
+        transport.assert_request("eth_sendRawTransaction", &[
+      "{\"data\":\"0x0102030400000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000084d7920546f6b656e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024d54000000000000000000000000000000000000000000000000000000000000\",\"from\":\"0x0000000000000000000000000000000000000005\",\"value\":\"0x5\"}".into(),
+    ]);
+        transport.assert_request("eth_newBlockFilter", &[]);
+        transport.assert_request("eth_getFilterChanges", &["\"0x0\"".into()]);
+        transport.assert_request("eth_getFilterChanges", &["\"0x0\"".into()]);
+        transport.assert_request(
+            "eth_getTransactionReceipt",
+            &["\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into()],
+        );
+        transport.assert_request("eth_blockNumber", &[]);
+        transport.assert_request(
+            "eth_getTransactionReceipt",
+            &["\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\"".into()],
+        );
+        transport.assert_no_more_requests();
+    }
+
+    #[test]
     fn deploy_linked_contract() {
         use serde_json::{to_string, to_vec};
         let mut transport = TestTransport::default();
