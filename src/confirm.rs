@@ -7,7 +7,7 @@ use crate::helpers::CallFuture;
 use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
 use crate::{Error, Transport};
 use futures::stream::Skip;
-use futures::{Future, IntoFuture, Poll, Stream};
+use futures::{Async, Future, IntoFuture, Poll, Stream};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -288,9 +288,17 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
                 }
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = try_ready!(Future::poll(future))
-                        .expect("receipt can't be null after wait for confirmations; qed");
-                    return Ok(receipt.into());
+                    let err = "receipt can't be null after wait for confirmations; qed";
+                    if self.confirmations == 0 {
+                        match Future::poll(future)? {
+                            Async::Ready(opt_receipt) => return Ok(opt_receipt.expect(err).into()),
+                            Async::NotReady => SendTransactionWithConfirmationState::GetTransactionReceipt(*future),
+                        }
+                    } else {
+                        let receipt = try_ready!(Future::poll(future))
+                            .expect(err);
+                        return Ok(receipt.into());
+                    }
                 }
             };
             self.state = next_state;
