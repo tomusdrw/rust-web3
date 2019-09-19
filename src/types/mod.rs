@@ -16,10 +16,18 @@ mod work;
 pub use self::block::{Block, BlockHeader, BlockId, BlockNumber};
 pub use self::bytes::Bytes;
 pub use self::log::{Filter, FilterBuilder, Log};
-pub use self::parity_peers::{ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo};
+pub use self::parity_peers::{
+    EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
+};
 pub use self::sync_state::{SyncInfo, SyncState};
-pub use self::trace_filtering::{Action, CallType, Res, Trace, TraceFilter, TraceFilterBuilder};
-pub use self::traces::{BlockTrace, TraceType, TransactionTrace};
+pub use self::trace_filtering::{
+    Action, ActionType, Call, CallResult, CallType, Create, CreateResult, Res, Reward, RewardType, Suicide, Trace,
+    TraceFilter, TraceFilterBuilder,
+};
+pub use self::traces::{
+    AccountDiff, BlockTrace, ChangedType, Diff, MemoryDiff, StateDiff, StorageDiff, TraceType, TransactionTrace,
+    VMExecutedOperation, VMOperation, VMTrace,
+};
 pub use self::transaction::{RawTransaction, Receipt as TransactionReceipt, Transaction};
 pub use self::transaction_id::TransactionId;
 pub use self::transaction_request::{CallRequest, TransactionCondition, TransactionRequest};
