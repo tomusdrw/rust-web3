@@ -101,7 +101,7 @@ pub struct Trace {
     #[serde(rename = "blockHash")]
     pub block_hash: H256,
     #[serde(rename = "type")]
-    action_type: ActionType,
+    pub action_type: ActionType,
     /// Error
     pub error: Option<String>,
 }
