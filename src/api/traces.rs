@@ -135,17 +135,17 @@ mod tests {
 
     const EXAMPLE_BLOCKTRACES: &'static str = r#"
 	[{
-        "output": "0x010203",
+        "output": "0x",
         "stateDiff": null,
         "trace": [
             {
                 "action": {
                     "callType": "call",
-                    "from": "0x0000000000000000000000000000000000000000",
-                    "gas": "0x1dcd12f8",
+                    "from": "0xa1e4380a3b1f749673e270229993ee55f35663b4",
+                    "gas": "0x0",
                     "input": "0x",
-                    "to": "0x0000000000000000000000000000000000000123",
-                    "value": "0x1"
+                    "to": "0x5df9b87991262f6ba471f09758cde1c0fc1de734",
+                    "value": "0x7a69"
                 },
                 "result": {
                     "gasUsed": "0x0",
@@ -156,6 +156,7 @@ mod tests {
                 "type": "call"
             }
         ],
+        "transactionHash": "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
         "vmTrace": null
     }]
 	"#;

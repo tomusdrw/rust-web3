@@ -31,6 +31,9 @@ pub struct BlockTrace {
     /// State Difference
     #[serde(rename = "stateDiff")]
     pub state_diff: Option<StateDiff>,
+    /// Transaction Hash
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: Option<H256>,
 }
 
 //---------------- State Diff ----------------
