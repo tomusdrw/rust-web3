@@ -80,6 +80,8 @@ pub struct TransactionTrace {
     action: Action,
     /// Result
     result: Option<Res>,
+	/// Error
+	error: Option<String>,
 }
 
 // ---------------- VmTrace ------------------------------

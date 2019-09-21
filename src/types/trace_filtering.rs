@@ -114,8 +114,6 @@ pub enum Res {
     Call(CallResult),
     /// Create
     Create(CreateResult),
-    /// Call or Create failure
-    FailedCallOrCreate(String),
     /// None
     None,
 }
