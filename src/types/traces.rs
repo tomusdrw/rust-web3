@@ -65,7 +65,7 @@ pub struct AccountDiff {
 
 #[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Serde-friendly `StateDiff` shadow.
-pub struct StateDiff(BTreeMap<H160, AccountDiff>);
+pub struct StateDiff(pub BTreeMap<H160, AccountDiff>);
 
 // ------------------ Trace -------------
 /// Trace
