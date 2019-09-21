@@ -58,12 +58,12 @@ impl<T: Transport> Traces<T> {
         &self,
         block: BlockNumber,
         trace_type: Vec<TraceType>,
-    ) -> CallFuture<BlockTrace, T::Out> {
+    ) -> CallFuture<Vec<BlockTrace>, T::Out> {
         let block = helpers::serialize(&block);
         let trace_type = helpers::serialize(&trace_type);
         CallFuture::new(
             self.transport
-                .execute("trace_replayBlockTransaction", vec![block, trace_type]),
+                .execute("trace_replayBlockTransactions", vec![block, trace_type]),
         )
     }
 
@@ -132,6 +132,33 @@ mod tests {
         "vmTrace": null
     }
     "#;
+
+    const EXAMPLE_BLOCKTRACES: &'static str = r#"
+	[{
+        "output": "0x010203",
+        "stateDiff": null,
+        "trace": [
+            {
+                "action": {
+                    "callType": "call",
+                    "from": "0x0000000000000000000000000000000000000000",
+                    "gas": "0x1dcd12f8",
+                    "input": "0x",
+                    "to": "0x0000000000000000000000000000000000000123",
+                    "value": "0x1"
+                },
+                "result": {
+                    "gasUsed": "0x0",
+                    "output": "0x"
+                },
+                "subtraces": 0,
+                "traceAddress": [],
+                "type": "call"
+            }
+        ],
+        "vmTrace": null
+    }]
+	"#;
 
     const EXAMPLE_TRACE_ARR: &'static str = r#"
     [
@@ -214,9 +241,9 @@ mod tests {
     rpc_test!(
     Traces:replay_block_transactions, BlockNumber::Latest, vec![TraceType::Trace]
     =>
-    "trace_replayBlockTransaction", vec![r#""latest""#, r#"["trace"]"#];
-    ::serde_json::from_str(EXAMPLE_BLOCKTRACE).unwrap()
-    => ::serde_json::from_str::<BlockTrace>(EXAMPLE_BLOCKTRACE).unwrap()
+    "trace_replayBlockTransactions", vec![r#""latest""#, r#"["trace"]"#];
+    ::serde_json::from_str(EXAMPLE_BLOCKTRACES).unwrap()
+    => ::serde_json::from_str::<Vec<BlockTrace>>(EXAMPLE_BLOCKTRACES).unwrap()
     );
 
     rpc_test!(
