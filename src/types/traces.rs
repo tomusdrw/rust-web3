@@ -37,8 +37,8 @@ pub struct BlockTrace {
 #[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 /// Aux type for Diff::Changed.
 pub struct ChangedType<T> {
-    from: T,
-    to: T,
+    pub from: T,
+    pub to: T,
 }
 
 #[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
@@ -73,13 +73,13 @@ pub struct StateDiff(pub BTreeMap<H160, AccountDiff>);
 pub struct TransactionTrace {
     /// Trace address
     #[serde(rename = "traceAddress")]
-    trace_address: Vec<usize>,
+    pub trace_address: Vec<usize>,
     /// Subtraces
-    subtraces: usize,
+    pub subtraces: usize,
     /// Action
-    action: Action,
+    pub action: Action,
     /// Result
-    result: Option<Res>,
+    pub result: Option<Res>,
 }
 
 // ---------------- VmTrace ------------------------------
