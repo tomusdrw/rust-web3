@@ -100,6 +100,7 @@ pub struct Trace {
     /// Block Hash
     #[serde(rename = "blockHash")]
     pub block_hash: H256,
+    /// Action Type
     #[serde(rename = "type")]
     action_type: ActionType,
     /// Error
