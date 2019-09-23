@@ -8,10 +8,12 @@ cache: cargo
 
 matrix:
   fast_finish: false
+  allow_failures:
+    - rust: nightly
   include:
-  - rust: stable
-  - rust: beta
-  - rust: nightly
+    - rust: stable
+    - rust: beta
+    - rust: nightly
 
 before_script:
   - if [[ "${TRAVIS_RUST_VERSION}" == stable ]]; then
