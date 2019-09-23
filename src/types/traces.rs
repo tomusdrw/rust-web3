@@ -31,6 +31,9 @@ pub struct BlockTrace {
     /// State Difference
     #[serde(rename = "stateDiff")]
     pub state_diff: Option<StateDiff>,
+    /// Transaction Hash
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: Option<H256>,
 }
 
 //---------------- State Diff ----------------
@@ -150,6 +153,11 @@ mod tests {
     // with 'trace', 'vmTrace', 'stateDiff'
     const EXAMPLE_TRACE: &'static str = include!("./example-trace-str.rs");
 
+    // block: https://etherscan.io/block/46147
+    // using the 'trace_replayBlockTransactions' API function
+    // with 'trace', 'vmTrace', 'stateDiff'
+    const EXAMPLE_TRACES: &'static str = include!("./example-traces-str.rs");
+
     #[test]
     fn test_serialize_trace_type() {
         let trace_type_str = r#"["trace","vmTrace","stateDiff"]"#;
@@ -162,5 +170,10 @@ mod tests {
     #[test]
     fn test_deserialize_blocktrace() {
         let _trace: BlockTrace = serde_json::from_str(EXAMPLE_TRACE).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_blocktraces() {
+        let _traces: Vec<BlockTrace> = serde_json::from_str(EXAMPLE_TRACES).unwrap();
     }
 }
