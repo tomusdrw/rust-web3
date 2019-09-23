@@ -100,6 +100,7 @@ pub struct Trace {
     /// Block Hash
     #[serde(rename = "blockHash")]
     pub block_hash: H256,
+    /// Action Type
     #[serde(rename = "type")]
     action_type: ActionType,
     /// Error
@@ -114,8 +115,6 @@ pub enum Res {
     Call(CallResult),
     /// Create
     Create(CreateResult),
-    /// Call or Create failure
-    FailedCallOrCreate(String),
     /// None
     None,
 }

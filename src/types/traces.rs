@@ -1,7 +1,7 @@
 //! Types for the Parity Ad-Hoc Trace API
 use std::collections::BTreeMap;
 
-use crate::types::{Action, Bytes, Res, H160, H256, U256};
+use crate::types::{Action, ActionType, Bytes, Res, H160, H256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,8 +81,13 @@ pub struct TransactionTrace {
     subtraces: usize,
     /// Action
     action: Action,
+    /// Action Type
+    #[serde(rename = "type")]
+    action_type: ActionType,
     /// Result
     result: Option<Res>,
+    /// Error
+    error: Option<String>,
 }
 
 // ---------------- VmTrace ------------------------------
