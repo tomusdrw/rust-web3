@@ -43,7 +43,6 @@ impl From<hyper::header::InvalidHeaderValue> for Error {
     }
 }
 
-#[cfg(all(feature = "http", not(feature = "ws")))]
 impl From<self::url::ParseError> for Error {
     fn from(err: self::url::ParseError) -> Self {
         Error::Transport(format!("{:?}", err))

@@ -13,8 +13,8 @@ edition = "2018"
 
 [dependencies]
 arrayvec = "0.5.0"
-ethabi = "8.0.0"
-ethereum-types = "0.6.0"
+ethabi = "9.0.0"
+ethereum-types = "0.8.0"
 futures = "0.1.26"
 jsonrpc-core = "13.0.0"
 log = "0.4.6"
@@ -23,7 +23,7 @@ rustc-hex = "2.0.1"
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tokio-timer = "0.1"
-url = "1.7.2"
+url = "2.1.0"
 base64 = "0.10.1"
 derive_more = "0.15.0"
 # Optional deps
@@ -39,7 +39,7 @@ websocket = { version = "0.21.1", optional = true }
 # For examples
 tokio-core = "0.1.17"
 rustc-hex = "2.0.1"
-env_logger = "0.6.0"
+env_logger = "0.7.0"
 
 [features]
 default = ["http", "ipc", "ws", "tls"]
