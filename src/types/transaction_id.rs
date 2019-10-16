@@ -8,3 +8,9 @@ pub enum TransactionId {
     /// By block and index
     Block(BlockId, Index),
 }
+
+impl From<H256> for TransactionId {
+    fn from(hash: H256) -> Self {
+        TransactionId::Hash(hash)
+    }
+}
