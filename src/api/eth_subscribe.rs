@@ -98,6 +98,7 @@ impl<T: DuplexTransport, I> Drop for SubscriptionStream<T, I> {
     }
 }
 
+/// A result of calling a subscription.
 #[derive(Debug)]
 pub struct SubscriptionResult<T: DuplexTransport, I> {
     transport: T,
@@ -106,6 +107,7 @@ pub struct SubscriptionResult<T: DuplexTransport, I> {
 }
 
 impl<T: DuplexTransport, I> SubscriptionResult<T, I> {
+    /// New `SubscriptionResult`.
     pub fn new(transport: T, id_future: CallFuture<String, T::Out>) -> Self {
         SubscriptionResult {
             transport,

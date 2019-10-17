@@ -123,9 +123,9 @@ pub enum BlockNumber {
     Number(U64),
 }
 
-impl From<U64> for BlockNumber {
-    fn from(num: U64) -> Self {
-        BlockNumber::Number(num)
+impl<T: Into<U64>> From<T> for BlockNumber {
+    fn from(num: T) -> Self {
+        BlockNumber::Number(num.into())
     }
 }
 
