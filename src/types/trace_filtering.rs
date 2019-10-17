@@ -139,12 +139,17 @@ pub enum Action {
     Reward(Reward),
 }
 
+/// An external action type.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ActionType {
+    /// Contract call.
     Call,
+    /// Contract creation.
     Create,
+    /// Contract suicide.
     Suicide,
+    /// A block reward.
     Reward,
 }
 
