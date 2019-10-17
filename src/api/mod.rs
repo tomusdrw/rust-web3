@@ -12,7 +12,7 @@ mod web3;
 
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
-pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
+pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
 pub use self::net::Net;
 pub use self::parity_accounts::ParityAccounts;
 pub use self::parity_set::ParitySet;
