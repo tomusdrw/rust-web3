@@ -1,9 +1,13 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::api::Namespace;
-use crate::types::{Bytes, SignedData, H256};
+use crate::api::{Namespace, Web3};
+use crate::error::Error;
+use crate::helpers::CallFuture;
+use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionData, H256, U256};
 use crate::Transport;
-use ethsign::SecretKey;
+use ethsign::{SecretKey, Signature};
+use futures::future::{self, Either, FutureResult, Join3};
+use futures::{Future, Poll};
 use parity_crypto::Keccak256;
 
 /// `Accounts` namespace
@@ -26,7 +30,20 @@ impl<T: Transport> Namespace<T> for Accounts<T> {
 }
 
 impl<T: Transport> Accounts<T> {
-    fn hash_message<S>(&self, message: S) -> H256
+    /// Gets the parent `web3` namespace
+    fn web3(&self) -> Web3<T> {
+        Web3::new(self.transport.clone())
+    }
+
+    /// Signs an Ethereum transaction with a given private key.
+    pub fn sign_transaction(&self, tx: TransactionData, key: SecretKey) -> SignTransactionFuture<T> {
+        unimplemented!()
+    }
+
+    /// Hash a message. The data will be UTF-8 HEX decoded and enveloped as
+    /// follows: `"\u{19}Ethereum Signed Message:\n" + message.length + message`
+    /// and hashed using keccak256.
+    pub fn hash_message<S>(&self, message: S) -> H256
     where
         S: AsRef<str>,
     {
@@ -36,7 +53,9 @@ impl<T: Transport> Accounts<T> {
         eth_message.as_bytes().keccak256().into()
     }
 
-    fn sign<S>(&self, message: S, key: &SecretKey) -> Result<SignedData, ethsign::Error>
+    /// Sign arbitrary string data. The data is UTF-8 encoded and enveloped the
+    /// same way as with `hash_message`.
+    pub fn sign<S>(&self, message: S, key: &SecretKey) -> Result<SignedData, ethsign::Error>
     where
         S: AsRef<str>,
     {
@@ -44,7 +63,10 @@ impl<T: Transport> Accounts<T> {
         let message_hash = self.hash_message(&message);
 
         let signature = key.sign(&message_hash[..])?;
-        let v = signature.v + 27; // this is what web3.js does ¯\_(ツ)_/¯
+        // this is what web3.js does ¯\_(ツ)_/¯, it is documented here:
+        // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#sign
+        let v = signature.v + 27;
+
         let signature_bytes = Bytes({
             let mut bytes = Vec::with_capacity(65);
             bytes.extend_from_slice(&signature.r[..]);
@@ -57,30 +79,101 @@ impl<T: Transport> Accounts<T> {
             message,
             message_hash: message_hash.into(),
             v,
-            r: signature.r,
-            s: signature.s,
+            r: signature.r.into(),
+            s: signature.s.into(),
             signature: signature_bytes,
         })
+    }
+
+    /// Recovers the Ethereum address which was used to sign the given data.
+    pub fn recover<S, Sig>(&self, message: S, signature: Sig) -> Result<Address, ethsign::Error>
+    where
+        S: AsRef<str>,
+        Sig: IntoSignature,
+    {
+        let message_hash = self.hash_message(message);
+        let signature = signature.into_signature();
+
+        let public_key = signature.recover(&message_hash[..])?;
+
+        Ok(public_key.address().into())
+    }
+}
+
+type MaybeReady<T, R> = Either<FutureResult<R, Error>, CallFuture<R, <T as Transport>::Out>>;
+
+/// Future resolving when transaction signing is complete
+pub struct SignTransactionFuture<T: Transport> {
+    accounts: Accounts<T>,
+    tx: TransactionData,
+    key: SecretKey,
+    inner: Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, String>>,
+}
+
+impl<T: Transport> SignTransactionFuture<T> {
+    /// Creates a new SignTransactionFuture with accounts and transaction data.
+    pub fn new(accounts: Accounts<T>, tx: TransactionData, key: SecretKey) -> SignTransactionFuture<T> {
+        macro_rules! maybe {
+            ($o: expr, $f: expr) => {
+                match $o.clone() {
+                    Some(value) => Either::A(future::ok(value)),
+                    None => Either::B($f),
+                }
+            };
+        }
+
+        let from = key.public().address().into();
+        let inner = Future::join3(
+            maybe!(tx.nonce, accounts.web3().eth().transaction_count(from, None)),
+            maybe!(tx.gas_price, accounts.web3().eth().gas_price()),
+            maybe!(None, accounts.web3().net().version()),
+        );
+
+        SignTransactionFuture {
+            accounts,
+            tx,
+            key,
+            inner,
+        }
+    }
+}
+
+impl<T: Transport> Future for SignTransactionFuture<T> {
+    type Item = SignedTransaction;
+    type Error = Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
+        Ok(unimplemented!())
     }
 }
 
 pub trait IntoSignature {
-    fn into_signature(self) -> (u8, [u8; 32], [u8; 32]);
+    fn into_signature(self) -> Signature;
 }
 
-impl IntoSignature for (u8, [u8; 32], [u8; 32]) {
-    fn into_signature(self) -> (u8, [u8; 32], [u8; 32]) {
-        self
+impl IntoSignature for (u8, H256, H256) {
+    fn into_signature(self) -> Signature {
+        let (v, r, s) = self;
+        Signature {
+            v: v - 27, // ¯\_(ツ)_/¯
+            r: r.into(),
+            s: s.into(),
+        }
     }
 }
 
-impl IntoSignature for Bytes {
-    fn into_signature(self) -> (u8, [u8; 32], [u8; 32]) {
+impl<'a> IntoSignature for &'a Bytes {
+    fn into_signature(self) -> Signature {
         if self.0.len() != 65 {
             panic!("invalid signature bytes");
         }
 
-        unimplemented!()
+        let v = self.0[64];
+        let r = H256::from_slice(&self.0[0..32]);
+        let s = H256::from_slice(&self.0[32..64]);
+
+        (v, r, s).into_signature()
     }
 }
 
@@ -112,12 +205,12 @@ mod tests {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#sign
 
+        let accounts = Accounts::new(TestTransport::default());
+
         let secret: Vec<u8> = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
             .from_hex()
             .unwrap();
         let key = SecretKey::from_raw(&secret).unwrap();
-
-        let accounts = Accounts::new(TestTransport::default());
         let signed = accounts.sign("Some data", &key).unwrap();
 
         assert_eq!(
@@ -131,6 +224,27 @@ mod tests {
             "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c"
                 .from_hex::<Vec<u8>>()
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn recover() {
+        // test vector taken from:
+        // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#recover
+
+        let accounts = Accounts::new(TestTransport::default());
+
+        let v = 0x1cu8;
+        let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
+            .parse()
+            .unwrap();
+        let s: H256 = "6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
+            .parse()
+            .unwrap();
+
+        assert_eq!(
+            accounts.recover("Some data", (v, r, s)).unwrap(),
+            "2c7536E3605D9C16a7a3D7b1898e529396a65c23".parse().unwrap()
         );
     }
 }

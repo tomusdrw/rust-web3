@@ -57,6 +57,11 @@ impl<T: Transport> Web3<T> {
         A::new(self.transport.clone())
     }
 
+    /// Access methods from `accounts` namespace
+    pub fn accounts(&self) -> accounts::Accounts<T> {
+        self.api()
+    }
+
     /// Access methods from `eth` namespace
     pub fn eth(&self) -> eth::Eth<T> {
         self.api()
