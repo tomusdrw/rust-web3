@@ -1,5 +1,6 @@
 //! `Web3` implementation
 
+mod accounts;
 mod eth;
 mod eth_filter;
 mod eth_subscribe;

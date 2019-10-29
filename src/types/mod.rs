@@ -4,6 +4,7 @@ mod block;
 mod bytes;
 mod log;
 mod parity_peers;
+mod signed;
 mod sync_state;
 mod trace_filtering;
 mod traces;
@@ -19,6 +20,7 @@ pub use self::log::{Filter, FilterBuilder, Log};
 pub use self::parity_peers::{
     EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
 };
+pub use self::signed::SignedData;
 pub use self::sync_state::{SyncInfo, SyncState};
 pub use self::trace_filtering::{
     Action, ActionType, Call, CallResult, CallType, Create, CreateResult, Res, Reward, RewardType, Suicide, Trace,
