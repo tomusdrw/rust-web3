@@ -191,7 +191,7 @@ impl Tokenizable for Address {
     }
 }
 
-macro_rules! uint_tokenizable {
+macro_rules! eth_uint_tokenizable {
     ($uint: ident, $name: expr) => {
         impl Tokenizable for $uint {
             fn from_token(token: Token) -> Result<Self, Error> {
@@ -208,21 +208,44 @@ macro_rules! uint_tokenizable {
     };
 }
 
-uint_tokenizable!(U256, "U256");
-uint_tokenizable!(U128, "U128");
+eth_uint_tokenizable!(U256, "U256");
+eth_uint_tokenizable!(U128, "U128");
 
-impl Tokenizable for u64 {
-    fn from_token(token: Token) -> Result<Self, Error> {
-        match token {
-            Token::Int(data) | Token::Uint(data) => Ok(data.low_u64()),
-            other => Err(Error::InvalidOutputType(format!("Expected `u64`, got {:?}", other))),
+macro_rules! int_tokenizable {
+    ($int: ident, $token: ident) => {
+        impl Tokenizable for $int {
+            fn from_token(token: Token) -> Result<Self, Error> {
+                match token {
+                    Token::Int(data) | Token::Uint(data) => Ok(data.low_u128() as _),
+                    other => Err(Error::InvalidOutputType(format!(
+                        "Expected `{}`, got {:?}",
+                        stringify!($int),
+                        other
+                    ))),
+                }
+            }
+
+            fn into_token(self) -> Token {
+                Token::$token(self.into())
+            }
         }
-    }
-
-    fn into_token(self) -> Token {
-        Token::Uint(self.into())
-    }
+    };
 }
+
+int_tokenizable!(i8, Int);
+int_tokenizable!(i16, Int);
+int_tokenizable!(i32, Int);
+int_tokenizable!(i64, Int);
+int_tokenizable!(i128, Int);
+int_tokenizable!(u16, Uint);
+int_tokenizable!(u32, Uint);
+int_tokenizable!(u64, Uint);
+int_tokenizable!(u128, Uint);
+
+// TODO: we currently can't implement tokenizable for `u8` as it causes a bunch
+//       of conflicting trait implementation errors (Vec<Tokenizable>/Vec<u8>,
+//       [Tokenizable; N]/[u8; N]) which can be solved with multiple traits.
+// int_tokenizable!(u8, Uint);
 
 impl Tokenizable for bool {
     fn from_token(token: Token) -> Result<Self, Error> {
@@ -369,6 +392,9 @@ mod tests {
         let _bytes: Vec<[[u8; 1]; 64]> = output();
 
         let _mixed: (Vec<Vec<u8>>, [U256; 4], Vec<U256>, U256) = output();
+
+        let _ints: (i8, i16, i32, i64, i128) = output();
+        let _uints: (u16, u32, u64, u128) = output();
     }
 
     #[test]
