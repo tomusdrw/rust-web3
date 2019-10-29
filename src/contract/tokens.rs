@@ -237,15 +237,11 @@ int_tokenizable!(i16, Int);
 int_tokenizable!(i32, Int);
 int_tokenizable!(i64, Int);
 int_tokenizable!(i128, Int);
+int_tokenizable!(u8, Uint);
 int_tokenizable!(u16, Uint);
 int_tokenizable!(u32, Uint);
 int_tokenizable!(u64, Uint);
 int_tokenizable!(u128, Uint);
-
-// TODO: we currently can't implement tokenizable for `u8` as it causes a bunch
-//       of conflicting trait implementation errors (Vec<Tokenizable>/Vec<u8>,
-//       [Tokenizable; N]/[u8; N]) which can be solved with multiple traits.
-// int_tokenizable!(u8, Uint);
 
 impl Tokenizable for bool {
     fn from_token(token: Token) -> Result<Self, Error> {
@@ -257,6 +253,23 @@ impl Tokenizable for bool {
     fn into_token(self) -> Token {
         Token::Bool(self)
     }
+}
+
+/// Marker trait for `Tokenizable` types that are can tokenized to and from a
+/// `Token::Array` and `Token:FixedArray`.
+pub trait TokenizableItem: Tokenizable {}
+
+macro_rules! tokenizable_item {
+    ($($type: ty,)*) => {
+        $(
+            impl TokenizableItem for $type {}
+        )*
+    };
+}
+
+tokenizable_item! {
+    Token, String, Address, H256, U256, U128, bool, Vec<u8>,
+    i8, i16, i32, i64, i128, u16, u32, u64, u128,
 }
 
 impl Tokenizable for Vec<u8> {
@@ -272,7 +285,7 @@ impl Tokenizable for Vec<u8> {
     }
 }
 
-impl<T: Tokenizable> Tokenizable for Vec<T> {
+impl<T: TokenizableItem> Tokenizable for Vec<T> {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
             Token::FixedArray(tokens) | Token::Array(tokens) => {
@@ -286,6 +299,8 @@ impl<T: Tokenizable> Tokenizable for Vec<T> {
         Token::Array(self.into_iter().map(Tokenizable::into_token).collect())
     }
 }
+
+impl<T: TokenizableItem> TokenizableItem for Vec<T> {}
 
 macro_rules! impl_fixed_types {
     ($num: expr) => {
@@ -316,7 +331,9 @@ macro_rules! impl_fixed_types {
             }
         }
 
-        impl<T: Tokenizable + Clone> Tokenizable for [T; $num] {
+        impl TokenizableItem for [u8; $num] {}
+
+        impl<T: TokenizableItem + Clone> Tokenizable for [T; $num] {
             fn from_token(token: Token) -> Result<Self, Error> {
                 match token {
                     Token::FixedArray(tokens) => {
@@ -349,6 +366,8 @@ macro_rules! impl_fixed_types {
                 Token::FixedArray(ArrayVec::from(self).into_iter().map(T::into_token).collect())
             }
         }
+
+        impl<T: TokenizableItem + Clone> TokenizableItem for [T; $num] {}
     };
 }
 
