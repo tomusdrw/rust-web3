@@ -19,9 +19,10 @@ pub struct SignedData {
     pub signature: Bytes,
 }
 
-/// Transaction data for signing
+/// Transaction data for signing. The `Accounts::sign_transaction` method will
+/// fill optional fields with sane defaults when they are ommited.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TransactionData {
+pub struct TransactionParameters {
     /// Transaction nonce (None for account transaction count)
     pub nonce: Option<U256>,
     /// To address
@@ -34,6 +35,26 @@ pub struct TransactionData {
     pub value: Option<U256>,
     /// Data (None for empty data)
     pub data: Option<Bytes>,
+}
+
+/// Raw transaction data for signing. When a transaction is signed, all
+/// parameter values need to be finalized for signing, and all parameters are
+/// required. Note that transaction data does not actually have the `from`
+/// public address as that is recoverable from the signature.
+#[derive(Clone, Debug)]
+pub struct RawTransactionParameters {
+    /// Transaction nonce (None for account transaction count)
+    pub nonce: U256,
+    /// To address
+    pub to: Address,
+    /// Supplied gas (None for sensible default)
+    pub gas: U256,
+    /// Gas price (None for sensible default)
+    pub gas_price: U256,
+    /// Transfered value (None for no transfer)
+    pub value: U256,
+    /// Data (None for empty data)
+    pub data: Bytes,
 }
 
 /// Data for offline signed transaction

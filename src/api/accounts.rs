@@ -3,12 +3,17 @@
 use crate::api::{Namespace, Web3};
 use crate::error::Error;
 use crate::helpers::CallFuture;
-use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionData, H256, U256};
+use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionParameters, H256, U256};
 use crate::Transport;
-use ethsign::{SecretKey, Signature};
+use ethsign::{self, SecretKey, Signature};
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Future, Poll};
 use parity_crypto::Keccak256;
+use rlp::RlpStream;
+
+/// Transaction base fee, this will be used as the default transaction fee in
+/// the case none is specified for signing.
+pub const TRANSACTION_BASE_GAS_FEE: U256 = U256([21000, 0, 0, 0]);
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -36,7 +41,7 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Signs an Ethereum transaction with a given private key.
-    pub fn sign_transaction(&self, tx: TransactionData, key: SecretKey) -> SignTransactionFuture<T> {
+    pub fn sign_transaction(&self, tx: TransactionParameters, key: SecretKey) -> SignTransactionFuture<T> {
         unimplemented!()
     }
 
@@ -102,17 +107,19 @@ impl<T: Transport> Accounts<T> {
 
 type MaybeReady<T, R> = Either<FutureResult<R, Error>, CallFuture<R, <T as Transport>::Out>>;
 
+type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, String>>;
+
 /// Future resolving when transaction signing is complete
 pub struct SignTransactionFuture<T: Transport> {
     accounts: Accounts<T>,
-    tx: TransactionData,
+    tx: TransactionParameters,
     key: SecretKey,
-    inner: Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, String>>,
+    inner: TxParams<T>,
 }
 
 impl<T: Transport> SignTransactionFuture<T> {
     /// Creates a new SignTransactionFuture with accounts and transaction data.
-    pub fn new(accounts: Accounts<T>, tx: TransactionData, key: SecretKey) -> SignTransactionFuture<T> {
+    pub fn new(accounts: Accounts<T>, tx: TransactionParameters, key: SecretKey) -> SignTransactionFuture<T> {
         macro_rules! maybe {
             ($o: expr, $f: expr) => {
                 match $o.clone() {
@@ -144,10 +151,20 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
-        Ok(unimplemented!())
+        let tx = RawTxParameters {
+            nonce,
+            to: self.tx.to.unwrap_or_default(),
+            value: self.tx.value.unwrap_or_default(),
+            gas_price,
+            gas: self.tx.gas.unwrap_or(TRANSACTION_BASE_GAS_FEE),
+            data: self.tx.data.take().unwrap_or_default(),
+        };
+
+        unimplemented!();
     }
 }
 
+/// Trait for converting data into an `ethsign::Signature`.
 pub trait IntoSignature {
     fn into_signature(self) -> Signature;
 }
@@ -183,6 +200,79 @@ impl<'a> IntoSignature for &'a SignedData {
     }
 }
 
+/// Raw transaction data for signing. When a transaction is signed, all
+/// parameter values need to be finalized for signing, and all parameters are
+/// required. Note that transaction data does not actually have the `from`
+/// public address as that is recoverable from the signature.
+#[derive(Debug)]
+struct RawTxParameters {
+    /// Transaction nonce (None for account transaction count)
+    pub nonce: U256,
+    /// To address
+    pub to: Address,
+    /// Supplied gas (None for sensible default)
+    pub gas: U256,
+    /// Gas price (None for sensible default)
+    pub gas_price: U256,
+    /// Transfered value (None for no transfer)
+    pub value: U256,
+    /// Data (None for empty data)
+    pub data: Bytes,
+}
+
+impl RawTxParameters {
+    /// Sign and return a raw transaction.
+    fn sign(&self, key: &SecretKey, chain_id: Option<u64>) -> Result<Bytes, ethsign::Error> {
+        let mut rlp = RlpStream::new();
+        self.rlp_append_unsigned(&mut rlp, chain_id);
+        let hash = rlp.as_raw().keccak256();
+        rlp.clear();
+
+        let sig = key.sign(&hash[..])?;
+        self.rlp_append_signed(&mut rlp, sig, chain_id);
+
+        Ok(rlp.out().into())
+    }
+
+    /// RLP encode an unsigned transaction.
+    fn rlp_append_unsigned(&self, s: &mut RlpStream, chain_id: Option<u64>) {
+        s.begin_list(if chain_id.is_some() { 9 } else { 6 });
+        s.append(&self.nonce);
+        s.append(&self.gas_price);
+        s.append(&self.gas);
+        s.append(&self.to);
+        s.append(&self.value);
+        s.append(&self.data.0);
+        if let Some(n) = chain_id {
+            s.append(&n);
+            s.append(&0u8);
+            s.append(&0u8);
+        }
+    }
+
+    /// RLP encode a transaction with its signature.
+    fn rlp_append_signed(&self, s: &mut RlpStream, sig: Signature, chain_id: Option<u64>) {
+        let v = add_chain_replay_protection(u64::from(sig.v), chain_id);
+
+        s.begin_list(9);
+        s.append(&self.nonce);
+        s.append(&self.gas_price);
+        s.append(&self.gas);
+        s.append(&self.to);
+        s.append(&self.value);
+        s.append(&self.data.0);
+        s.append(&v);
+        s.append(&U256::from(sig.r));
+        s.append(&U256::from(sig.s));
+    }
+}
+
+/// Encode chain ID based on
+/// (EIP-155)[https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md)
+fn add_chain_replay_protection(v: u64, chain_id: Option<u64>) -> u64 {
+    v + if let Some(n) = chain_id { 35 + n * 2 } else { 27 }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +280,13 @@ mod tests {
     use crate::types::{Bytes, SignedData};
     use ethsign::{SecretKey, Signature};
     use rustc_hex::FromHex;
+
+    #[test]
+    fn tx_base_gas_fee() {
+        // make sure the endianness is right for the TX_BASE_FEE constant
+
+        assert_eq!(TRANSACTION_BASE_GAS_FEE, 21000.into());
+    }
 
     #[test]
     fn hash_message() {
@@ -256,6 +353,9 @@ mod tests {
     }
 
     #[test]
+    fn sign_transaction() {}
+
+    #[test]
     fn into_signature() {
         let v = 0x1cu8;
         let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
@@ -272,7 +372,7 @@ mod tests {
             r,
             s,
     signature: Bytes("b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c"
-                .from_hex::<Vec<u8>>()
+                .from_hex()
                 .unwrap()),
         };
         let expected_signature = Signature {
@@ -284,5 +384,34 @@ mod tests {
         assert_eq!(signed.into_signature(), expected_signature);
         assert_eq!((v, r, s).into_signature(), expected_signature);
         assert_eq!(signed.signature.into_signature(), expected_signature);
+    }
+
+    #[test]
+    fn raw_tx_params_sign() {
+        // retrieved test vector from:
+        // https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
+
+        let tx = RawTxParameters {
+            nonce: 0.into(),
+            gas: 2_000_000.into(),
+            gas_price: 234_567_897_654_321u64.into(),
+            to: "F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap(),
+            value: 1_000_000_000.into(),
+            data: Bytes::default(),
+        };
+        let key: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
+            .parse()
+            .unwrap();
+        let raw = tx
+            .sign(&SecretKey::from_raw(&key[..]).expect("valid key"), Some(1))
+            .unwrap();
+
+        let expected = Bytes(
+            "f86a8086d55698372431831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca008025a009ebb6ca057a0535d6186462bc0b465b561c94a295bdb0621fc19208ab149a9ca0440ffd775ce91a833ab410777204d5341a6f9fa91216a6f3ee2c051fea6a0428"
+                .from_hex()
+                .unwrap(),
+        );
+
+        assert_eq!(raw, expected);
     }
 }
