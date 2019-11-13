@@ -15,9 +15,11 @@ pub enum Error {
     Decoder(String),
     /// invalid response
     #[display(fmt = "Got invalid response: {}", _0)]
+    #[from(ignore)]
     InvalidResponse(String),
     /// transport error
     #[display(fmt = "Transport error: {}", _0)]
+    #[from(ignore)]
     Transport(String),
     /// rpc error
     #[display(fmt = "RPC error: {:?}", _0)]
