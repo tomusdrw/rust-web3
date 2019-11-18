@@ -21,20 +21,33 @@ pub struct SignedData {
 
 /// Transaction data for signing. The `Accounts::sign_transaction` method will
 /// fill optional fields with sane defaults when they are ommited.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransactionParameters {
     /// Transaction nonce (None for account transaction count)
     pub nonce: Option<U256>,
     /// To address
     pub to: Option<Address>,
-    /// Supplied gas (None for sensible default)
-    pub gas: Option<U256>,
-    /// Gas price (None for sensible default)
+    /// Supplied gas
+    pub gas: U256,
+    /// Gas price (None for estimated gas price)
     pub gas_price: Option<U256>,
-    /// Transfered value (None for no transfer)
-    pub value: Option<U256>,
-    /// Data (None for empty data)
-    pub data: Option<Bytes>,
+    /// Transfered value
+    pub value: U256,
+    /// Data
+    pub data: Bytes,
+}
+
+impl Default for TransactionParameters {
+    fn default() -> Self {
+        TransactionParameters {
+            nonce: None,
+            to: None,
+            gas: 100_000.into(),
+            gas_price: None,
+            value: U256::zero(),
+            data: Bytes::default(),
+        }
+    }
 }
 
 /// Data for offline signed transaction

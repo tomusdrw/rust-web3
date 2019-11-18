@@ -30,6 +30,7 @@ pub enum Error {
     Io(IoError),
     /// signing error
     #[display(fmt = "Signing error: {}", _0)]
+    #[from(ignore)]
     Signing(String),
     /// web3 internal error
     #[display(fmt = "Internal Web3 error")]

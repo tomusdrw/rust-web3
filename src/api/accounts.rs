@@ -6,14 +6,12 @@ use crate::helpers::CallFuture;
 use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionParameters, H256, U256};
 use crate::Transport;
 use ethsign::{Error as EthsignError, SecretKey, Signature};
+use ethereum_transaction::{self as ethtx, Transaction};
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Async, Future, Poll};
 use parity_crypto::Keccak256;
-use rlp::RlpStream;
-
-/// Transaction base fee, this will be used as the default transaction fee in
-/// the case none is specified for signing.
-pub const TRANSACTION_BASE_GAS_FEE: U256 = U256([21000, 0, 0, 0]);
+use std::borrow::Cow;
+use std::mem;
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -45,21 +43,25 @@ impl<T: Transport> Accounts<T> {
         SignTransactionFuture::new(self, tx, key)
     }
 
-    /// Hash a message. The data will be UTF-8 HEX decoded and enveloped as
-    /// follows: `"\u{19}Ethereum Signed Message:\n" + message.length + message`
+    /// Hash a message according to EIP-191.
+    ///
+    /// The data will be UTF-8 HEX decoded and enveloped as
+    /// follows: `"\x19Ethereum Signed Message:\n" + message.length + message`
     /// and hashed using keccak256.
     pub fn hash_message<S>(&self, message: S) -> H256
     where
         S: AsRef<str>,
     {
         let message = message.as_ref();
-        let eth_message = format!("\u{0019}Ethereum Signed Message:\n{}{}", message.len(), message);
+        let eth_message = format!("\x19Ethereum Signed Message:\n{}{}", message.len(), message);
 
         eth_message.as_bytes().keccak256().into()
     }
 
-    /// Sign arbitrary string data. The data is UTF-8 encoded and enveloped the
-    /// same way as with `hash_message`.
+    /// Sign arbitrary string data.
+    ///
+    /// The data is UTF-8 encoded and enveloped the same way as with
+    /// `hash_message`.
     pub fn sign<S>(&self, message: S, key: &SecretKey) -> Result<SignedData, Error>
     where
         S: AsRef<str>,
@@ -68,8 +70,9 @@ impl<T: Transport> Accounts<T> {
         let message_hash = self.hash_message(&message);
 
         let signature = key.sign(&message_hash[..]).map_err(EthsignError::from)?;
-        // this is what web3.js does ¯\_(ツ)_/¯, it is documented here:
-        // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#sign
+        // We convert the signature to 'Electrum' notation. Usually signatures'
+        // recovery value `v` is either `0` or `1` but under this notation the
+        // recovery value is either `27` or `28`.
         let v = signature.v + 27;
 
         let signature_bytes = Bytes({
@@ -109,7 +112,12 @@ type MaybeReady<T, R> = Either<FutureResult<R, Error>, CallFuture<R, <T as Trans
 
 type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, String>>;
 
-/// Future resolving when transaction signing is complete
+/// Future resolving when transaction signing is complete.
+///
+/// Transaction signing can perform RPC requests in order to fill missing
+/// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
+/// that if all transaction parameters were provided, this future will resolve
+/// immediately.
 pub struct SignTransactionFuture<T: Transport> {
     tx: TransactionParameters,
     key: SecretKey,
@@ -149,18 +157,26 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
-
         let chain_id = chain_id.parse::<u64>().map_err(|e| Error::Decoder(e.to_string()))?;
-        let tx = RawTxParameters {
-            nonce,
-            to: self.tx.to.unwrap_or_default(),
-            value: self.tx.value.unwrap_or_default(),
-            gas_price,
-            gas: self.tx.gas.unwrap_or(TRANSACTION_BASE_GAS_FEE),
-            data: self.tx.data.take().unwrap_or_default(),
-        };
 
-        let signed = tx.sign(&self.key, Some(chain_id))?;
+        // we need to convert `Address` and `U256` between two versions of
+        // `ethereum-types`; since they have identical memory layouts we can
+        // safely transmute them
+        macro_rules! t {
+            ($value:expr) => (unsafe { mem::transmute($value) });
+        }
+
+        let data = mem::replace(&mut self.tx.data, Bytes::default());
+        let tx = Transaction {
+            from: t!(Address::zero()), // not used for signing.
+            to: self.tx.to.map(|to| t!(to)),
+            nonce: t!(nonce),
+            gas: t!(self.tx.gas),
+            gas_price: t!(gas_price),
+            value: t!(self.tx.value),
+            data: ethtx::Bytes(data.0),
+        };
+        let signed = sign_transaction(tx, &self.key, chain_id)?;
 
         Ok(Async::Ready(signed))
     }
@@ -175,7 +191,7 @@ impl IntoSignature for (u8, H256, H256) {
     fn into_signature(self) -> Signature {
         let (v, r, s) = self;
         Signature {
-            v: v - 27, // ¯\_(ツ)_/¯
+            v: v - 27, // Convert from 'Electrum' notation
             r: r.into(),
             s: s.into(),
         }
@@ -201,6 +217,45 @@ impl<'a> IntoSignature for &'a SignedData {
         (self.v, self.r, self.s).into_signature()
     }
 }
+
+impl IntoSignature for Signature {
+    fn into_signature(self) -> Signature {
+        self
+    }
+}
+
+/// Sign and return a raw signed transaction.
+fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<SignedTransaction, EthsignError> {
+    let tx = ethtx::SignTransaction {
+        transaction: Cow::Owned(tx),
+        chain_id,
+    };
+
+    let hash = tx.hash();
+    let sig = key.sign(&hash[..])?;
+
+    let signed_tx = ethtx::SignedTransaction::new(
+        tx.transaction,
+        tx.chain_id,
+        sig.v,
+        sig.r,
+        sig.s,
+    );
+    let transaction_hash = signed_tx.hash().into();
+    let raw_transaction = Bytes(signed_tx.to_rlp());
+
+    Ok(SignedTransaction {
+        message_hash: hash.into(),
+        v: signed_tx.v,
+        r: sig.r.into(),
+        s: sig.s.into(),
+        raw_transaction,
+        transaction_hash,
+    })
+}
+
+/*
+ * TODO(nlordell): remove this?
 
 /// Raw transaction data for signing. When a transaction is signed, all
 /// parameter values need to be finalized for signing, and all parameters are
@@ -283,6 +338,8 @@ fn add_chain_replay_protection(v: u8, chain_id: Option<u64>) -> u64 {
     v + if let Some(n) = chain_id { 35 + n * 2 } else { 27 }
 }
 
+ */
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,20 +350,14 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn tx_base_gas_fee() {
-        // make sure the endianness is right for the TX_BASE_FEE constant
-        assert_eq!(TRANSACTION_BASE_GAS_FEE, 21000.into());
-    }
-
-    #[test]
-    fn sign_transaction() {
+    fn accounts_sign_transaction() {
         // retrieved test vector from:
         // https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
 
         let tx = TransactionParameters {
             to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap()),
-            value: Some(1000000000.into()),
-            gas: Some(2000000.into()),
+            value: 1000000000.into(),
+            gas: 2000000.into(),
             ..Default::default()
         };
         let secret: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
@@ -361,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn hash_message() {
+    fn accounts_hash_message() {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#hashmessage
 
@@ -380,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn sign() {
+    fn accounts_sign() {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#sign
 
@@ -410,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn recover() {
+    fn accounts_recover() {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#recover
 
@@ -469,24 +520,27 @@ mod tests {
     }
 
     #[test]
-    fn raw_tx_params_sign() {
+    fn sign_ethtx_transaction() {
         // retrieved test vector from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#eth-accounts-signtransaction
 
-        let tx = RawTxParameters {
+        let tx = Transaction {
+            from: Default::default(), // not used for signing
             nonce: 0.into(),
             gas: 2_000_000.into(),
             gas_price: 234_567_897_654_321u64.into(),
-            to: "F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap(),
+            to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap()),
             value: 1_000_000_000.into(),
-            data: Bytes::default(),
+            data: ethtx::Bytes(Vec::new()),
         };
-        let key: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
-            .parse()
-            .unwrap();
+        let key = {
+            let raw: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
+                .parse()
+                .unwrap();
+            SecretKey::from_raw(&raw[..]).expect("valid key")
+        };
 
-        let signed = tx
-            .sign(&SecretKey::from_raw(&key[..]).expect("valid key"), Some(1))
+        let signed = sign_transaction(tx,&key, 1)
             .unwrap();
 
         let expected = SignedTransaction {
