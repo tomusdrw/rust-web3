@@ -85,7 +85,9 @@ impl<'a> From<&'a EthtxSignedTransaction<'a>> for Recovery {
 /// precomputed hash.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RecoveryMessage {
+    /// Message string
     String(String),
+    /// Message hash
     Hash(H256),
 }
 

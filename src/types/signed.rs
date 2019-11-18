@@ -55,12 +55,20 @@ pub struct TransactionParameters {
     pub chain_id: Option<u64>,
 }
 
+/// The default fas for transactions.
+///
+/// Unfortunatly there is no way to construct `U256`s with const functions for
+/// constants so we just build it from it's `u64` words. Note that there is a
+/// unit test to verify that it is constructed correctly and holds the expected
+/// value of 100_000.
+const TRANSACTION_DEFAULT_GAS: U256 = U256([100_000, 0, 0, 0]);
+
 impl Default for TransactionParameters {
     fn default() -> Self {
         TransactionParameters {
             nonce: None,
             to: None,
-            gas: 100_000.into(),
+            gas: TRANSACTION_DEFAULT_GAS,
             gas_price: None,
             value: U256::zero(),
             data: Bytes::default(),
@@ -80,7 +88,7 @@ impl From<CallRequest> for TransactionParameters {
         TransactionParameters {
             nonce: None,
             to,
-            gas: call.gas.unwrap_or(100_000.into()),
+            gas: call.gas.unwrap_or(TRANSACTION_DEFAULT_GAS),
             gas_price: call.gas_price,
             value: call.value.unwrap_or_default(),
             data: call.data.unwrap_or_default(),
@@ -117,4 +125,14 @@ pub struct SignedTransaction {
     pub raw_transaction: Bytes,
     /// The transaction hash for the RLP encoded transaction.
     pub transaction_hash: H256,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_transaction_default_gas() {
+        assert_eq!(TRANSACTION_DEFAULT_GAS, U256::from(100_000));
+    }
 }

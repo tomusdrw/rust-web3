@@ -89,7 +89,7 @@ impl<T: Transport> Accounts<T> {
 
         Ok(SignedData {
             message,
-            message_hash: message_hash.into(),
+            message_hash,
             v,
             r: signature.r.into(),
             s: signature.s.into(),
@@ -235,8 +235,8 @@ mod tests {
 
         let tx = TransactionParameters {
             to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap()),
-            value: 1000000000.into(),
-            gas: 2000000.into(),
+            value: 1_000_000_000.into(),
+            gas: 2_000_000.into(),
             ..Default::default()
         };
         let secret: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
@@ -244,7 +244,7 @@ mod tests {
             .unwrap();
         let key = SecretKey::from_raw(&secret[..]).unwrap();
         let nonce = U256::zero();
-        let gas_price = U256::from(21000000000u128);
+        let gas_price = U256::from(21_000_000_000u128);
         let chain_id = "1";
         let from: Address = key.public().address().into();
 
