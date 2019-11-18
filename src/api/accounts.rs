@@ -5,8 +5,8 @@ use crate::error::Error;
 use crate::helpers::CallFuture;
 use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionParameters, H256, U256};
 use crate::Transport;
-use ethsign::{Error as EthsignError, SecretKey, Signature};
 use ethereum_transaction::{self as ethtx, Transaction};
+use ethsign::{Error as EthsignError, SecretKey, Signature};
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Async, Future, Poll};
 use parity_crypto::Keccak256;
@@ -163,7 +163,9 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
         // `ethereum-types`; since they have identical memory layouts we can
         // safely transmute them
         macro_rules! t {
-            ($value:expr) => (unsafe { mem::transmute($value) });
+            ($value:expr) => {
+                unsafe { mem::transmute($value) }
+            };
         }
 
         let data = mem::replace(&mut self.tx.data, Bytes::default());
@@ -234,13 +236,7 @@ fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<S
     let hash = tx.hash();
     let sig = key.sign(&hash[..])?;
 
-    let signed_tx = ethtx::SignedTransaction::new(
-        tx.transaction,
-        tx.chain_id,
-        sig.v,
-        sig.r,
-        sig.s,
-    );
+    let signed_tx = ethtx::SignedTransaction::new(tx.transaction, tx.chain_id, sig.v, sig.r, sig.s);
     let transaction_hash = signed_tx.hash().into();
     let raw_transaction = Bytes(signed_tx.to_rlp());
 
@@ -540,8 +536,7 @@ mod tests {
             SecretKey::from_raw(&raw[..]).expect("valid key")
         };
 
-        let signed = sign_transaction(tx,&key, 1)
-            .unwrap();
+        let signed = sign_transaction(tx, &key, 1).unwrap();
 
         let expected = SignedTransaction {
             message_hash: "6893a6ee8df79b0f5d64a180cd1ef35d030f3e296a5361cf04d02ce720d32ec5"
