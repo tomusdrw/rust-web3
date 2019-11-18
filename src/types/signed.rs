@@ -1,4 +1,4 @@
-use crate::types::{Address, Bytes, H256, U256};
+use crate::types::{Address, Bytes, CallRequest, H256, U256};
 use serde::{Deserialize, Serialize};
 
 /// Struct representing signed data returned from `Accounts::sign` method.
@@ -19,8 +19,19 @@ pub struct SignedData {
     pub signature: Bytes,
 }
 
-/// Transaction data for signing. The `Accounts::sign_transaction` method will
-/// fill optional fields with sane defaults when they are ommited.
+/// Transaction data for signing.
+///
+/// The `Accounts::sign_transaction` method will fill optional fields with sane
+/// defaults when they are ommited. Specifically the signing account's current
+/// transaction count will be used for the `nonce`, and the estimated
+/// recommended gas price will be used for `gas_price`.
+///
+/// `TransactionParameters` implements `Default` and uses `100_000` as the
+/// default `gas` to use for the transaction. This is more than enough for
+/// simple transactions sending ETH between accounts but may not be enough when
+/// interacting with complex contracts. It is recommended when interacting
+/// with contracts to use `Eth::estimate_gas` to estimate the required gas for
+/// the transaction.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransactionParameters {
     /// Transaction nonce (None for account transaction count)
@@ -46,6 +57,38 @@ impl Default for TransactionParameters {
             gas_price: None,
             value: U256::zero(),
             data: Bytes::default(),
+        }
+    }
+}
+
+impl From<CallRequest> for TransactionParameters {
+    fn from(call: CallRequest) -> Self {
+        let to = if call.to != Address::zero() {
+            Some(call.to)
+        } else {
+            None
+        };
+
+        TransactionParameters {
+            nonce: None,
+            to,
+            gas: call.gas.unwrap_or(100_000.into()),
+            gas_price: call.gas_price,
+            value: call.value.unwrap_or_default(),
+            data: call.data.unwrap_or_default(),
+        }
+    }
+}
+
+impl Into<CallRequest> for TransactionParameters {
+    fn into(self) -> CallRequest {
+        CallRequest {
+            from: None,
+            to: self.to.unwrap_or_default(),
+            gas: Some(self.gas),
+            gas_price: self.gas_price,
+            value: Some(self.value),
+            data: Some(self.data),
         }
     }
 }
