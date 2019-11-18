@@ -183,7 +183,12 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
 }
 
 /// Trait for converting data into an `ethsign::Signature`.
+///
+/// For signatures from the `Accounts` namespace, the signatures need to be
+/// converted from 'Electrum' notation, which involves mapping the recovery
+/// value `v` from `27` or `28` to `0` or `1`.
 pub trait IntoSignature {
+    /// Convert `self` into a `ethsign::Signature`.
     fn into_signature(self) -> Signature;
 }
 
@@ -191,7 +196,7 @@ impl IntoSignature for (u8, H256, H256) {
     fn into_signature(self) -> Signature {
         let (v, r, s) = self;
         Signature {
-            v: v - 27, // Convert from 'Electrum' notation
+            v: v.saturating_sub(27), // Convert from 'Electrum' notation
             r: r.into(),
             s: s.into(),
         }
@@ -218,11 +223,40 @@ impl<'a> IntoSignature for &'a SignedData {
     }
 }
 
+impl<'a> IntoSignature for &'a SignedTransaction {
+    fn into_signature(self) -> Signature {
+        // transaction information is not needed for recovering standard v, it
+        // is theoretically recoverable from the raw transaction but that can
+        // potentially fail when the data is invalid for some reason
+        let empty_tx = Transaction {
+            from: Default::default(),
+            to: Default::default(),
+            nonce: Default::default(),
+            gas: Default::default(),
+            gas_price: Default::default(),
+            value: Default::default(),
+            data: ethtx::Bytes(Default::default()),
+        };
+
+        let signed_tx = ethtx::SignedTransaction {
+            transaction: Cow::Owned(empty_tx), // not used for recovering standard v
+            v: self.v,
+            r: ethtx::U256::from_big_endian(&self.r.0[..]),
+            s: ethtx::U256::from_big_endian(&self.s.0[..]),
+        };
+
+        (signed_tx.standard_v(), self.r, self.s).into_signature()
+    }
+}
+
 impl IntoSignature for Signature {
     fn into_signature(self) -> Signature {
         self
     }
 }
+
+// impl TryInto<Signature> for Bytes {
+// }
 
 /// Sign and return a raw signed transaction.
 fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<SignedTransaction, EthsignError> {
