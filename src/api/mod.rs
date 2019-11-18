@@ -11,7 +11,7 @@ mod personal;
 mod traces;
 mod web3;
 
-pub use self::accounts::{Accounts, SignTransactionFuture, IntoSignature};
+pub use self::accounts::{Accounts, SignTransactionFuture};
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};

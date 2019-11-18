@@ -3,10 +3,12 @@
 use crate::api::{Namespace, Web3};
 use crate::error::Error;
 use crate::helpers::CallFuture;
-use crate::types::{Address, Bytes, SignedData, SignedTransaction, TransactionParameters, H256, U256};
+use crate::types::{
+    Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
+};
 use crate::Transport;
 use ethereum_transaction::{self as ethtx, Transaction};
-use ethsign::{Error as EthsignError, SecretKey, Signature};
+use ethsign::{Error as EthsignError, SecretKey};
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Async, Future, Poll};
 use parity_crypto::Keccak256;
@@ -45,9 +47,9 @@ impl<T: Transport> Accounts<T> {
 
     /// Hash a message according to EIP-191.
     ///
-    /// The data will be UTF-8 HEX decoded and enveloped as
-    /// follows: `"\x19Ethereum Signed Message:\n" + message.length + message`
-    /// and hashed using keccak256.
+    /// The data is a UTF-8 encoded string and will enveloped as follows:
+    /// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
+    /// using keccak256.
     pub fn hash_message<S>(&self, message: S) -> H256
     where
         S: AsRef<str>,
@@ -61,7 +63,11 @@ impl<T: Transport> Accounts<T> {
     /// Sign arbitrary string data.
     ///
     /// The data is UTF-8 encoded and enveloped the same way as with
-    /// `hash_message`.
+    /// `hash_message`. The returned signed data's signature is in 'Electrum'
+    /// notation, that is the recovery value `v` is either `27` or `28` (as
+    /// opposed to the standard notation where `v` is either `0` or `1`). This
+    /// is important to consider when using this signature with other crates
+    /// such as `ethsign`.
     pub fn sign<S>(&self, message: S, key: &SecretKey) -> Result<SignedData, Error>
     where
         S: AsRef<str>,
@@ -70,9 +76,7 @@ impl<T: Transport> Accounts<T> {
         let message_hash = self.hash_message(&message);
 
         let signature = key.sign(&message_hash[..]).map_err(EthsignError::from)?;
-        // We convert the signature to 'Electrum' notation. Usually signatures'
-        // recovery value `v` is either `0` or `1` but under this notation the
-        // recovery value is either `27` or `28`.
+        // convert to 'Electrum' notation
         let v = signature.v + 27;
 
         let signature_bytes = Bytes({
@@ -94,13 +98,19 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Recovers the Ethereum address which was used to sign the given data.
-    pub fn recover<S, Sig>(&self, message: S, signature: Sig) -> Result<Address, Error>
+    ///
+    /// Recovery signature data uses 'Electrum' notation, this means the `v`
+    /// value is expected to be either `27` or `28`.
+    pub fn recover<R>(&self, recovery: R) -> Result<Address, Error>
     where
-        S: AsRef<str>,
-        Sig: IntoSignature,
+        R: Into<Recovery>,
     {
-        let message_hash = self.hash_message(message);
-        let signature = signature.into_signature();
+        let recovery = recovery.into();
+        let message_hash = match recovery.message {
+            RecoveryMessage::String(ref message) => self.hash_message(message),
+            RecoveryMessage::Hash(hash) => hash,
+        };
+        let signature = recovery.as_signature();
 
         let public_key = signature.recover(&message_hash[..]).map_err(EthsignError::from)?;
 
@@ -140,7 +150,10 @@ impl<T: Transport> SignTransactionFuture<T> {
         let inner = Future::join3(
             maybe!(tx.nonce, accounts.web3().eth().transaction_count(from, None)),
             maybe!(tx.gas_price, accounts.web3().eth().gas_price()),
-            maybe!(None, accounts.web3().net().version()),
+            // TODO(nlordell): avoid converting chain ID to and from string,
+            //   this will require wrapping the `Net::version()` call to convert
+            //   the result from a string to a u64
+            maybe!(tx.chain_id.map(|id| id.to_string()), accounts.web3().net().version()),
         );
 
         SignTransactionFuture {
@@ -182,82 +195,6 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
     }
 }
 
-/// Trait for converting data into an `ethsign::Signature`.
-///
-/// For signatures from the `Accounts` namespace, the signatures need to be
-/// converted from 'Electrum' notation, which involves mapping the recovery
-/// value `v` from `27` or `28` to `0` or `1`.
-pub trait IntoSignature {
-    /// Convert `self` into a `ethsign::Signature`.
-    fn into_signature(self) -> Signature;
-}
-
-impl IntoSignature for (u8, H256, H256) {
-    fn into_signature(self) -> Signature {
-        let (v, r, s) = self;
-        Signature {
-            v: v.saturating_sub(27), // Convert from 'Electrum' notation
-            r: r.into(),
-            s: s.into(),
-        }
-    }
-}
-
-impl<'a> IntoSignature for &'a Bytes {
-    fn into_signature(self) -> Signature {
-        if self.0.len() != 65 {
-            panic!("invalid signature bytes");
-        }
-
-        let v = self.0[64];
-        let r = H256::from_slice(&self.0[0..32]);
-        let s = H256::from_slice(&self.0[32..64]);
-
-        (v, r, s).into_signature()
-    }
-}
-
-impl<'a> IntoSignature for &'a SignedData {
-    fn into_signature(self) -> Signature {
-        (self.v, self.r, self.s).into_signature()
-    }
-}
-
-impl<'a> IntoSignature for &'a SignedTransaction {
-    fn into_signature(self) -> Signature {
-        // transaction information is not needed for recovering standard v, it
-        // is theoretically recoverable from the raw transaction but that can
-        // potentially fail when the data is invalid for some reason
-        let empty_tx = Transaction {
-            from: Default::default(),
-            to: Default::default(),
-            nonce: Default::default(),
-            gas: Default::default(),
-            gas_price: Default::default(),
-            value: Default::default(),
-            data: ethtx::Bytes(Default::default()),
-        };
-
-        let signed_tx = ethtx::SignedTransaction {
-            transaction: Cow::Owned(empty_tx), // not used for recovering standard v
-            v: self.v,
-            r: ethtx::U256::from_big_endian(&self.r.0[..]),
-            s: ethtx::U256::from_big_endian(&self.s.0[..]),
-        };
-
-        (signed_tx.standard_v(), self.r, self.s).into_signature()
-    }
-}
-
-impl IntoSignature for Signature {
-    fn into_signature(self) -> Signature {
-        self
-    }
-}
-
-// impl TryInto<Signature> for Bytes {
-// }
-
 /// Sign and return a raw signed transaction.
 fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<SignedTransaction, EthsignError> {
     let tx = ethtx::SignTransaction {
@@ -286,8 +223,8 @@ fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<S
 mod tests {
     use super::*;
     use crate::helpers::tests::TestTransport;
-    use crate::types::{Bytes, SignedData};
-    use ethsign::{SecretKey, Signature};
+    use crate::types::Bytes;
+    use ethsign::SecretKey;
     use rustc_hex::FromHex;
     use serde_json::json;
 
@@ -354,6 +291,31 @@ mod tests {
     }
 
     #[test]
+    fn accounts_sign_transaction_with_all_parameters() {
+        let secret: Vec<u8> = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+            .from_hex()
+            .unwrap();
+        let key = SecretKey::from_raw(&secret).unwrap();
+
+        let accounts = Accounts::new(TestTransport::default());
+        accounts
+            .sign_transaction(
+                TransactionParameters {
+                    nonce: Some(0.into()),
+                    gas_price: Some(1.into()),
+                    chain_id: Some(42),
+                    ..Default::default()
+                },
+                &key,
+            )
+            .wait()
+            .unwrap();
+
+        // sign_transaction makes no requests when all parameters are specified
+        accounts.transport().assert_no_more_requests();
+    }
+
+    #[test]
     fn accounts_hash_message() {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#hashmessage
@@ -409,7 +371,7 @@ mod tests {
 
         let accounts = Accounts::new(TestTransport::default());
 
-        let v = 0x1cu8;
+        let v = 0x1cu64;
         let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
             .parse()
             .unwrap();
@@ -417,8 +379,9 @@ mod tests {
             .parse()
             .unwrap();
 
+        let recovery = Recovery::new("Some data", v, r, s);
         assert_eq!(
-            accounts.recover("Some data", (v, r, s)).unwrap(),
+            accounts.recover(recovery).unwrap(),
             "2c7536E3605D9C16a7a3D7b1898e529396a65c23".parse().unwrap()
         );
 
@@ -427,38 +390,36 @@ mod tests {
     }
 
     #[test]
-    fn into_signature() {
-        let v = 0x1cu8;
-        let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
-            .parse()
+    fn accounts_recover_signed() {
+        let secret: Vec<u8> = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+            .from_hex()
             .unwrap();
-        let s: H256 = "6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
-            .parse()
+        let key = SecretKey::from_raw(&secret).unwrap();
+        let address: Address = key.public().address().into();
+
+        let accounts = Accounts::new(TestTransport::default());
+
+        let signed = accounts.sign("rust-web3 rocks!", &key).unwrap();
+        let recovered = accounts.recover(&signed).unwrap();
+        assert_eq!(recovered, address);
+
+        let signed = accounts
+            .sign_transaction(
+                TransactionParameters {
+                    nonce: Some(0.into()),
+                    gas_price: Some(1.into()),
+                    chain_id: Some(42),
+                    ..Default::default()
+                },
+                &key,
+            )
+            .wait()
             .unwrap();
+        let recovered = accounts.recover(&signed).unwrap();
+        assert_eq!(recovered, address);
 
-        let signed = SignedData {
-            message: "Some data".to_string(),
-            message_hash: "1da44b586eb0729ff70a73c326926f6ed5a25f5b056e7f47fbc6e58d86871655"
-                .parse()
-                .unwrap(),
-            v,
-            r,
-            s,
-            signature: Bytes(
-                "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c"
-                    .from_hex()
-                    .unwrap()
-            ),
-        };
-        let expected_signature = Signature {
-            v: 0x01,
-            r: r.into(),
-            s: s.into(),
-        };
-
-        assert_eq!(signed.into_signature(), expected_signature);
-        assert_eq!((v, r, s).into_signature(), expected_signature);
-        assert_eq!(signed.signature.into_signature(), expected_signature);
+        // these methods make no requests
+        accounts.transport().assert_no_more_requests();
     }
 
     #[test]

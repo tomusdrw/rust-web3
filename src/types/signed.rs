@@ -23,8 +23,13 @@ pub struct SignedData {
 ///
 /// The `Accounts::sign_transaction` method will fill optional fields with sane
 /// defaults when they are ommited. Specifically the signing account's current
-/// transaction count will be used for the `nonce`, and the estimated
-/// recommended gas price will be used for `gas_price`.
+/// transaction count will be used for the `nonce`, the estimated recommended
+/// gas price will be used for `gas_price`, and the current network ID will be
+/// used for the `chain_id`.
+///
+/// It is worth noting that the chain ID is not equivalent to the network ID.
+/// They happen to be the same much of the time but it is recommended to set
+/// this for signing transactions.
 ///
 /// `TransactionParameters` implements `Default` and uses `100_000` as the
 /// default `gas` to use for the transaction. This is more than enough for
@@ -46,6 +51,8 @@ pub struct TransactionParameters {
     pub value: U256,
     /// Data
     pub data: Bytes,
+    /// The chain ID (None for network ID)
+    pub chain_id: Option<u64>,
 }
 
 impl Default for TransactionParameters {
@@ -57,6 +64,7 @@ impl Default for TransactionParameters {
             gas_price: None,
             value: U256::zero(),
             data: Bytes::default(),
+            chain_id: None,
         }
     }
 }
@@ -76,6 +84,7 @@ impl From<CallRequest> for TransactionParameters {
             gas_price: call.gas_price,
             value: call.value.unwrap_or_default(),
             data: call.data.unwrap_or_default(),
+            chain_id: None,
         }
     }
 }
