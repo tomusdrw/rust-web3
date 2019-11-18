@@ -7,7 +7,9 @@ use crate::types::{
     Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
 };
 use crate::Transport;
-use ethereum_transaction::{self as ethtx, Transaction};
+use ethereum_transaction::{
+    Bytes as EthtxBytes, SignTransaction, SignedTransaction as EthtxSignedTransaction, Transaction,
+};
 use ethsign::{Error as EthsignError, SecretKey};
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Async, Future, Poll};
@@ -176,11 +178,11 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
         let tx = Transaction {
             from: Address::zero(), // not used for signing.
             to: self.tx.to,
-            nonce: nonce,
+            nonce,
             gas: self.tx.gas,
-            gas_price: gas_price,
+            gas_price,
             value: self.tx.value,
-            data: ethtx::Bytes(data.0),
+            data: EthtxBytes(data.0),
         };
         let signed = sign_transaction(tx, &self.key, chain_id)?;
 
@@ -190,7 +192,7 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
 
 /// Sign and return a raw signed transaction.
 fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<SignedTransaction, EthsignError> {
-    let tx = ethtx::SignTransaction {
+    let tx = SignTransaction {
         transaction: Cow::Owned(tx),
         chain_id,
     };
@@ -198,7 +200,7 @@ fn sign_transaction(tx: Transaction, key: &SecretKey, chain_id: u64) -> Result<S
     let hash = tx.hash();
     let sig = key.sign(&hash[..])?;
 
-    let signed_tx = ethtx::SignedTransaction::new(tx.transaction, tx.chain_id, sig.v, sig.r, sig.s);
+    let signed_tx = EthtxSignedTransaction::new(tx.transaction, tx.chain_id, sig.v, sig.r, sig.s);
     let transaction_hash = signed_tx.hash().into();
     let raw_transaction = Bytes(signed_tx.to_rlp());
 
@@ -427,7 +429,7 @@ mod tests {
             gas_price: 234_567_897_654_321u64.into(),
             to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse().unwrap()),
             value: 1_000_000_000.into(),
-            data: ethtx::Bytes(Vec::new()),
+            data: EthtxBytes(Vec::new()),
         };
         let key = {
             let raw: H256 = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
