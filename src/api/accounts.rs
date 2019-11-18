@@ -159,9 +159,7 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
         let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
         let chain_id = chain_id.parse::<u64>().map_err(|e| Error::Decoder(e.to_string()))?;
 
-        // we need to convert `Address` and `U256` between two versions of
-        // `ethereum-types`; since they have identical memory layouts we can
-        // safely transmute them
+        // TODO(nlordell): remove this once `ethereum-transaction` updates land
         macro_rules! t {
             ($value:expr) => {
                 unsafe { mem::transmute($value) }
