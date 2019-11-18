@@ -172,21 +172,14 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
         let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
         let chain_id = chain_id.parse::<u64>().map_err(|e| Error::Decoder(e.to_string()))?;
 
-        // TODO(nlordell): remove this once `ethereum-transaction` updates land
-        macro_rules! t {
-            ($value:expr) => {
-                unsafe { mem::transmute($value) }
-            };
-        }
-
         let data = mem::replace(&mut self.tx.data, Bytes::default());
         let tx = Transaction {
-            from: t!(Address::zero()), // not used for signing.
-            to: self.tx.to.map(|to| t!(to)),
-            nonce: t!(nonce),
-            gas: t!(self.tx.gas),
-            gas_price: t!(gas_price),
-            value: t!(self.tx.value),
+            from: Address::zero(), // not used for signing.
+            to: self.tx.to,
+            nonce: nonce,
+            gas: self.tx.gas,
+            gas_price: gas_price,
+            value: self.tx.value,
             data: ethtx::Bytes(data.0),
         };
         let signed = sign_transaction(tx, &self.key, chain_id)?;
