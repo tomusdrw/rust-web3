@@ -1,6 +1,8 @@
 use crate::types::{SignedData, SignedTransaction, H256};
 use ethereum_transaction::SignedTransaction as EthtxSignedTransaction;
 use ethsign::Signature;
+use std::error::Error;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Data for recovering the public address of signed data.
 ///
@@ -31,6 +33,29 @@ impl Recovery {
             r,
             s,
         }
+    }
+
+    /// Creates new recovery data from a raw signature.
+    ///
+    /// This parses a raw signature which is expected to be 65 bytes long where
+    /// the first 32 bytes is the `r` value, the second 32 bytes the `s` value
+    /// and the final byte is the `v` value in 'Electrum' notation.
+    pub fn from_raw_signature<M, B>(message: M, raw_signature: B) -> Result<Recovery, ParseSignatureError>
+    where
+        M: Into<RecoveryMessage>,
+        B: AsRef<[u8]>,
+    {
+        let bytes = raw_signature.as_ref();
+
+        if bytes.len() != 65 {
+            return Err(ParseSignatureError);
+        }
+
+        let v = bytes[64];
+        let r = H256::from_slice(&bytes[0..32]);
+        let s = H256::from_slice(&bytes[32..64]);
+
+        Ok(Recovery::new(message, v as _, r, s))
     }
 
     /// Retrieves the recovery signature in standard notation.
@@ -115,6 +140,18 @@ impl From<H256> for RecoveryMessage {
     }
 }
 
+/// An error parsing a raw signature.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct ParseSignatureError;
+
+impl Display for ParseSignatureError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "error parsing raw signature: wrong number of bytes, expected 65")
+    }
+}
+
+impl Error for ParseSignatureError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +191,11 @@ mod tests {
 
         assert_eq!(Recovery::from(&signed).as_signature(), expected_signature);
         assert_eq!(Recovery::new(message, v as _, r, s).as_signature(), expected_signature);
+        assert_eq!(
+            Recovery::from_raw_signature(message, &signed.signature.0)
+                .unwrap()
+                .as_signature(),
+            expected_signature
+        );
     }
 }
