@@ -111,7 +111,7 @@ impl<'a> From<&'a EthtxSignedTransaction<'a>> for Recovery {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RecoveryMessage {
     /// Message bytes
-    Bytes(Vec<u8>),
+    Data(Vec<u8>),
     /// Message hash
     Hash(H256),
 }
@@ -125,7 +125,7 @@ impl From<&[u8]> for RecoveryMessage {
 
 impl From<Vec<u8>> for RecoveryMessage {
     fn from(s: Vec<u8>) -> Self {
-        RecoveryMessage::Bytes(s)
+        RecoveryMessage::Data(s)
     }
 }
 
@@ -137,7 +137,7 @@ impl From<&str> for RecoveryMessage {
 
 impl From<String> for RecoveryMessage {
     fn from(s: String) -> Self {
-        RecoveryMessage::Bytes(s.into_bytes())
+        RecoveryMessage::Data(s.into_bytes())
     }
 }
 

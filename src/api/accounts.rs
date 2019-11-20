@@ -114,7 +114,7 @@ impl<T: Transport> Accounts<T> {
     {
         let recovery = recovery.into();
         let message_hash = match recovery.message {
-            RecoveryMessage::Bytes(ref message) => self.hash_message(message),
+            RecoveryMessage::Data(ref message) => self.hash_message(message),
             RecoveryMessage::Hash(hash) => hash,
         };
         let signature = recovery.as_signature();
