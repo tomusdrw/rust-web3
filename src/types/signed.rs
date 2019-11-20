@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 /// Struct representing signed data returned from `Accounts::sign` method.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SignedData {
-    /// The original method that was signed.
-    pub message: String,
+    /// The original message that was signed.
+    pub message: Vec<u8>,
     /// The keccak256 hash of the signed data.
     #[serde(rename = "messageHash")]
     pub message_hash: H256,
