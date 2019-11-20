@@ -91,7 +91,7 @@ impl<T: Transport> Accounts<T> {
             bytes
         });
 
-        // We perform this allocation only after all previous fallible action have completed successfully.
+        // We perform this allocation only after all previous fallible actions have completed successfully.
         let message = message.to_owned();
 
         Ok(SignedData {

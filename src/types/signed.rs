@@ -22,7 +22,7 @@ pub struct SignedData {
 /// Transaction data for signing.
 ///
 /// The `Accounts::sign_transaction` method will fill optional fields with sane
-/// defaults when they are ommited. Specifically the signing account's current
+/// defaults when they are omitted. Specifically the signing account's current
 /// transaction count will be used for the `nonce`, the estimated recommended
 /// gas price will be used for `gas_price`, and the current network ID will be
 /// used for the `chain_id`.
