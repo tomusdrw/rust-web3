@@ -122,7 +122,6 @@ impl From<&[u8]> for RecoveryMessage {
     }
 }
 
-
 impl From<Vec<u8>> for RecoveryMessage {
     fn from(s: Vec<u8>) -> Self {
         RecoveryMessage::Data(s)
