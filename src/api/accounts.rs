@@ -54,12 +54,14 @@ impl<T: Transport> Accounts<T> {
     /// using keccak256.
     pub fn hash_message<S>(&self, message: S) -> H256
     where
-        S: AsRef<str>,
+        S: AsRef<[u8]>,
     {
         let message = message.as_ref();
-        let eth_message = format!("\x19Ethereum Signed Message:\n{}{}", message.len(), message);
 
-        eth_message.as_bytes().keccak256().into()
+        let mut eth_message = Vec::from(format!("\x19Ethereum Signed Message:\n{}", message.len()).as_bytes());
+        eth_message.extend_from_slice(message);
+
+        eth_message.keccak256().into()
     }
 
     /// Sign arbitrary string data.
@@ -72,10 +74,10 @@ impl<T: Transport> Accounts<T> {
     /// such as `ethsign`.
     pub fn sign<S>(&self, message: S, key: &SecretKey) -> Result<SignedData, Error>
     where
-        S: AsRef<str>,
+        S: AsRef<[u8]>,
     {
-        let message = message.as_ref().to_string();
-        let message_hash = self.hash_message(&message);
+        let message = message.as_ref();
+        let message_hash = self.hash_message(message);
 
         let signature = key.sign(&message_hash[..]).map_err(EthsignError::from)?;
         // convert to 'Electrum' notation
@@ -88,6 +90,9 @@ impl<T: Transport> Accounts<T> {
             bytes.push(v);
             bytes
         });
+
+        // We perform this allocation only after all previous fallible actions have completed successfully.
+        let message = message.to_owned();
 
         Ok(SignedData {
             message,
@@ -109,7 +114,7 @@ impl<T: Transport> Accounts<T> {
     {
         let recovery = recovery.into();
         let message_hash = match recovery.message {
-            RecoveryMessage::String(ref message) => self.hash_message(message),
+            RecoveryMessage::Data(ref message) => self.hash_message(message),
             RecoveryMessage::Hash(hash) => hash,
         };
         let signature = recovery.as_signature();

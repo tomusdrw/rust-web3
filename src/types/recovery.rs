@@ -105,26 +105,38 @@ impl<'a> From<&'a EthtxSignedTransaction<'a>> for Recovery {
 
 /// Recovery message data.
 ///
-/// The message data can either be a string message that is first hashed
+/// The message data can either be a binary message that is first hashed
 /// according to EIP-191 and then recovered based on the signature or a
 /// precomputed hash.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RecoveryMessage {
-    /// Message string
-    String(String),
+    /// Message bytes
+    Data(Vec<u8>),
     /// Message hash
     Hash(H256),
 }
 
-impl<'a> From<&'a str> for RecoveryMessage {
-    fn from(s: &'a str) -> Self {
+impl From<&[u8]> for RecoveryMessage {
+    fn from(s: &[u8]) -> Self {
         s.to_owned().into()
+    }
+}
+
+impl From<Vec<u8>> for RecoveryMessage {
+    fn from(s: Vec<u8>) -> Self {
+        RecoveryMessage::Data(s)
+    }
+}
+
+impl From<&str> for RecoveryMessage {
+    fn from(s: &str) -> Self {
+        s.as_bytes().to_owned().into()
     }
 }
 
 impl From<String> for RecoveryMessage {
     fn from(s: String) -> Self {
-        RecoveryMessage::String(s)
+        RecoveryMessage::Data(s.into_bytes())
     }
 }
 
@@ -170,7 +182,7 @@ mod tests {
             .unwrap();
 
         let signed = SignedData {
-            message: message.to_string(),
+            message: message.as_bytes().to_owned(),
             message_hash: "1da44b586eb0729ff70a73c326926f6ed5a25f5b056e7f47fbc6e58d86871655"
                 .parse()
                 .unwrap(),
