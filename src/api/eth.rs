@@ -72,9 +72,16 @@ impl<T: Transport> Eth<T> {
     /// Call a contract without changing the state of the blockchain to estimate gas usage.
     pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallFuture::new(self.transport.execute("eth_estimateGas", vec![req, block]))
+        let args = {
+            if let Some(block) = block {
+                vec![req, helpers::serialize(&block)]
+            } else {
+                vec![req]
+            }
+        };
+
+        CallFuture::new(self.transport.execute("eth_estimateGas", args))
     }
 
     /// Get current recommended gas price
@@ -454,7 +461,7 @@ mod tests {
       value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
     Value::String("0x123".into()) => 0x123
   );
 
