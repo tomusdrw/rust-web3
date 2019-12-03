@@ -73,12 +73,9 @@ impl<T: Transport> Eth<T> {
     pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let req = helpers::serialize(&req);
 
-        let args = {
-            if let Some(block) = block {
-                vec![req, helpers::serialize(&block)]
-            } else {
-                vec![req]
-            }
+        let args = match block {
+            Some(block) => vec![req, helpers::serialize(&block)],
+            None => vec![req],
         };
 
         CallFuture::new(self.transport.execute("eth_estimateGas", args))
