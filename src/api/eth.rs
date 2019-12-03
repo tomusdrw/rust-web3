@@ -463,6 +463,17 @@ mod tests {
   );
 
     rpc_test! (
+    Eth:estimate_gas:for_block, CallRequest {
+      from: None, to: Address::from_low_u64_be(0x123),
+      gas: None, gas_price: None,
+      value: Some(0x1.into()), data: None,
+    }, Some(0x123.into())
+    =>
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""0x123""#];
+    Value::String("0x123".into()) => 0x123
+  );
+
+    rpc_test! (
     Eth:gas_price => "eth_gasPrice";
     Value::String("0x123".into()) => 0x123
   );
