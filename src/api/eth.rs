@@ -72,9 +72,13 @@ impl<T: Transport> Eth<T> {
     /// Call a contract without changing the state of the blockchain to estimate gas usage.
     pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
-        CallFuture::new(self.transport.execute("eth_estimateGas", vec![req, block]))
+        let args = match block {
+            Some(block) => vec![req, helpers::serialize(&block)],
+            None => vec![req],
+        };
+
+        CallFuture::new(self.transport.execute("eth_estimateGas", args))
     }
 
     /// Get current recommended gas price
@@ -454,7 +458,18 @@ mod tests {
       value: Some(0x1.into()), data: None,
     }, None
     =>
-    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
+    Value::String("0x123".into()) => 0x123
+  );
+
+    rpc_test! (
+    Eth:estimate_gas:for_block, CallRequest {
+      from: None, to: Address::from_low_u64_be(0x123),
+      gas: None, gas_price: None,
+      value: Some(0x1.into()), data: None,
+    }, Some(0x123.into())
+    =>
+    "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""0x123""#];
     Value::String("0x123".into()) => 0x123
   );
 
