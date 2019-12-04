@@ -166,6 +166,11 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_getCompilers", vec![]))
     }
 
+    /// Get chain id
+    pub fn chain_id(&self) -> CallFuture<U256, T::Out> {
+        CallFuture::new(self.transport.execute("eth_chainId", vec![]))
+    }
+
     /// Get storage entry
     pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallFuture<H256, T::Out> {
         let address = helpers::serialize(&address);
@@ -539,6 +544,11 @@ mod tests {
     rpc_test! (
     Eth:compilers => "eth_getCompilers";
     Value::Array(vec![]) => vec![]
+  );
+
+    rpc_test! (
+    Eth:chain_id => "eth_chainId";
+    Value::String("0x123".into()) => 0x123
   );
 
     rpc_test! (
