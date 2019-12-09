@@ -62,6 +62,8 @@ pub struct Receipt {
     pub logs: Vec<Log>,
     /// Status: either 1 (success) or 0 (failure).
     pub status: Option<U64>,
+    /// State root.
+    pub root: Option<H256>,
     /// Logs bloom
     #[serde(rename = "logsBloom")]
     pub logs_bloom: H2048,
