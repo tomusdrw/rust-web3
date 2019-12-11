@@ -131,6 +131,92 @@ where
     }
 }
 
+/// A wrapper over two possible transports.
+///
+/// This type can be used to write semi-generic
+/// code without the hassle of making all functions generic.
+///
+/// See the `examples` folder for an example how to use it.
+#[derive(Debug, Clone)]
+pub enum EitherTransport<A, B> {
+    /// First possible transport.
+    Left(A),
+    /// Second possible transport.
+    Right(B),
+}
+
+impl<A, B, AOut, BOut> Transport for EitherTransport<A, B>
+where
+    A: Transport<Out = AOut>,
+    B: Transport<Out = BOut>,
+    AOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
+    BOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
+{
+    type Out = Box<dyn futures::Future<Item = rpc::Value, Error = Error>>;
+
+    fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+        match *self {
+            Self::Left(ref a) => a.prepare(method, params),
+            Self::Right(ref b) => b.prepare(method, params),
+        }
+    }
+
+    fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
+        match *self {
+            Self::Left(ref a) => Box::new(a.send(id, request)),
+            Self::Right(ref b) => Box::new(b.send(id, request)),
+        }
+    }
+}
+
+impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B>
+where
+    A: BatchTransport<Batch = ABatch>,
+    B: BatchTransport<Batch = BBatch>,
+    A::Out: 'static,
+    B::Out: 'static,
+    ABatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
+    BBatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
+{
+    type Batch = Box<dyn futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>>;
+
+    fn send_batch<T>(&self, requests: T) -> Self::Batch
+    where
+        T: IntoIterator<Item = (RequestId, rpc::Call)>,
+    {
+        match *self {
+            Self::Left(ref a) => Box::new(a.send_batch(requests)),
+            Self::Right(ref b) => Box::new(b.send_batch(requests)),
+        }
+    }
+}
+
+impl<A, B, AStream, BStream> DuplexTransport for EitherTransport<A, B>
+where
+    A: DuplexTransport<NotificationStream = AStream>,
+    B: DuplexTransport<NotificationStream = BStream>,
+    A::Out: 'static,
+    B::Out: 'static,
+    AStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
+    BStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
+{
+    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value, Error = Error>>;
+
+    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
+        match *self {
+            Self::Left(ref a) => Box::new(a.subscribe(id)),
+            Self::Right(ref b) => Box::new(b.subscribe(id)),
+        }
+    }
+
+    fn unsubscribe(&self, id: &api::SubscriptionId) {
+        match *self {
+            Self::Left(ref a) => a.unsubscribe(id),
+            Self::Right(ref b) => b.unsubscribe(id),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{rpc, Error, RequestId, Transport};
