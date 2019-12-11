@@ -2,10 +2,7 @@ extern crate web3;
 
 use web3::futures::Future;
 
-pub type Transport = web3::EitherTransport<
-    web3::transports::Ipc,
-    web3::transports::Http,
->;
+pub type Transport = web3::EitherTransport<web3::transports::Ipc, web3::transports::Http>;
 
 fn main() {
     let (_el, transport) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();

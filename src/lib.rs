@@ -145,7 +145,8 @@ pub enum EitherTransport<A, B> {
     Right(B),
 }
 
-impl<A, B, AOut, BOut> Transport for EitherTransport<A, B> where
+impl<A, B, AOut, BOut> Transport for EitherTransport<A, B>
+where
     A: Transport<Out = AOut>,
     B: Transport<Out = BOut>,
     AOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
@@ -168,28 +169,21 @@ impl<A, B, AOut, BOut> Transport for EitherTransport<A, B> where
     }
 }
 
-impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B> where
+impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B>
+where
     A: BatchTransport<Batch = ABatch>,
     B: BatchTransport<Batch = BBatch>,
     A::Out: 'static,
     B::Out: 'static,
-    ABatch: futures::Future<
-        Item = Vec<::std::result::Result<rpc::Value, Error>>,
-        Error = Error
-    > + 'static,
-    BBatch: futures::Future<
-        Item = Vec<::std::result::Result<rpc::Value, Error>>,
-        Error = Error
-    > + 'static,
+    ABatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
+    BBatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
 {
-    type Batch = Box<dyn futures::Future<
-        Item = Vec<::std::result::Result<rpc::Value, Error>>,
-        Error = Error
-    >>;
+    type Batch = Box<dyn futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
-        T: IntoIterator<Item = (RequestId, rpc::Call)> {
+        T: IntoIterator<Item = (RequestId, rpc::Call)>,
+    {
         match *self {
             Self::Left(ref a) => Box::new(a.send_batch(requests)),
             Self::Right(ref b) => Box::new(b.send_batch(requests)),
@@ -197,24 +191,16 @@ impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B> where
     }
 }
 
-impl<A, B, AStream, BStream> DuplexTransport for EitherTransport<A, B> where
+impl<A, B, AStream, BStream> DuplexTransport for EitherTransport<A, B>
+where
     A: DuplexTransport<NotificationStream = AStream>,
     B: DuplexTransport<NotificationStream = BStream>,
     A::Out: 'static,
     B::Out: 'static,
-    AStream: futures::Stream<
-        Item = rpc::Value,
-        Error = Error
-    > + 'static,
-    BStream: futures::Stream<
-        Item = rpc::Value,
-        Error = Error
-    > + 'static,
+    AStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
+    BStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
 {
-    type NotificationStream = Box<dyn futures::Stream<
-        Item = rpc::Value,
-        Error = Error
-    >>;
+    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value, Error = Error>>;
 
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
         match *self {
