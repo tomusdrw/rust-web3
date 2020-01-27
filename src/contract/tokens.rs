@@ -169,7 +169,6 @@ impl Tokenizable for Bytes {
     }
 }
 
-
 impl Tokenizable for H256 {
     fn from_token(token: Token) -> Result<Self, Error> {
         match token {
