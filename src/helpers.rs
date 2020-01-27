@@ -145,7 +145,7 @@ pub mod tests {
             assert_eq!(p, params);
         }
 
-        pub fn assert_no_more_requests(&self) {
+        pub fn assert_no_more_requests(&mut self) {
             let requests = self.requests.borrow();
             assert_eq!(
                 self.asserted,
