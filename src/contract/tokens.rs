@@ -1,7 +1,7 @@
 //! Contract Functions Output types.
 
 use crate::contract::error::Error;
-use crate::types::{Address, H256, U128, U256};
+use crate::types::{Address, H256, U128, U256, Bytes};
 use arrayvec::ArrayVec;
 use ethabi::Token;
 
@@ -155,6 +155,20 @@ impl Tokenizable for String {
         Token::String(self)
     }
 }
+
+impl Tokenizable for Bytes {
+    fn from_token(token: Token) -> Result<Self, Error> {
+        match token {
+            Token::Bytes(s) => Ok(s.into()),
+            other => Err(Error::InvalidOutputType(format!("Expected `Bytes`, got {:?}", other))),
+        }
+    }
+
+    fn into_token(self) -> Token {
+        Token::Bytes(self.0)
+    }
+}
+
 
 impl Tokenizable for H256 {
     fn from_token(token: Token) -> Result<Self, Error> {
