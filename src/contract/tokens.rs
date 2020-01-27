@@ -1,7 +1,7 @@
 //! Contract Functions Output types.
 
 use crate::contract::error::Error;
-use crate::types::{Address, H256, U128, U256, Bytes};
+use crate::types::{Address, Bytes, H256, U128, U256};
 use arrayvec::ArrayVec;
 use ethabi::Token;
 
