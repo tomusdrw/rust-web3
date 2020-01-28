@@ -1,6 +1,5 @@
 //! `Web3` implementation
 
-mod accounts;
 mod eth;
 mod eth_filter;
 mod eth_subscribe;
@@ -11,7 +10,6 @@ mod personal;
 mod traces;
 mod web3;
 
-pub use self::accounts::{Accounts, SignTransactionFuture};
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
@@ -56,11 +54,6 @@ impl<T: Transport> Web3<T> {
     /// Access methods from custom namespace
     pub fn api<A: Namespace<T>>(&self) -> A {
         A::new(self.transport.clone())
-    }
-
-    /// Access methods from `accounts` namespace
-    pub fn accounts(&self) -> accounts::Accounts<T> {
-        self.api()
     }
 
     /// Access methods from `eth` namespace

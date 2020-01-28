@@ -1,7 +1,6 @@
 //! Web3 Error
 use crate::rpc::error::Error as RPCError;
 use derive_more::{Display, From};
-use ethsign::Error as EthsignError;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 
@@ -28,10 +27,6 @@ pub enum Error {
     /// io error
     #[display(fmt = "IO error: {}", _0)]
     Io(IoError),
-    /// signing error
-    #[display(fmt = "Signing error: {}", _0)]
-    #[from(ignore)]
-    Signing(String),
     /// web3 internal error
     #[display(fmt = "Internal Web3 error")]
     Internal,
@@ -41,7 +36,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         use self::Error::*;
         match *self {
-            Unreachable | Decoder(_) | InvalidResponse(_) | Transport(_) | Signing(_) | Internal => None,
+            Unreachable | Decoder(_) | InvalidResponse(_) | Transport(_) | Internal => None,
             Rpc(ref e) => Some(e),
             Io(ref e) => Some(e),
         }
@@ -51,12 +46,6 @@ impl std::error::Error for Error {
 impl From<SerdeError> for Error {
     fn from(err: SerdeError) -> Self {
         Error::Decoder(format!("{:?}", err))
-    }
-}
-
-impl From<EthsignError> for Error {
-    fn from(err: EthsignError) -> Self {
-        Error::Signing(format!("{:?}", err))
     }
 }
 
@@ -70,7 +59,6 @@ impl Clone for Error {
             Transport(s) => Transport(s.clone()),
             Rpc(e) => Rpc(e.clone()),
             Io(e) => Io(IoError::from(e.kind())),
-            Signing(e) => Signing(e.clone()),
             Internal => Internal,
         }
     }
@@ -81,10 +69,9 @@ impl PartialEq for Error {
         use self::Error::*;
         match (self, other) {
             (Unreachable, Unreachable) | (Internal, Internal) => true,
-            (Decoder(a), Decoder(b))
-            | (InvalidResponse(a), InvalidResponse(b))
-            | (Transport(a), Transport(b))
-            | (Signing(a), Signing(b)) => a == b,
+            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => {
+                a == b
+            }
             (Rpc(a), Rpc(b)) => a == b,
             (Io(a), Io(b)) => a.kind() == b.kind(),
             _ => false,
