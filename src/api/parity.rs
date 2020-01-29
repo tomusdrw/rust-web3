@@ -1,7 +1,7 @@
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
-    types::{Address, BlockNumber, Bytes, CallRequest},
+    types::{Bytes, CallRequest},
     Transport,
 };
 
