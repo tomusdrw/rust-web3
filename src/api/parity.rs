@@ -27,7 +27,7 @@ impl<T: Transport> Namespace<T> for Parity<T> {
 impl<T: Transport> Parity<T> {
     /// Sequentially call multiple contract methods in one request without changing the state of the blockchain.
     pub fn call(&self, reqs: Vec<CallRequest>) -> CallFuture<Vec<Bytes>, T::Out> {
-        let req = helpers::serialize(&reqs);
+        let reqs = helpers::serialize(&reqs);
 
         CallFuture::new(self.transport.execute("parity_call", vec![reqs]))
     }
