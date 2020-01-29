@@ -79,7 +79,9 @@ impl<T: Transport> Web3<T> {
     }
 
     /// Access methods from `parity` namespace
-    pub fn parity(&self) -> parity::Parity<T> { self.api() }
+    pub fn parity(&self) -> parity::Parity<T> {
+        self.api()
+    }
 
     /// Access methods from `parity_accounts` namespace
     pub fn parity_accounts(&self) -> parity_accounts::ParityAccounts<T> {
