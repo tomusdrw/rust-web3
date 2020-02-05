@@ -10,10 +10,13 @@ use crate::Transport;
 use futures::future::{self, Either, FutureResult, Join3};
 use futures::{Async, Future, Poll};
 use rlp::RlpStream;
+use secp256k1::key::ONE_KEY;
 use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
 use std::convert::TryInto;
 use std::mem;
+use std::ops::Deref;
 use tiny_keccak::{Hasher, Keccak};
+use zeroize::{DefaultIsZeroes, Zeroize};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -136,12 +139,6 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
 }
 
 /// Gets the public address of a private key.
-///
-/// The public address is defined as the low 20 bytes of the keccak hash of
-/// the public key. Note that the public key returned from the `secp256k1`
-/// crate is 65 bytes long, that is because it is prefixed by `0x04` to
-/// indicate an uncompressed public key; this first byte is ignored when
-/// computing the hash.
 fn secret_key_address(key: &SecretKey) -> Address {
     let secp = Secp256k1::signing_only();
     let public_key = PublicKey::from_secret_key(&secp, key);
@@ -176,7 +173,7 @@ type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T,
 /// immediately.
 pub struct SignTransactionFuture<T: Transport> {
     tx: TransactionParameters,
-    key: SecretKey,
+    key: ZeroizeSecretKey,
     inner: TxParams<T>,
 }
 
@@ -199,7 +196,11 @@ impl<T: Transport> SignTransactionFuture<T> {
             maybe!(tx.chain_id.map(U256::from), accounts.web3().eth().chain_id()),
         );
 
-        SignTransactionFuture { tx, key: *key, inner }
+        SignTransactionFuture {
+            tx,
+            key: ZeroizeSecretKey(*key),
+            inner,
+        }
     }
 }
 
@@ -226,12 +227,24 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
     }
 }
 
+impl<T: Transport> Drop for SignTransactionFuture<T> {
+    fn drop(&mut self) {
+        self.key.zeroize();
+    }
+}
+
+/// A struct that represents a the components of a secp256k1 signature.
 struct Signature {
     v: u64,
     r: H256,
     s: H256,
 }
 
+/// Sign a message with a secret key and optional chain ID.
+///
+/// When a chain ID is provided, the `Signature`'s V-value will have chain relay
+/// protection added (as per EIP-155). Otherwise, the V-value will be in
+/// 'Electrum' notation.
 fn sign(message: &Message, key: &SecretKey, chain_id: Option<u64>) -> Signature {
     let (recovery_id, signature) = Secp256k1::signing_only()
         .sign_recoverable(message, key)
@@ -251,6 +264,7 @@ fn sign(message: &Message, key: &SecretKey, chain_id: Option<u64>) -> Signature 
     Signature { v, r, s }
 }
 
+/// A transaction used for RLP encoding, hashing and signing.
 struct Transaction {
     to: Option<Address>,
     nonce: U256,
@@ -261,6 +275,7 @@ struct Transaction {
 }
 
 impl Transaction {
+    /// RLP encode an unsigned transaction for the specified chain ID.
     fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
         rlp.begin_list(9);
         rlp.append(&self.nonce);
@@ -278,6 +293,7 @@ impl Transaction {
         rlp.append(&0u8);
     }
 
+    /// RLP encode a signed transaction with the specified signature.
     fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
         rlp.begin_list(9);
         rlp.append(&self.nonce);
@@ -320,6 +336,32 @@ impl Transaction {
         }
     }
 }
+
+/// A wrapper type around `SecretKey` to prevent leaking secret key data. This
+/// type will properly zeroize the secret key to `ONE_KEY` in a way that will
+/// not get optimized away by the compiler nor be prone to leaks that take
+/// advantage of access reordering.
+///
+/// This is required since the `SignTransactionFuture` needs to retain a copy
+/// of the `SecretKey`.
+#[derive(Clone, Copy)]
+struct ZeroizeSecretKey(SecretKey);
+
+impl Default for ZeroizeSecretKey {
+    fn default() -> Self {
+        ZeroizeSecretKey(ONE_KEY)
+    }
+}
+
+impl Deref for ZeroizeSecretKey {
+    type Target = SecretKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DefaultIsZeroes for ZeroizeSecretKey {}
 
 #[cfg(test)]
 mod tests {
