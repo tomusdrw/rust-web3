@@ -1,6 +1,6 @@
 use crate::types::{SignedData, SignedTransaction, H256};
-use ethereum_transaction::SignedTransaction as EthtxSignedTransaction;
-use ethsign::Signature;
+use secp256k1::recovery::{RecoverableSignature, RecoveryId};
+use secp256k1::Error as Secp256k1Error;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -58,30 +58,29 @@ impl Recovery {
         Ok(Recovery::new(message, v as _, r, s))
     }
 
-    /// Retrieves the recovery signature in standard notation.
-    ///
-    /// This method returns a `ethsign::Signature` with `v` in standard
-    /// notation. This means that the `27`, `28` or chain relay protection is
-    /// removed from the recovery's v value.
-    pub fn as_signature(&self) -> Signature {
-        Signature {
-            v: self.standard_v(),
-            r: self.r.into(),
-            s: self.s.into(),
-        }
-    }
-
-    /// Retrieve recovery value `v` in standard notation.
-    pub fn standard_v(&self) -> u8 {
-        // this is a re-implementation of `ethereum-transaction` as there is no
-        // good way to call this without building a full `SignedTransaction`
-        // which isn't needed here
-        match self.v {
+    /// Retrieve the recovery ID.
+    pub fn recovery_id(&self) -> Result<RecoveryId, Secp256k1Error> {
+        let standard_v = match self.v {
             27 => 0,
             28 => 1,
             v if v >= 35 => ((v - 1) % 2) as _,
             _ => 4,
-        }
+        };
+
+        RecoveryId::from_i32(standard_v)
+    }
+
+    /// Retrieves the recovery signature.
+    pub fn as_signature(&self) -> Result<RecoverableSignature, Secp256k1Error> {
+        let recovery_id = self.recovery_id()?;
+        let signature = {
+            let mut sig = [0u8; 64];
+            sig[..32].copy_from_slice(self.r.as_bytes());
+            sig[32..].copy_from_slice(self.s.as_bytes());
+            sig
+        };
+
+        RecoverableSignature::from_compact(&signature, recovery_id)
     }
 }
 
@@ -94,12 +93,6 @@ impl<'a> From<&'a SignedData> for Recovery {
 impl<'a> From<&'a SignedTransaction> for Recovery {
     fn from(tx: &'a SignedTransaction) -> Self {
         Recovery::new(tx.message_hash, tx.v, tx.r, tx.s)
-    }
-}
-
-impl<'a> From<&'a EthtxSignedTransaction<'a>> for Recovery {
-    fn from(tx: &'a EthtxSignedTransaction<'a>) -> Self {
-        Recovery::new(tx.bare_hash(), tx.v, H256(tx.r.into()), H256(tx.s.into()))
     }
 }
 
@@ -171,7 +164,7 @@ mod tests {
     use rustc_hex::FromHex;
 
     #[test]
-    fn recovery_as_signature() {
+    fn recovery_signature() {
         let message = "Some data";
         let v = 0x1cu8;
         let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
@@ -195,11 +188,12 @@ mod tests {
                     .unwrap()
             ),
         };
-        let expected_signature = Signature {
-            v: 0x01,
-            r: r.into(),
-            s: s.into(),
-        };
+        let expected_signature = RecoverableSignature::from_compact(
+            &"b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
+                .from_hex::<Vec<u8>>()
+                .unwrap(),
+            RecoveryId::from_i32(1).unwrap(),
+        );
 
         assert_eq!(Recovery::from(&signed).as_signature(), expected_signature);
         assert_eq!(Recovery::new(message, v as _, r, s).as_signature(), expected_signature);

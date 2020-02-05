@@ -9,7 +9,7 @@ pub struct SignedData {
     /// The keccak256 hash of the signed data.
     #[serde(rename = "messageHash")]
     pub message_hash: H256,
-    /// V value.
+    /// V value in 'Electrum' notation.
     pub v: u8,
     /// R value.
     pub r: H256,
