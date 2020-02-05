@@ -113,21 +113,21 @@ impl<T: Transport> Builder<T> {
 
         for (lib, address) in self.linker {
             if lib.len() > 38 {
-                return Err(
-                    ethabi::ErrorKind::Msg(String::from("The library name should be under 39 characters.")).into(),
-                );
+                return Err(ethabi::Error::Other(
+                    "The library name should be under 39 characters.".into(),
+                ));
             }
             let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
             let address: String = address.as_ref().to_hex();
             code_hex = code_hex.replacen(&replace, &address, 1);
         }
         code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.from_hex().map_err(ethabi::ErrorKind::Hex)?;
+        let code = code_hex.from_hex().map_err(ethabi::Error::Hex)?;
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
             (None, false) => {
-                return Err(ethabi::ErrorKind::Msg("Constructor is not defined in the ABI.".into()).into());
+                return Err(ethabi::Error::Other("Constructor is not defined in the ABI.".into()));
             }
             (None, true) => code,
             (Some(constructor), _) => constructor.encode_input(code, &params)?,
