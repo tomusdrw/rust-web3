@@ -32,7 +32,7 @@ matrix:
 before_script:
   - if [[ "${TRAVIS_RUST_VERSION}" == stable ]]; then
       rustup component add rustfmt;
-      cargo install cargo-deny
+      cargo install cargo-deny;
     fi
 
 script:
