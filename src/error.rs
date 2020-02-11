@@ -1,6 +1,7 @@
 //! Web3 Error
 use crate::rpc::error::Error as RPCError;
 use derive_more::{Display, From};
+use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 
@@ -27,6 +28,9 @@ pub enum Error {
     /// io error
     #[display(fmt = "IO error: {}", _0)]
     Io(IoError),
+    /// signing error
+    #[display(fmt = "Signing error: {}", _0)]
+    Signing(Secp256k1Error),
     /// web3 internal error
     #[display(fmt = "Internal Web3 error")]
     Internal,
@@ -39,6 +43,7 @@ impl std::error::Error for Error {
             Unreachable | Decoder(_) | InvalidResponse(_) | Transport(_) | Internal => None,
             Rpc(ref e) => Some(e),
             Io(ref e) => Some(e),
+            Signing(ref e) => Some(e),
         }
     }
 }
@@ -59,6 +64,7 @@ impl Clone for Error {
             Transport(s) => Transport(s.clone()),
             Rpc(e) => Rpc(e.clone()),
             Io(e) => Io(IoError::from(e.kind())),
+            Signing(e) => Signing(*e),
             Internal => Internal,
         }
     }
@@ -74,6 +80,7 @@ impl PartialEq for Error {
             }
             (Rpc(a), Rpc(b)) => a == b,
             (Io(a), Io(b)) => a.kind() == b.kind(),
+            (Signing(a), Signing(b)) => a == b,
             _ => false,
         }
     }
