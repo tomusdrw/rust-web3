@@ -4,6 +4,7 @@ mod eth;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
+mod parity;
 mod parity_accounts;
 mod parity_set;
 mod personal;
@@ -14,6 +15,7 @@ pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
 pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
 pub use self::net::Net;
+pub use self::parity::Parity;
 pub use self::parity_accounts::ParityAccounts;
 pub use self::parity_set::ParitySet;
 pub use self::personal::Personal;
@@ -73,6 +75,11 @@ impl<T: Transport> Web3<T> {
 
     /// Access filter methods from `eth` namespace
     pub fn eth_filter(&self) -> eth_filter::EthFilter<T> {
+        self.api()
+    }
+
+    /// Access methods from `parity` namespace
+    pub fn parity(&self) -> parity::Parity<T> {
         self.api()
     }
 
