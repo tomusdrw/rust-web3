@@ -41,4 +41,4 @@ pub use self::work::Work;
 /// Address
 pub type Address = H160;
 /// Index in block
-pub type Index = U128;
+pub type Index = U64;
