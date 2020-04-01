@@ -329,7 +329,7 @@ mod tests {
     use super::send_transaction_with_confirmation;
     use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
-    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U128};
+    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U64};
     use futures::Future;
     use serde_json::json;
     use std::time::Duration;
