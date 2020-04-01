@@ -351,7 +351,7 @@ mod tests {
 
         let transaction_receipt = TransactionReceipt {
             transaction_hash: H256::zero(),
-            transaction_index: U128::zero(),
+            transaction_index: U64::zero(),
             block_hash: Some(H256::zero()),
             block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),
