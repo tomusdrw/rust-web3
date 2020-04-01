@@ -1,4 +1,4 @@
-use crate::types::{Index, BlockNumber, Bytes, H160, H256, U256, U64};
+use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
 use ethabi;
 use serde::{Deserialize, Serialize, Serializer};
 
