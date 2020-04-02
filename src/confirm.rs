@@ -329,7 +329,7 @@ mod tests {
     use super::send_transaction_with_confirmation;
     use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
-    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U128};
+    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U64};
     use futures::Future;
     use serde_json::json;
     use std::time::Duration;
@@ -351,7 +351,7 @@ mod tests {
 
         let transaction_receipt = TransactionReceipt {
             transaction_hash: H256::zero(),
-            transaction_index: U128::zero(),
+            transaction_index: U64::zero(),
             block_hash: Some(H256::zero()),
             block_number: Some(2.into()),
             cumulative_gas_used: 0.into(),

@@ -1,4 +1,4 @@
-use crate::types::{BlockNumber, Bytes, H160, H256, U256, U64};
+use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
 use ethabi;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -22,7 +22,7 @@ pub struct Log {
     pub transaction_hash: Option<H256>,
     /// Transaction Index
     #[serde(rename = "transactionIndex")]
-    pub transaction_index: Option<U256>,
+    pub transaction_index: Option<Index>,
     /// Log Index in Block
     #[serde(rename = "logIndex")]
     pub log_index: Option<U256>,
