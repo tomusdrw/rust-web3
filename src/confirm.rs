@@ -359,6 +359,7 @@ mod tests {
             contract_address: None,
             logs: vec![],
             status: Some(1.into()),
+            root: Some(H256::zero()),
             logs_bloom: Default::default(),
         };
 
