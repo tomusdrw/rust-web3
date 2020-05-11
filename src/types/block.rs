@@ -86,7 +86,7 @@ pub struct Block<TX> {
     pub extra_data: Bytes,
     /// Logs bloom
     #[serde(rename = "logsBloom")]
-    pub logs_bloom: H2048,
+    pub logs_bloom: Option<H2048>,
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
