@@ -86,14 +86,14 @@ pub struct Block<TX> {
     pub extra_data: Bytes,
     /// Logs bloom
     #[serde(rename = "logsBloom")]
-    pub logs_bloom: H2048,
+    pub logs_bloom: Option<H2048>,
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
     pub difficulty: U256,
     /// Total difficulty
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: U256,
+    pub total_difficulty: Option<U256>,
     /// Seal fields
     #[serde(default, rename = "sealFields")]
     pub seal_fields: Vec<Bytes>,
