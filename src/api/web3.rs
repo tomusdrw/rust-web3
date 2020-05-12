@@ -49,14 +49,14 @@ mod tests {
     use super::Web3;
 
     rpc_test! (
-    Web3:client_version => "web3_clientVersion";
-    Value::String("Test123".into()) => "Test123"
-  );
+      Web3:client_version => "web3_clientVersion";
+      Value::String("Test123".into()) => "Test123"
+    );
 
     rpc_test! (
-    Web3:sha3, Bytes(vec![1, 2, 3, 4])
-    =>
-    "web3_sha3", vec![r#""0x01020304""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
-  );
+      Web3:sha3, Bytes(vec![1, 2, 3, 4])
+      =>
+      "web3_sha3", vec![r#""0x01020304""#];
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
+    );
 }
