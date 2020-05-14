@@ -25,7 +25,7 @@ pub struct CallRequest {
 }
 
 /// Send Transaction Parameters
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TransactionRequest {
     /// Sender address
     pub from: Address,
@@ -149,5 +149,31 @@ mod tests {
   }
 }"#
         );
+    }
+
+    #[test]
+    fn should_deserialize_transaction_request() {
+        let tx_request = TransactionRequest {
+            from: Address::from_low_u64_be(5),
+            to: None,
+            gas: Some(21_000.into()),
+            gas_price: None,
+            value: Some(5_000_000.into()),
+            data: Some(vec![1, 2, 3].into()),
+            nonce: None,
+            condition: Some(TransactionCondition::Block(5)),
+        };
+
+        let serialized = serde_json::to_string(&tx_request).unwrap();
+        let deserialized: TransactionRequest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.from, tx_request.from);
+        assert_eq!(deserialized.to, tx_request.to);
+        assert_eq!(deserialized.gas, tx_request.gas);
+        assert_eq!(deserialized.gas_price, tx_request.gas_price);
+        assert_eq!(deserialized.value, tx_request.value);
+        assert_eq!(deserialized.data, tx_request.data);
+        assert_eq!(deserialized.nonce, tx_request.nonce);
+        assert_eq!(deserialized.condition, tx_request.condition);
     }
 }
