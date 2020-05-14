@@ -2,7 +2,7 @@ use crate::types::{Address, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Call contract request (eth_call / eth_estimateGas)
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CallRequest {
     /// Sender address (None for arbitrary address)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -95,6 +95,28 @@ mod tests {
   "data": "0x010203"
 }"#
         );
+    }
+
+    #[test]
+    fn should_deserialize_call_request() {
+        let call_request = CallRequest {
+            from: None,
+            to: Address::from_low_u64_be(5),
+            gas: Some(21_000.into()),
+            gas_price: None,
+            value: Some(5_000_000.into()),
+            data: Some(vec![1, 2, 3].into()),
+        };
+
+        let serialized = serde_json::to_string(&call_request).unwrap();
+        let deserialized: CallRequest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.from, call_request.from);
+        assert_eq!(deserialized.to, call_request.to);
+        assert_eq!(deserialized.gas, call_request.gas);
+        assert_eq!(deserialized.gas_price, call_request.gas_price);
+        assert_eq!(deserialized.value, call_request.value);
+        assert_eq!(deserialized.data, call_request.data);
     }
 
     #[test]
