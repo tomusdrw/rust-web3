@@ -39,9 +39,9 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Call a constant method of contract without changing the state of the blockchain.
-    pub fn call(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<Bytes, T::Out> {
+    pub fn call(&self, req: CallRequest, block: Option<BlockId>) -> CallFuture<Bytes, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest.into()));
 
         CallFuture::new(self.transport.execute("eth_call", vec![req, block]))
     }
