@@ -1,5 +1,5 @@
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -144,7 +144,7 @@ impl Serialize for BlockNumber {
 }
 
 /// Block Identifier
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockId {
     /// By Hash
     Hash(H256),
@@ -158,7 +158,11 @@ impl Serialize for BlockId {
         S: Serializer,
     {
         match *self {
-            BlockId::Hash(ref x) => serializer.serialize_str(&format!("0x{}", x)),
+            BlockId::Hash(ref x) => {
+                let mut s = serializer.serialize_struct("BlockIdEip1898", 1)?;
+                s.serialize_field("blockHash", &format!("{:?}", x))?;
+                s.end()
+            }
             BlockId::Number(ref num) => num.serialize(serializer),
         }
     }

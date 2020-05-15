@@ -5,7 +5,7 @@ use ethabi;
 use crate::api::{Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
-use crate::types::{Address, BlockNumber, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
+use crate::types::{Address, BlockId, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
 use crate::Transport;
 use std::{collections::HashMap, hash::Hash, time};
 
@@ -222,7 +222,7 @@ impl<T: Transport> Contract<T> {
     where
         R: Detokenize,
         A: Into<Option<Address>>,
-        B: Into<Option<BlockNumber>>,
+        B: Into<Option<BlockId>>,
         P: Tokenize,
     {
         self.abi
@@ -256,7 +256,7 @@ mod tests {
     use crate::api::{self, Namespace};
     use crate::helpers::tests::TestTransport;
     use crate::rpc;
-    use crate::types::{Address, BlockNumber, H256, U256};
+    use crate::types::{Address, BlockId, BlockNumber, H256, U256};
     use crate::Transport;
     use futures::Future;
 
@@ -276,7 +276,13 @@ mod tests {
 
             // when
             token
-                .query("name", (), None, Options::default(), BlockNumber::Number(1.into()))
+                .query(
+                    "name",
+                    (),
+                    None,
+                    Options::default(),
+                    BlockId::Number(BlockNumber::Number(1.into())),
+                )
                 .wait()
                 .unwrap()
         };
@@ -287,6 +293,34 @@ mod tests {
             &[
                 "{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
                 "\"0x1\"".into(),
+            ],
+        );
+        transport.assert_no_more_requests();
+        assert_eq!(result, "Hello World!".to_owned());
+    }
+
+    #[test]
+    fn should_call_constant_function_by_hash() {
+        // given
+        let mut transport = TestTransport::default();
+        transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
+
+        let result: String = {
+            let token = contract(&transport);
+
+            // when
+            token
+                .query("name", (), None, Options::default(), BlockId::Hash(H256::default()))
+                .wait()
+                .unwrap()
+        };
+
+        // then
+        transport.assert_request(
+            "eth_call",
+            &[
+                "{\"data\":\"0x06fdde03\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(),
+                "{\"blockHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\"}".into(),
             ],
         );
         transport.assert_no_more_requests();
@@ -311,7 +345,7 @@ mod tests {
                     Options::with(|options| {
                         options.gas_price = Some(10_000_000.into());
                     }),
-                    BlockNumber::Latest,
+                    BlockId::Number(BlockNumber::Latest),
                 )
                 .wait()
                 .unwrap()
