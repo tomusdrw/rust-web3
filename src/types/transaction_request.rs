@@ -2,7 +2,7 @@ use crate::types::{Address, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Call contract request (eth_call / eth_estimateGas)
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CallRequest {
     /// Sender address (None for arbitrary address)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,7 +25,7 @@ pub struct CallRequest {
 }
 
 /// Send Transaction Parameters
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TransactionRequest {
     /// Sender address
     pub from: Address,
@@ -98,6 +98,24 @@ mod tests {
     }
 
     #[test]
+    fn should_deserialize_call_request() {
+        let serialized = r#"{
+  "to": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203"
+}"#;
+        let deserialized: CallRequest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.from, None);
+        assert_eq!(deserialized.to, Address::from_low_u64_be(5));
+        assert_eq!(deserialized.gas, Some(21_000.into()));
+        assert_eq!(deserialized.gas_price, None);
+        assert_eq!(deserialized.value, Some(5_000_000.into()));
+        assert_eq!(deserialized.data, Some(vec![1, 2, 3].into()));
+    }
+
+    #[test]
     fn should_serialize_transaction_request() {
         // given
         let tx_request = TransactionRequest {
@@ -127,5 +145,28 @@ mod tests {
   }
 }"#
         );
+    }
+
+    #[test]
+    fn should_deserialize_transaction_request() {
+        let serialized = r#"{
+  "from": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203",
+  "condition": {
+    "block": 5
+  }
+}"#;
+        let deserialized: TransactionRequest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.from, Address::from_low_u64_be(5));
+        assert_eq!(deserialized.to, None);
+        assert_eq!(deserialized.gas, Some(21_000.into()));
+        assert_eq!(deserialized.gas_price, None);
+        assert_eq!(deserialized.value, Some(5_000_000.into()));
+        assert_eq!(deserialized.data, Some(vec![1, 2, 3].into()));
+        assert_eq!(deserialized.nonce, None);
+        assert_eq!(deserialized.condition, Some(TransactionCondition::Block(5)));
     }
 }
