@@ -99,24 +99,20 @@ mod tests {
 
     #[test]
     fn should_deserialize_call_request() {
-        let call_request = CallRequest {
-            from: None,
-            to: Address::from_low_u64_be(5),
-            gas: Some(21_000.into()),
-            gas_price: None,
-            value: Some(5_000_000.into()),
-            data: Some(vec![1, 2, 3].into()),
-        };
-
-        let serialized = serde_json::to_string(&call_request).unwrap();
+        let serialized = r#"{
+  "to": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203"
+}"#;
         let deserialized: CallRequest = serde_json::from_str(&serialized).unwrap();
 
-        assert_eq!(deserialized.from, call_request.from);
-        assert_eq!(deserialized.to, call_request.to);
-        assert_eq!(deserialized.gas, call_request.gas);
-        assert_eq!(deserialized.gas_price, call_request.gas_price);
-        assert_eq!(deserialized.value, call_request.value);
-        assert_eq!(deserialized.data, call_request.data);
+        assert_eq!(deserialized.from, None);
+        assert_eq!(deserialized.to, Address::from_low_u64_be(5));
+        assert_eq!(deserialized.gas, Some(21_000.into()));
+        assert_eq!(deserialized.gas_price, None);
+        assert_eq!(deserialized.value, Some(5_000_000.into()));
+        assert_eq!(deserialized.data, Some(vec![1, 2, 3].into()));
     }
 
     #[test]
@@ -153,27 +149,24 @@ mod tests {
 
     #[test]
     fn should_deserialize_transaction_request() {
-        let tx_request = TransactionRequest {
-            from: Address::from_low_u64_be(5),
-            to: None,
-            gas: Some(21_000.into()),
-            gas_price: None,
-            value: Some(5_000_000.into()),
-            data: Some(vec![1, 2, 3].into()),
-            nonce: None,
-            condition: Some(TransactionCondition::Block(5)),
-        };
-
-        let serialized = serde_json::to_string(&tx_request).unwrap();
+        let serialized = r#"{
+  "from": "0x0000000000000000000000000000000000000005",
+  "gas": "0x5208",
+  "value": "0x4c4b40",
+  "data": "0x010203",
+  "condition": {
+    "block": 5
+  }
+}"#;
         let deserialized: TransactionRequest = serde_json::from_str(&serialized).unwrap();
 
-        assert_eq!(deserialized.from, tx_request.from);
-        assert_eq!(deserialized.to, tx_request.to);
-        assert_eq!(deserialized.gas, tx_request.gas);
-        assert_eq!(deserialized.gas_price, tx_request.gas_price);
-        assert_eq!(deserialized.value, tx_request.value);
-        assert_eq!(deserialized.data, tx_request.data);
-        assert_eq!(deserialized.nonce, tx_request.nonce);
-        assert_eq!(deserialized.condition, tx_request.condition);
+        assert_eq!(deserialized.from, Address::from_low_u64_be(5));
+        assert_eq!(deserialized.to, None);
+        assert_eq!(deserialized.gas, Some(21_000.into()));
+        assert_eq!(deserialized.gas_price, None);
+        assert_eq!(deserialized.value, Some(5_000_000.into()));
+        assert_eq!(deserialized.data, Some(vec![1, 2, 3].into()));
+        assert_eq!(deserialized.nonce, None);
+        assert_eq!(deserialized.condition, Some(TransactionCondition::Block(5)));
     }
 }
