@@ -31,7 +31,7 @@ tokio-timer = "0.1"
 url = "2.1.0"
 zeroize = "1.1.0"
 # Optional deps
-hyper = { version = "0.12.25", optional = true }
+hyper = { version = "0.13.5", optional = true }
 hyper-tls = { version = "0.3.2", optional = true }
 native-tls = { version = "0.2.2", optional = true }
 tokio-core = { version = "0.1.17", optional = true }
