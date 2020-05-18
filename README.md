@@ -94,5 +94,5 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 Currently, Windows does not support IPC, which is enabled in the library by default.
 To complile, you need to disable IPC feature:
 ```
-web3 = { version = "0.1.0", default-features = false, features = ["http"] }
+web3 = { version = "0.11.0", default-features = false, features = ["http"] }
 ```
