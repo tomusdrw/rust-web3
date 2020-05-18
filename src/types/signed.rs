@@ -79,15 +79,9 @@ impl Default for TransactionParameters {
 
 impl From<CallRequest> for TransactionParameters {
     fn from(call: CallRequest) -> Self {
-        let to = if call.to != Address::zero() {
-            Some(call.to)
-        } else {
-            None
-        };
-
         TransactionParameters {
             nonce: None,
-            to,
+            to: call.to,
             gas: call.gas.unwrap_or(TRANSACTION_DEFAULT_GAS),
             gas_price: call.gas_price,
             value: call.value.unwrap_or_default(),
@@ -101,7 +95,7 @@ impl Into<CallRequest> for TransactionParameters {
     fn into(self) -> CallRequest {
         CallRequest {
             from: None,
-            to: self.to.unwrap_or_default(),
+            to: self.to,
             gas: Some(self.gas),
             gas_price: self.gas_price,
             value: Some(self.value),

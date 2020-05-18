@@ -213,7 +213,7 @@ mod tests {
 
     rpc_test!(
     Traces:call, CallRequest {
-    from: None, to: Address::from_low_u64_be(0x123),
+    from: None, to: Some(Address::from_low_u64_be(0x123)),
     gas: None, gas_price: None,
     value: Some(0x1.into()), data: None,
     }, vec![TraceType::Trace], None

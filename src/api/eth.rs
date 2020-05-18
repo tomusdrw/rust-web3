@@ -462,7 +462,7 @@ mod tests {
 
     rpc_test! (
       Eth:call, CallRequest {
-        from: None, to: Address::from_low_u64_be(0x123),
+        from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
       }, None
@@ -493,7 +493,7 @@ mod tests {
 
     rpc_test! (
       Eth:estimate_gas, CallRequest {
-        from: None, to: Address::from_low_u64_be(0x123),
+        from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
       }, None
@@ -502,9 +502,21 @@ mod tests {
       Value::String("0x123".into()) => 0x123
     );
 
+    // NOTE: I don't know why this is passing
+    rpc_test! (
+      Eth:estimate_gas:optional_to_addr, CallRequest {
+        from: None, to: None,
+        gas: None, gas_price: None,
+        value: Some(0x1.into()), data: None,
+      }, None
+      =>
+      "eth_estimateGas", vec![r#"{"value":"0x1"}"#];
+      Value::String("0x123".into()) => 0x123
+    );
+
     rpc_test! (
       Eth:estimate_gas:for_block, CallRequest {
-        from: None, to: Address::from_low_u64_be(0x123),
+        from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
       }, Some(0x123.into())
