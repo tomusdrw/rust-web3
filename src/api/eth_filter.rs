@@ -175,7 +175,7 @@ impl<T: Transport> BaseFilter<T, Log> {
 }
 
 /// Should be used to create new filter future
-fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Item> {
+fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Output> {
     let future = CallFuture::new(t.execute(F::constructor(), arg));
     CreateFilter {
         transport: Some(t),

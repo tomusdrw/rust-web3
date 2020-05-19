@@ -1,18 +1,19 @@
 //! Partial implementation of the `Accounts` namespace.
 
 use crate::api::{Namespace, Web3};
-use crate::error::{self, Error};
+use crate::error;
 use crate::helpers::CallFuture;
 use crate::types::{
     Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
 };
 use crate::Transport;
-use futures::future::{self, Either, FutureResult, Join3};
+use futures::future::{self, Either, Join3};
 use futures::{Future, task::Poll};
 use rlp::RlpStream;
 use secp256k1::key::ONE_KEY;
 use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
 use std::convert::TryInto;
+use std::marker::Unpin;
 use std::mem;
 use std::ops::Deref;
 use tiny_keccak::{Hasher, Keccak};
@@ -161,7 +162,10 @@ fn public_key_address(public_key: &PublicKey) -> Address {
     Address::from_slice(&hash[12..])
 }
 
-type MaybeReady<T, R> = Either<FutureResult<R, Error>, CallFuture<R, <T as Transport>::Out>>;
+type MaybeReady<T, R> = Either<
+    Box<dyn Future<Output = error::Result<R>> + Unpin>,
+    CallFuture<R, <T as Transport>::Out>
+>;
 
 type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, U256>>;
 

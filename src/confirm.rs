@@ -12,7 +12,7 @@ use futures::{Future, task::Poll};
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
     /// Future resolved when is known whether an event has been confirmed.
-    type Check: IntoFuture<Output = Option<U64>, Error = Error>;
+    type Check: Future<Output = error::Result<Option<U64>>>;
 
     /// Should be called to get future which resolves when confirmation state is known.
     fn check(&self) -> Self::Check;
@@ -21,7 +21,7 @@ pub trait ConfirmationCheck {
 impl<F, T> ConfirmationCheck for F
 where
     F: Fn() -> T,
-    T: IntoFuture<Output = Option<U64>, Error = Error>,
+    T: Future<Output = error::Result<Option<U64>>>,
 {
     type Check = T;
 
@@ -47,11 +47,11 @@ where
     confirmations: usize,
 }
 
-impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future>
+impl<T, V, F> Future for WaitForConfirmations<T, V, F>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Output = Option<U64>, Error = Error>,
+    F: Future<Output = error::Result<Option<U64>>>,
 {
     type Output = error::Result<()>;
 
@@ -60,7 +60,7 @@ where
             let next_state = match self.state {
                 WaitForConfirmationsState::WaitForNextBlock => {
                     let _ = ready!(self.filter_stream.poll());
-                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
+                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check())
                 }
                 WaitForConfirmationsState::CheckConfirmation(ref mut future) => match ready!(future.poll()) {
                     Some(confirmation_block_number) => {
@@ -118,11 +118,11 @@ impl<T: Transport, V, F> Confirmations<T, V, F> {
     }
 }
 
-impl<T, V, F> Future for Confirmations<T, V, F::Future>
+impl<T, V, F> Future for Confirmations<T, V, F>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Output = Option<U64>, Error = Error>,
+    F: Future<Output = error::Result<Option<U64>>>,
 {
     type Output = error::Result<()>;
 
@@ -157,11 +157,11 @@ pub fn wait_for_confirmations<T, V, F>(
     poll_interval: Duration,
     confirmations: usize,
     check: V,
-) -> Confirmations<T, V, F::Future>
+) -> Confirmations<T, V, F>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Output = Option<U64>, Error = Error>,
+    F: Future<Output = error::Result<Option<U64>>>,
 {
     Confirmations::new(eth, eth_filter, poll_interval, confirmations, check)
 }

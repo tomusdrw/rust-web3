@@ -32,13 +32,13 @@ pub use crate::api::Web3;
 pub use crate::error::Error;
 
 /// RPC result
-pub type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send + 'static>;
+pub type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send>;
 
 /// Assigned RequestId
 pub type RequestId = usize;
 
 /// Transport implementation
-pub trait Transport: ::std::fmt::Debug + Clone {
+pub trait Transport: std::fmt::Debug + Clone {
     /// The type of future this transport returns when a call is made.
     type Out: futures::Future<Output = error::Result<rpc::Value>>;
 
@@ -81,8 +81,8 @@ pub trait DuplexTransport: Transport {
 impl<X, T> Transport for X
 where
     T: Transport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
 {
     type Out = T::Out;
@@ -99,8 +99,8 @@ where
 impl<X, T> BatchTransport for X
 where
     T: BatchTransport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
 {
     type Batch = T::Batch;
@@ -116,8 +116,8 @@ where
 impl<X, T> DuplexTransport for X
 where
     T: DuplexTransport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
 {
     type NotificationStream = T::NotificationStream;
@@ -152,7 +152,7 @@ where
     AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
     BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
 {
-    type Out = Box<dyn futures::Future<Output = error::Result<rpc::Value>>>;
+    type Out = Box<dyn futures::Future<Output = error::Result<rpc::Value>> + Unpin>;
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         match *self {
@@ -178,7 +178,9 @@ where
     ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
     BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
 {
-    type Batch = Box<dyn futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>>;
+    type Batch = Box<dyn futures::Future<
+        Output = error::Result<Vec<error::Result<rpc::Value>>>
+    > + Unpin>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -200,7 +202,7 @@ where
     AStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
     BStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
 {
-    type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>>>;
+    type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>> + Unpin>;
 
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
         match *self {
