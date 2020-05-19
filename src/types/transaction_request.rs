@@ -2,13 +2,18 @@ use crate::types::{Address, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Call contract request (eth_call / eth_estimateGas)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+///
+/// When using this for `eth_estimateGas`, all the fields
+/// are optional. However, for usage in `eth_call` the
+/// `to` field must be provided.
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CallRequest {
     /// Sender address (None for arbitrary address)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<Address>,
-    /// To address
-    pub to: Address,
+    /// To address (None allowed for eth_estimateGas)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to: Option<Address>,
     /// Supplied gas (None for sensible default)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gas: Option<U256>,
@@ -25,7 +30,7 @@ pub struct CallRequest {
 }
 
 /// Send Transaction Parameters
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct TransactionRequest {
     /// Sender address
     pub from: Address,
@@ -75,7 +80,7 @@ mod tests {
         // given
         let call_request = CallRequest {
             from: None,
-            to: Address::from_low_u64_be(5),
+            to: Some(Address::from_low_u64_be(5)),
             gas: Some(21_000.into()),
             gas_price: None,
             value: Some(5_000_000.into()),
@@ -108,7 +113,7 @@ mod tests {
         let deserialized: CallRequest = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(deserialized.from, None);
-        assert_eq!(deserialized.to, Address::from_low_u64_be(5));
+        assert_eq!(deserialized.to, Some(Address::from_low_u64_be(5)));
         assert_eq!(deserialized.gas, Some(21_000.into()));
         assert_eq!(deserialized.gas_price, None);
         assert_eq!(deserialized.value, Some(5_000_000.into()));
