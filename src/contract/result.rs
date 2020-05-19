@@ -1,5 +1,5 @@
 use ethabi;
-use futures::{Async, Future, Poll};
+use futures::{Future, task::Poll};
 use serde;
 use std::mem;
 
@@ -79,14 +79,14 @@ where
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
-            let bytes: Bytes = try_ready!(inner.poll());
-            return Ok(Async::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
+            let bytes: Bytes = ready!(inner.poll());
+            return Ok(Poll::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Async::Ready),
+            ResultType::Constant(res) => res.map(Poll::Ready),
             _ => panic!("Unsupported state"),
         }
     }
@@ -98,14 +98,14 @@ where
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         if let ResultType::Simple(ref mut inner) = self.inner {
-            let hash: T = try_ready!(inner.poll());
-            return Ok(Async::Ready(hash));
+            let hash: T = ready!(inner.poll());
+            return Ok(Poll::Ready(hash));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Async::Ready),
+            ResultType::Constant(res) => res.map(Poll::Ready),
             _ => panic!("Unsupported state"),
         }
     }

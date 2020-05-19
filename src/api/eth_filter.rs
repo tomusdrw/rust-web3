@@ -1,6 +1,6 @@
 //! `Eth` namespace, filters.
 
-use futures::{Future, Poll, Stream};
+use futures::{Future, task::Poll, Stream};
 use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -10,7 +10,7 @@ use tokio_timer::{Interval, Timer};
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{Filter, Log, H256};
-use crate::{rpc, Error, Transport};
+use crate::{error, rpc, Error, Transport};
 
 /// Stream of events
 #[derive(Debug)]
@@ -43,20 +43,19 @@ enum FilterStreamState<I, O> {
 }
 
 impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
-    type Output = I;
-    type Error = Error;
+    type Item = error::Result<I>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(&mut self) -> Poll<Option<Self::Item>> {
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = try_ready!(self.interval.poll().map_err(|_| Error::Unreachable));
+                    let _ready = ready!(self.interval.poll().map_err(|_| Error::Unreachable));
                     let id = helpers::serialize(&self.base.id);
                     let future = CallFuture::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
                     FilterStreamState::GetFilterChanges(future)
                 }
                 FilterStreamState::GetFilterChanges(ref mut future) => {
-                    let items = try_ready!(future.poll()).unwrap_or_default();
+                    let items = ready!(future.poll()).unwrap_or_default();
                     FilterStreamState::NextItem(items.into_iter())
                 }
                 FilterStreamState::NextItem(ref mut iter) => match iter.next() {
@@ -197,11 +196,10 @@ impl<T, I> Future for CreateFilter<T, I>
 where
     T: Transport,
 {
-    type Output = BaseFilter<T, I>;
-    type Error = Error;
+    type Output = error::Result<BaseFilter<T, I>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Error> {
-        let id = try_ready!(self.future.poll());
+    fn poll(&mut self) -> Poll<Self::Output> {
+        let id = ready!(self.future.poll());
         let result = BaseFilter {
             id,
             transport: self.transport.take().expect("future polled after ready; qed"),

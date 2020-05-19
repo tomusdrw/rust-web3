@@ -1,7 +1,7 @@
 //! Partial implementation of the `Accounts` namespace.
 
 use crate::api::{Namespace, Web3};
-use crate::error::Error;
+use crate::error::{self, Error};
 use crate::helpers::CallFuture;
 use crate::types::{
     Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
@@ -111,7 +111,7 @@ impl<T: Transport> Accounts<T> {
     ///
     /// Recovery signature data uses 'Electrum' notation, this means the `v`
     /// value is expected to be either `27` or `28`.
-    pub fn recover<R>(&self, recovery: R) -> Result<Address, Error>
+    pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
     where
         R: Into<Recovery>,
     {
@@ -207,8 +207,8 @@ impl<T: Transport> SignTransactionFuture<T> {
 impl<T: Transport> Future for SignTransactionFuture<T> {
     type Output = error::Result<SignedTransaction>;
 
-    fn poll(&mut self) -> Poll<Self::Item> {
-        let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
+    fn poll(&mut self) -> Poll<Self::Output> {
+        let (nonce, gas_price, chain_id) = ready!(self.inner.poll());
         let chain_id = chain_id.as_u64();
 
         let data = mem::replace(&mut self.tx.data, Bytes::default());

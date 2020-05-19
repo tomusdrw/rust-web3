@@ -28,7 +28,7 @@ macro_rules! try_nb {
     ($e:expr) => {
         match $e {
             Ok(t) => t,
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(futures::Async::NotReady),
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(futures::Poll::Pending),
             Err(e) => {
                 log::warn!("Unexpected IO error: {:?}", e);
                 return Err(());
@@ -206,12 +206,12 @@ impl Future for WriteStream {
     type Output = ();
     type Error = ();
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> futures::Poll<Self::Output> {
         loop {
             self.state = match self.state {
                 WriteState::WaitingForRequest => {
                     // Ask for more to write
-                    let to_send = try_ready!(self.incoming.poll());
+                    let to_send = ready!(self.incoming.poll());
                     if let Some(to_send) = to_send {
                         log::trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
                         WriteState::Writing {
@@ -219,7 +219,7 @@ impl Future for WriteStream {
                             current_pos: 0,
                         }
                     } else {
-                        return Ok(futures::Async::NotReady);
+                        return Ok(futures::Poll::Pending);
                     }
                 }
                 WriteState::Writing {
@@ -259,7 +259,7 @@ impl Future for ReadStream {
     type Output = ();
     type Error = ();
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> futures::Poll<Self::Output> {
         const DEFAULT_BUF_SIZE: usize = 4096;
         let mut new_write_size = 128;
         loop {
@@ -272,7 +272,7 @@ impl Future for ReadStream {
 
             let read = try_nb!(self.read.read(&mut self.buffer[self.current_pos..]));
             if read == 0 {
-                return Ok(futures::Async::NotReady);
+                return Ok(futures::Poll::Pending);
             }
 
             let mut min = self.current_pos;
@@ -414,7 +414,7 @@ mod tests {
                     self.server.write_all(response.as_bytes()).unwrap();
                     self.server.flush().unwrap();
 
-                    Ok(futures::Async::Ready(()))
+                    Ok(futures::Poll::Ready(()))
                 }
             }
 
@@ -456,7 +456,7 @@ mod tests {
                     self.server.write_all(response.as_bytes()).unwrap();
                     self.server.flush().unwrap();
 
-                    Ok(futures::Async::Ready(()))
+                    Ok(futures::Poll::Ready(()))
                 }
             }
 

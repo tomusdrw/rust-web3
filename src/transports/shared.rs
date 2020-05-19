@@ -147,7 +147,7 @@ where
     type Output = Out;
     type Error = Error;
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> futures::Poll<Self::Output> {
         loop {
             let extract = &self.extract;
             match self.state {
@@ -159,9 +159,9 @@ where
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
                     log::trace!("[{}] Checking response.", self.id);
-                    let result = try_ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
+                    let result = ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
                     log::trace!("[{}] Extracting result.", self.id);
-                    return result.and_then(|x| extract(x)).map(futures::Async::Ready);
+                    return result.and_then(|x| extract(x)).map(futures::Poll::Ready);
                 }
                 RequestState::Done => {
                     return Err(Error::Unreachable);

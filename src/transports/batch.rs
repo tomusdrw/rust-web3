@@ -87,16 +87,16 @@ pub struct BatchFuture<T> {
 impl<T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>> Future for BatchFuture<T> {
     type Output = error::Result<Vec<error::Result<rpc::Value>>>;
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> futures::Poll<Self::Output> {
         loop {
             match mem::replace(&mut self.state, BatchState::Done) {
                 BatchState::SendingBatch(mut batch, ids) => {
                     let res = match batch.poll() {
-                        Ok(futures::Async::NotReady) => {
+                        Ok(futures::Poll::Pending) => {
                             self.state = BatchState::SendingBatch(batch, ids);
-                            return Ok(futures::Async::NotReady);
+                            return Ok(futures::Poll::Pending);
                         }
-                        Ok(futures::Async::Ready(v)) => Ok(v),
+                        Ok(futures::Poll::Ready(v)) => Ok(v),
                         Err(err) => Err(err),
                     };
 
@@ -116,12 +116,12 @@ impl<T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>> Future f
                     self.state = BatchState::Resolving(future::join_all(sending), res);
                 }
                 BatchState::Resolving(mut all, res) => {
-                    if let Ok(futures::Async::NotReady) = all.poll() {
+                    if let Ok(futures::Poll::Pending) = all.poll() {
                         self.state = BatchState::Resolving(all, res);
-                        return Ok(futures::Async::NotReady);
+                        return Ok(futures::Poll::Pending);
                     }
 
-                    return Ok(futures::Async::Ready(res?));
+                    return Ok(futures::Poll::Ready(res?));
                 }
                 BatchState::Done => {
                     panic!("Poll after Ready.");
@@ -138,8 +138,8 @@ pub struct SingleResult(oneshot::Receiver<error::Result<rpc::Value>>);
 impl Future for SingleResult {
     type Output = error::Result<rpc::Value>;
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(self.0.poll().map_err(|_| Error::Internal));
-        res.map(futures::Async::Ready)
+    fn poll(&mut self) -> futures::Poll<Self::Output> {
+        let res = ready!(self.0.poll().map_err(|_| Error::Internal));
+        res.map(futures::Poll::Ready)
     }
 }

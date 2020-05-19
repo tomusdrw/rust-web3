@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
-use crate::{DuplexTransport, Error};
-use futures::{Async, Future, Poll, Stream};
+use crate::{error, DuplexTransport};
+use futures::{Future, task::Poll, Stream};
 use serde;
 use serde_json;
 
@@ -79,14 +79,13 @@ where
     T: DuplexTransport,
     I: serde::de::DeserializeOwned,
 {
-    type Output = I;
-    type Error = Error;
+    type Item = error::Result<I>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(&mut self) -> Poll<Option<Self::Item>> {
         match self.rx.poll() {
-            Ok(Async::Ready(Some(x))) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
-            Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Ok(Poll::Ready(Some(x))) => serde_json::from_value(x).map(Poll::Ready).map_err(Into::into),
+            Ok(Poll::Ready(None)) => Ok(Poll::Ready(None)),
+            Ok(Poll::Pending) => Ok(Poll::Pending),
             Err(e) => Err(e),
         }
     }
@@ -122,16 +121,15 @@ where
     T: DuplexTransport,
     I: serde::de::DeserializeOwned,
 {
-    type Output = SubscriptionStream<T, I>;
-    type Error = Error;
+    type Output = error::Result<SubscriptionStream<T, I>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         match self.inner.poll() {
-            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(
+            Ok(Poll::Ready(id)) => Ok(Poll::Ready(SubscriptionStream::new(
                 self.transport.clone(),
                 SubscriptionId(id),
             ))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Ok(Poll::Pending) => Ok(Poll::Pending),
             Err(e) => Err(e),
         }
     }

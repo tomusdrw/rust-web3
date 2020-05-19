@@ -63,13 +63,13 @@ pub trait BatchTransport: Transport {
     /// Sends a batch of prepared RPC calls.
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
-        T: IntoIterator<Output = (RequestId, rpc::Call)>;
+        T: IntoIterator<Item = (RequestId, rpc::Call)>;
 }
 
 /// A transport implementation supporting pub sub subscriptions.
 pub trait DuplexTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: futures::Stream<Output = error::Result<rpc::Value>>;
+    type NotificationStream: futures::Stream<Item = error::Result<rpc::Value>>;
 
     /// Add a subscription to this transport
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream;
@@ -107,7 +107,7 @@ where
 
     fn send_batch<I>(&self, requests: I) -> Self::Batch
     where
-        I: IntoIterator<Output = (RequestId, rpc::Call)>,
+        I: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         (**self).send_batch(requests)
     }
@@ -197,10 +197,10 @@ where
     B: DuplexTransport<NotificationStream = BStream>,
     A::Out: 'static,
     B::Out: 'static,
-    AStream: futures::Stream<Output = error::Result<rpc::Value>> + 'static,
-    BStream: futures::Stream<Output = error::Result<rpc::Value>> + 'static,
+    AStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
+    BStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
 {
-    type NotificationStream = Box<dyn futures::Stream<Output = error::Result<rpc::Value>>>;
+    type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>>>;
 
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
         match *self {
@@ -219,7 +219,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{rpc, Error, RequestId, Transport};
+    use super::{rpc, RequestId, Transport};
     use crate::api::Web3;
     use futures::Future;
     use std::sync::Arc;

@@ -5,9 +5,9 @@ use std::time::Duration;
 use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use crate::helpers::CallFuture;
 use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
-use crate::{Error, Transport};
+use crate::{error, Error, Transport};
 use futures::stream::Skip;
-use futures::{Future, IntoFuture, Poll, Stream};
+use futures::{Future, task::Poll};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -53,17 +53,16 @@ where
     V: ConfirmationCheck<Check = F>,
     F: IntoFuture<Output = Option<U64>, Error = Error>,
 {
-    type Output = ();
-    type Error = Error;
+    type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 WaitForConfirmationsState::WaitForNextBlock => {
-                    let _ = try_ready!(self.filter_stream.poll());
+                    let _ = ready!(self.filter_stream.poll());
                     WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match ready!(future.poll()) {
                     Some(confirmation_block_number) => {
                         let future = self.eth.block_number();
                         WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
@@ -74,7 +73,7 @@ where
                     confirmation_block_number,
                     ref mut block_number_future,
                 ) => {
-                    let block_number = try_ready!(block_number_future.poll()).low_u64();
+                    let block_number = ready!(block_number_future.poll()).low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
                         return Ok(().into());
                     } else {
@@ -125,14 +124,13 @@ where
     V: ConfirmationCheck<Check = F>,
     F: IntoFuture<Output = Option<U64>, Error = Error>,
 {
-    type Output = ();
-    type Error = Error;
+    type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 ConfirmationsState::Create(ref mut create) => {
-                    let filter = try_ready!(create.create_filter.poll());
+                    let filter = ready!(create.create_filter.poll());
                     let future = WaitForConfirmations {
                         eth: create.eth.take().expect("future polled after ready; qed"),
                         state: WaitForConfirmationsState::WaitForNextBlock,
@@ -173,11 +171,10 @@ struct TransactionReceiptBlockNumber<T: Transport> {
 }
 
 impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
-    type Output = Option<U64>;
-    type Error = Error;
+    type Output = error::Result<Option<U64>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let receipt = try_ready!(self.future.poll());
+    fn poll(&mut self) -> Poll<Self::Output> {
+        let receipt = ready!(self.future.poll());
         Ok(receipt.and_then(|receipt| receipt.block_number).into())
     }
 }
@@ -251,10 +248,9 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
 }
 
 impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
-    type Output = TransactionReceipt;
-    type Error = Error;
+    type Output = error::Result<TransactionReceipt>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 SendTransactionWithConfirmationState::Error(ref mut error) => {
@@ -263,7 +259,7 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                         .expect("Error is initialized initially; future polled only once; qed"));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    let hash = try_ready!(future.poll());
+                    let hash = ready!(future.poll());
                     if self.confirmations > 0 {
                         let confirmation_check =
                             TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash);
@@ -283,12 +279,12 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     }
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
-                    let _confirmed = try_ready!(Future::poll(future));
+                    let _confirmed = ready!(Future::poll(future));
                     let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
                     SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
                 }
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = try_ready!(Future::poll(future))
+                    let receipt = ready!(Future::poll(future))
                         .expect("receipt can't be null after wait for confirmations; qed");
                     return Ok(receipt.into());
                 }

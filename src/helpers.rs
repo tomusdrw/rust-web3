@@ -36,7 +36,7 @@ where
     fn poll(&mut self) -> Poll<Self::Output> {
         match self.inner.poll() {
             Ok(Poll::Ready(x)) => serde_json::from_value(x).map(Poll::Ready).map_err(Into::into),
-            Ok(Poll::NotReady) => Ok(Poll::NotReady),
+            Ok(Poll::Pending) => Ok(Poll::Pending),
             Err(e) => Err(e),
         }
     }
@@ -63,25 +63,27 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 }
 
 /// Parse bytes slice into JSON-RPC response.
-pub fn to_response_from_slice(response: &[u8]) -> Result<rpc::Response, Error> {
-    serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+pub fn to_response_from_slice(response: &[u8]) -> error::Result<rpc::Response> {
+    serde_json::from_slice(response)
+        .map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse bytes slice into JSON-RPC notification.
-pub fn to_notification_from_slice(notification: &[u8]) -> Result<rpc::Notification, Error> {
-    serde_json::from_slice(notification).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+pub fn to_notification_from_slice(notification: &[u8]) -> error::Result<rpc::Notification> {
+    serde_json::from_slice(notification)
+        .map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
-pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> Result<Vec<Result<rpc::Value, Error>>, Error> {
+pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> error::Result<Vec<error::Result<rpc::Value>>> {
     Ok(outputs.into_iter().map(to_result_from_output).collect())
 }
 
 /// Parse `rpc::Output` into `Result`.
-pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
+pub fn to_result_from_output(output: rpc::Output) -> error::Result<rpc::Value> {
     match output {
         rpc::Output::Success(success) => Ok(success.result),
-        rpc::Output::Failure(failure) => Err(Error::Rpc(failure.error)),
+        rpc::Output::Failure(failure) => Err(error::Error::Rpc(failure.error)),
     }
 }
 

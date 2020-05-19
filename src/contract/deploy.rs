@@ -1,7 +1,7 @@
 //! Contract deployment utilities
 
 use ethabi;
-use futures::{Async, Future, Poll};
+use futures::{Future, task::Poll};
 use rustc_hex::{FromHex, ToHex};
 use std::{collections::HashMap, time};
 
@@ -168,8 +168,8 @@ pub struct PendingContract<
 impl<T: Transport, F: Future<Output = error::Result<TransactionReceipt>>> Future for PendingContract<T, F> {
     type Output = Result<Contract<T>, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item> {
-        let receipt = try_ready!(self.waiting.poll());
+    fn poll(&mut self) -> Poll<Self::Output> {
+        let receipt = ready!(self.waiting.poll());
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");
 
@@ -178,7 +178,7 @@ impl<T: Transport, F: Future<Output = error::Result<TransactionReceipt>>> Future
             // If the `status` field is not present we use the presence of `contract_address` to
             // determine if deployment was successfull.
             _ => match receipt.contract_address {
-                Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
+                Some(address) => Ok(Poll::Ready(Contract::new(eth, address, abi))),
                 None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             },
         }
