@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 
 use crate::{error, rpc};
-use futures::{Future, task::Poll};
+use futures::{Future, task::{Context, Poll}};
 use serde;
 use serde_json;
 
@@ -33,8 +33,8 @@ where
 {
     type Output = error::Result<T>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
-        match self.inner.poll() {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        match self.inner.poll(ctx) {
             Ok(Poll::Ready(x)) => serde_json::from_value(x).map(Poll::Ready).map_err(Into::into),
             Ok(Poll::Pending) => Ok(Poll::Pending),
             Err(e) => Err(e),

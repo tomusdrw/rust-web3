@@ -79,7 +79,7 @@ where
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
             let bytes: Bytes = ready!(inner.poll());
             return Ok(Poll::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
@@ -98,7 +98,7 @@ where
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Simple(ref mut inner) = self.inner {
             let hash: T = ready!(inner.poll());
             return Ok(Poll::Ready(hash));

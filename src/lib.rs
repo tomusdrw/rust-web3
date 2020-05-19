@@ -175,8 +175,8 @@ where
     B: BatchTransport<Batch = BBatch>,
     A::Out: 'static,
     B::Out: 'static,
-    ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
-    BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
+    ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
+    BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
 {
     type Batch = Box<dyn futures::Future<
         Output = error::Result<Vec<error::Result<rpc::Value>>>

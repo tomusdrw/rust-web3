@@ -123,7 +123,7 @@ where
 {
     type Output = error::Result<SubscriptionStream<T, I>>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         match self.inner.poll() {
             Ok(Poll::Ready(id)) => Ok(Poll::Ready(SubscriptionStream::new(
                 self.transport.clone(),

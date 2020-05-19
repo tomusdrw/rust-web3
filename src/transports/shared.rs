@@ -147,7 +147,7 @@ where
     type Output = Out;
     type Error = Error;
 
-    fn poll(&mut self) -> futures::Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
         loop {
             let extract = &self.extract;
             match self.state {

@@ -206,7 +206,7 @@ impl Future for WriteStream {
     type Output = ();
     type Error = ();
 
-    fn poll(&mut self) -> futures::Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
         loop {
             self.state = match self.state {
                 WriteState::WaitingForRequest => {
@@ -259,7 +259,7 @@ impl Future for ReadStream {
     type Output = ();
     type Error = ();
 
-    fn poll(&mut self) -> futures::Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
         const DEFAULT_BUF_SIZE: usize = 4096;
         let mut new_write_size = 128;
         loop {
@@ -399,7 +399,7 @@ mod tests {
             impl Future for Task {
                 type Output = ();
                 type Error = ();
-                fn poll(&mut self) -> futures::Poll<(), ()> {
+                fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<(), ()> {
                     let mut data = [0; 2048];
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));
@@ -444,7 +444,7 @@ mod tests {
             impl Future for Task {
                 type Output = ();
                 type Error = ();
-                fn poll(&mut self) -> futures::Poll<(), ()> {
+                fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<(), ()> {
                     let mut data = [0; 2048];
                     // Read request
                     let read = try_nb!(self.server.read(&mut data));

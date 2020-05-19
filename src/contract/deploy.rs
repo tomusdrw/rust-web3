@@ -168,7 +168,7 @@ pub struct PendingContract<
 impl<T: Transport, F: Future<Output = error::Result<TransactionReceipt>>> Future for PendingContract<T, F> {
     type Output = Result<Contract<T>, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let receipt = ready!(self.waiting.poll());
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");

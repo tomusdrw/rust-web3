@@ -211,7 +211,7 @@ impl<T: Transport> SignTransactionFuture<T> {
 impl<T: Transport> Future for SignTransactionFuture<T> {
     type Output = error::Result<SignedTransaction>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let (nonce, gas_price, chain_id) = ready!(self.inner.poll());
         let chain_id = chain_id.as_u64();
 

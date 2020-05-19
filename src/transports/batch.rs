@@ -87,7 +87,7 @@ pub struct BatchFuture<T> {
 impl<T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>> Future for BatchFuture<T> {
     type Output = error::Result<Vec<error::Result<rpc::Value>>>;
 
-    fn poll(&mut self) -> futures::Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
         loop {
             match mem::replace(&mut self.state, BatchState::Done) {
                 BatchState::SendingBatch(mut batch, ids) => {
@@ -138,7 +138,7 @@ pub struct SingleResult(oneshot::Receiver<error::Result<rpc::Value>>);
 impl Future for SingleResult {
     type Output = error::Result<rpc::Value>;
 
-    fn poll(&mut self) -> futures::Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
         let res = ready!(self.0.poll().map_err(|_| Error::Internal));
         res.map(futures::Poll::Ready)
     }

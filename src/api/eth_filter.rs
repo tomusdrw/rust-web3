@@ -198,7 +198,7 @@ where
 {
     type Output = error::Result<BaseFilter<T, I>>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let id = ready!(self.future.poll());
         let result = BaseFilter {
             id,

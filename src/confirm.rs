@@ -55,7 +55,7 @@ where
 {
     type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 WaitForConfirmationsState::WaitForNextBlock => {
@@ -126,7 +126,7 @@ where
 {
     type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 ConfirmationsState::Create(ref mut create) => {
@@ -173,7 +173,7 @@ struct TransactionReceiptBlockNumber<T: Transport> {
 impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
     type Output = error::Result<Option<U64>>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let receipt = ready!(self.future.poll());
         Ok(receipt.and_then(|receipt| receipt.block_number).into())
     }
@@ -250,7 +250,7 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
 impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
     type Output = error::Result<TransactionReceipt>;
 
-    fn poll(&mut self) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 SendTransactionWithConfirmationState::Error(ref mut error) => {
