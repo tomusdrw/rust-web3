@@ -502,7 +502,6 @@ mod tests {
       Value::String("0x123".into()) => 0x123
     );
 
-    // NOTE: I don't know why this is passing
     rpc_test! (
       Eth:estimate_gas:optional_to_addr, CallRequest {
         from: None, to: None,
@@ -511,7 +510,7 @@ mod tests {
       }, None
       =>
       "eth_estimateGas", vec![r#"{"value":"0x1"}"#];
-      Value::String("0x123".into()) => 0x123
+      Value::String("0x5555".into()) => 0x5555
     );
 
     rpc_test! (
