@@ -5,10 +5,10 @@ use std::mem;
 
 use crate::contract;
 use crate::contract::tokens::Detokenize;
+use crate::error;
 use crate::helpers;
 use crate::rpc;
 use crate::types::Bytes;
-use crate::Error as ApiError;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
@@ -75,10 +75,9 @@ impl<T, F> QueryResult<T, F> {
 
 impl<T: Detokenize, F> Future for QueryResult<T, F>
 where
-    F: Future<Item = rpc::Value, Error = ApiError>,
+    F: Future<Output = error::Result<rpc::Value>>,
 {
-    type Item = T;
-    type Error = contract::Error;
+    type Output = Result<T, contract::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
@@ -95,10 +94,9 @@ where
 
 impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
-    F: Future<Item = rpc::Value, Error = ApiError>,
+    F: Future<Output = error::Result<rpc::Value>>,
 {
-    type Item = T;
-    type Error = contract::Error;
+    type Output = Result<T, contract::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let ResultType::Simple(ref mut inner) = self.inner {

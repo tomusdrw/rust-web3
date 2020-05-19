@@ -118,7 +118,7 @@ impl<T: Transport> Web3<T> {
         check: V,
     ) -> confirm::Confirmations<T, V, F::Future>
     where
-        F: IntoFuture<Item = Option<U64>, Error = Error>,
+        F: IntoFuture<Output = Option<U64>, Error = Error>,
         V: confirm::ConfirmationCheck<Check = F>,
     {
         confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)

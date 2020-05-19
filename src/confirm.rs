@@ -12,7 +12,7 @@ use futures::{Future, IntoFuture, Poll, Stream};
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
     /// Future resolved when is known whether an event has been confirmed.
-    type Check: IntoFuture<Item = Option<U64>, Error = Error>;
+    type Check: IntoFuture<Output = Option<U64>, Error = Error>;
 
     /// Should be called to get future which resolves when confirmation state is known.
     fn check(&self) -> Self::Check;
@@ -21,7 +21,7 @@ pub trait ConfirmationCheck {
 impl<F, T> ConfirmationCheck for F
 where
     F: Fn() -> T,
-    T: IntoFuture<Item = Option<U64>, Error = Error>,
+    T: IntoFuture<Output = Option<U64>, Error = Error>,
 {
     type Check = T;
 
@@ -51,9 +51,9 @@ impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    F: IntoFuture<Output = Option<U64>, Error = Error>,
 {
-    type Item = ();
+    type Output = ();
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -123,9 +123,9 @@ impl<T, V, F> Future for Confirmations<T, V, F::Future>
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    F: IntoFuture<Output = Option<U64>, Error = Error>,
 {
-    type Item = ();
+    type Output = ();
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -163,7 +163,7 @@ pub fn wait_for_confirmations<T, V, F>(
 where
     T: Transport,
     V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    F: IntoFuture<Output = Option<U64>, Error = Error>,
 {
     Confirmations::new(eth, eth_filter, poll_interval, confirmations, check)
 }
@@ -173,7 +173,7 @@ struct TransactionReceiptBlockNumber<T: Transport> {
 }
 
 impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
-    type Item = Option<U64>;
+    type Output = Option<U64>;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -251,7 +251,7 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
 }
 
 impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
-    type Item = TransactionReceipt;
+    type Output = TransactionReceipt;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

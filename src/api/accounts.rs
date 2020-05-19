@@ -8,7 +8,7 @@ use crate::types::{
 };
 use crate::Transport;
 use futures::future::{self, Either, FutureResult, Join3};
-use futures::{Async, Future, Poll};
+use futures::{Future, task::Poll};
 use rlp::RlpStream;
 use secp256k1::key::ONE_KEY;
 use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
@@ -205,10 +205,9 @@ impl<T: Transport> SignTransactionFuture<T> {
 }
 
 impl<T: Transport> Future for SignTransactionFuture<T> {
-    type Item = SignedTransaction;
-    type Error = Error;
+    type Output = error::Result<SignedTransaction>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Item> {
         let (nonce, gas_price, chain_id) = try_ready!(self.inner.poll());
         let chain_id = chain_id.as_u64();
 
@@ -223,7 +222,7 @@ impl<T: Transport> Future for SignTransactionFuture<T> {
         };
         let signed = tx.sign(&self.key, chain_id);
 
-        Ok(Async::Ready(signed))
+        Ok(Poll::Ready(signed))
     }
 }
 

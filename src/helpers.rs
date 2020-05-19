@@ -2,12 +2,11 @@
 
 use std::marker::PhantomData;
 
-use crate::rpc;
-use futures::{Async, Future, Poll};
+use crate::{error, rpc};
+use futures::{Future, task::Poll};
 use serde;
 use serde_json;
 
-use crate::error::Error;
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
@@ -30,15 +29,14 @@ impl<T, F> CallFuture<T, F> {
 
 impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
-    F: Future<Item = rpc::Value, Error = Error>,
+    F: Future<Output = error::Result<rpc::Value>>,
 {
-    type Item = T;
-    type Error = Error;
+    type Output = error::Result<T>;
 
-    fn poll(&mut self) -> Poll<T, Error> {
+    fn poll(&mut self) -> Poll<Self::Output> {
         match self.inner.poll() {
-            Ok(Async::Ready(x)) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Ok(Poll::Ready(x)) => serde_json::from_value(x).map(Poll::Ready).map_err(Into::into),
+            Ok(Poll::NotReady) => Ok(Poll::NotReady),
             Err(e) => Err(e),
         }
     }

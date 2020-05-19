@@ -162,7 +162,7 @@ impl BatchTransport for Ipc {
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
-        T: IntoIterator<Item = (RequestId, rpc::Call)>,
+        T: IntoIterator<Output = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
         let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
@@ -172,7 +172,7 @@ impl BatchTransport for Ipc {
 }
 
 impl DuplexTransport for Ipc {
-    type NotificationStream = Box<dyn Stream<Item = rpc::Value, Error = Error> + Send + 'static>;
+    type NotificationStream = Box<dyn Stream<Output = rpc::Value, Error = Error> + Send + 'static>;
 
     fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
@@ -203,7 +203,7 @@ struct WriteStream {
 
 #[cfg(unix)]
 impl Future for WriteStream {
-    type Item = ();
+    type Output = ();
     type Error = ();
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
@@ -256,7 +256,7 @@ struct ReadStream {
 
 #[cfg(unix)]
 impl Future for ReadStream {
-    type Item = ();
+    type Output = ();
     type Error = ();
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
@@ -397,7 +397,7 @@ mod tests {
             }
 
             impl Future for Task {
-                type Item = ();
+                type Output = ();
                 type Error = ();
                 fn poll(&mut self) -> futures::Poll<(), ()> {
                     let mut data = [0; 2048];
@@ -442,7 +442,7 @@ mod tests {
             }
 
             impl Future for Task {
-                type Item = ();
+                type Output = ();
                 type Error = ();
                 fn poll(&mut self) -> futures::Poll<(), ()> {
                     let mut data = [0; 2048];

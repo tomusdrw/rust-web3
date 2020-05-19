@@ -1,9 +1,7 @@
 //! Supported Ethereum JSON-RPC transports.
 
-use crate::Error;
-
 /// RPC Result.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = crate::error::Result<T>;
 
 pub mod batch;
 pub use self::batch::Batch;

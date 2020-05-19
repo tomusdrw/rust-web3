@@ -43,7 +43,7 @@ enum FilterStreamState<I, O> {
 }
 
 impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
-    type Item = I;
+    type Output = I;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -72,7 +72,7 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
 /// Specifies filter items and constructor method.
 trait FilterInterface {
     /// Filter item type
-    type Item;
+    type Output;
 
     /// Name of method used to construct the filter
     fn constructor() -> &'static str;
@@ -83,7 +83,7 @@ trait FilterInterface {
 struct LogsFilter;
 
 impl FilterInterface for LogsFilter {
-    type Item = Log;
+    type Output = Log;
 
     fn constructor() -> &'static str {
         "eth_newFilter"
@@ -95,7 +95,7 @@ impl FilterInterface for LogsFilter {
 struct BlocksFilter;
 
 impl FilterInterface for BlocksFilter {
-    type Item = H256;
+    type Output = H256;
 
     fn constructor() -> &'static str {
         "eth_newBlockFilter"
@@ -107,7 +107,7 @@ impl FilterInterface for BlocksFilter {
 struct PendingTransactionsFilter;
 
 impl FilterInterface for PendingTransactionsFilter {
-    type Item = H256;
+    type Output = H256;
 
     fn constructor() -> &'static str {
         "eth_newPendingTransactionFilter"
@@ -197,7 +197,7 @@ impl<T, I> Future for CreateFilter<T, I>
 where
     T: Transport,
 {
-    type Item = BaseFilter<T, I>;
+    type Output = BaseFilter<T, I>;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Error> {

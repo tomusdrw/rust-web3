@@ -9,6 +9,7 @@ use crate::api::{Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::Tokenize;
 use crate::contract::{Contract, Options};
+use crate::error;
 use crate::types::{Address, Bytes, TransactionReceipt, TransactionRequest};
 use crate::Transport;
 
@@ -70,7 +71,7 @@ impl<T: Transport> Builder<T> {
         params: P,
         from: Address,
         password: &str,
-    ) -> Result<PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>, ethabi::Error>
+    ) -> Result<PendingContract<T, impl Future<Output = error::Result<TransactionReceipt>>>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -103,7 +104,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
-        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
+        Ft: Future<Output = error::Result<TransactionReceipt>>,
     {
         let options = self.options;
         let eth = self.eth;
@@ -157,18 +158,17 @@ impl<T: Transport> Builder<T> {
 /// Contract being deployed.
 pub struct PendingContract<
     T: Transport,
-    F: Future<Item = TransactionReceipt, Error = crate::error::Error> = confirm::SendTransactionWithConfirmation<T>,
+    F: Future<Output = error::Result<TransactionReceipt>> = confirm::SendTransactionWithConfirmation<T>,
 > {
     eth: Option<Eth<T>>,
     abi: Option<ethabi::Contract>,
     waiting: F,
 }
 
-impl<T: Transport, F: Future<Item = TransactionReceipt, Error = crate::error::Error>> Future for PendingContract<T, F> {
-    type Item = Contract<T>;
-    type Error = Error;
+impl<T: Transport, F: Future<Output = error::Result<TransactionReceipt>>> Future for PendingContract<T, F> {
+    type Output = Result<Contract<T>, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self) -> Poll<Self::Item> {
         let receipt = try_ready!(self.waiting.poll());
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");

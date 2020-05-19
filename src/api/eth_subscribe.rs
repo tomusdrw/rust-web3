@@ -79,7 +79,7 @@ where
     T: DuplexTransport,
     I: serde::de::DeserializeOwned,
 {
-    type Item = I;
+    type Output = I;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -122,7 +122,7 @@ where
     T: DuplexTransport,
     I: serde::de::DeserializeOwned,
 {
-    type Item = SubscriptionStream<T, I>;
+    type Output = SubscriptionStream<T, I>;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

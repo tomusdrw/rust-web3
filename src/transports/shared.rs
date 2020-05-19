@@ -144,7 +144,7 @@ where
     T: Fn(O) -> Result<Out>,
     Out: fmt::Debug,
 {
-    type Item = Out;
+    type Output = Out;
     type Error = Error;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {

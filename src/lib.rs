@@ -23,7 +23,7 @@ pub mod helpers;
 pub mod api;
 pub mod contract;
 pub mod error;
-pub mod transports;
+//pub mod transports;
 pub mod types;
 
 pub mod confirm;
@@ -32,7 +32,7 @@ pub use crate::api::Web3;
 pub use crate::error::Error;
 
 /// RPC result
-pub type Result<T> = Box<dyn futures::Future<Item = T, Error = Error> + Send + 'static>;
+pub type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send + 'static>;
 
 /// Assigned RequestId
 pub type RequestId = usize;
@@ -40,7 +40,7 @@ pub type RequestId = usize;
 /// Transport implementation
 pub trait Transport: ::std::fmt::Debug + Clone {
     /// The type of future this transport returns when a call is made.
-    type Out: futures::Future<Item = rpc::Value, Error = Error>;
+    type Out: futures::Future<Output = error::Result<rpc::Value>>;
 
     /// Prepare serializable RPC call for given method with parameters.
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);
@@ -58,18 +58,18 @@ pub trait Transport: ::std::fmt::Debug + Clone {
 /// A transport implementation supporting batch requests.
 pub trait BatchTransport: Transport {
     /// The type of future this transport returns when a call is made.
-    type Batch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>;
+    type Batch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>;
 
     /// Sends a batch of prepared RPC calls.
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
-        T: IntoIterator<Item = (RequestId, rpc::Call)>;
+        T: IntoIterator<Output = (RequestId, rpc::Call)>;
 }
 
 /// A transport implementation supporting pub sub subscriptions.
 pub trait DuplexTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: futures::Stream<Item = rpc::Value, Error = Error>;
+    type NotificationStream: futures::Stream<Output = error::Result<rpc::Value>>;
 
     /// Add a subscription to this transport
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream;
@@ -107,7 +107,7 @@ where
 
     fn send_batch<I>(&self, requests: I) -> Self::Batch
     where
-        I: IntoIterator<Item = (RequestId, rpc::Call)>,
+        I: IntoIterator<Output = (RequestId, rpc::Call)>,
     {
         (**self).send_batch(requests)
     }
@@ -149,10 +149,10 @@ impl<A, B, AOut, BOut> Transport for EitherTransport<A, B>
 where
     A: Transport<Out = AOut>,
     B: Transport<Out = BOut>,
-    AOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
-    BOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
+    AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
+    BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
 {
-    type Out = Box<dyn futures::Future<Item = rpc::Value, Error = Error>>;
+    type Out = Box<dyn futures::Future<Output = error::Result<rpc::Value>>>;
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         match *self {
@@ -175,10 +175,10 @@ where
     B: BatchTransport<Batch = BBatch>,
     A::Out: 'static,
     B::Out: 'static,
-    ABatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
-    BBatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
+    ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
+    BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static,
 {
-    type Batch = Box<dyn futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>>;
+    type Batch = Box<dyn futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -197,10 +197,10 @@ where
     B: DuplexTransport<NotificationStream = BStream>,
     A::Out: 'static,
     B::Out: 'static,
-    AStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
-    BStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
+    AStream: futures::Stream<Output = error::Result<rpc::Value>> + 'static,
+    BStream: futures::Stream<Output = error::Result<rpc::Value>> + 'static,
 {
-    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value, Error = Error>>;
+    type NotificationStream = Box<dyn futures::Stream<Output = error::Result<rpc::Value>>>;
 
     fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
         match *self {
@@ -227,7 +227,7 @@ mod tests {
     #[derive(Debug, Clone)]
     struct FakeTransport;
     impl Transport for FakeTransport {
-        type Out = Box<dyn Future<Item = rpc::Value, Error = Error> + Send + 'static>;
+        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + 'static>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

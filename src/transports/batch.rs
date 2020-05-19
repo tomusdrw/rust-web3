@@ -1,8 +1,8 @@
 //! Batching Transport
 
 use crate::rpc;
-use crate::transports::Result;
-use crate::{BatchTransport, Error as RpcError, RequestId, Transport};
+use crate::error::{self, Error};
+use crate::{BatchTransport, RequestId, Transport};
 use futures::sync::oneshot;
 use futures::{self, future, Future};
 use parking_lot::Mutex;
@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::mem;
 use std::sync::Arc;
 
-type Pending = oneshot::Sender<Result<rpc::Value>>;
+type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
 
 /// Transport allowing to batch queries together.
@@ -71,8 +71,8 @@ where
 enum BatchState<T> {
     SendingBatch(T, Vec<RequestId>),
     Resolving(
-        future::JoinAll<Vec<::std::result::Result<(), Result<rpc::Value>>>>,
-        Result<Vec<Result<rpc::Value>>>,
+        future::JoinAll<Vec<Result<(), error::Result<rpc::Value>>>>,
+        error::Result<Vec<error::Result<rpc::Value>>>,
     ),
     Done,
 }
@@ -84,9 +84,8 @@ pub struct BatchFuture<T> {
     pending: PendingRequests,
 }
 
-impl<T: Future<Item = Vec<Result<rpc::Value>>, Error = RpcError>> Future for BatchFuture<T> {
-    type Item = Vec<Result<rpc::Value>>;
-    type Error = RpcError;
+impl<T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>> Future for BatchFuture<T> {
+    type Output = error::Result<Vec<error::Result<rpc::Value>>>;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
         loop {
@@ -109,7 +108,7 @@ impl<T: Future<Item = Vec<Result<rpc::Value>>, Error = RpcError>> Future for Bat
                             pending.remove(&request_id).map(|rx| match res {
                                 Ok(ref results) if results.len() > idx => rx.send(results[idx].clone()),
                                 Err(ref err) => rx.send(Err(err.clone())),
-                                _ => rx.send(Err(RpcError::Internal)),
+                                _ => rx.send(Err(Error::Internal)),
                             })
                         })
                         .collect::<Vec<_>>();
@@ -133,15 +132,14 @@ impl<T: Future<Item = Vec<Result<rpc::Value>>, Error = RpcError>> Future for Bat
 }
 
 /// Result of calling a single method that will be part of the batch.
-/// Converts `oneshot::Receiver` error into `RpcError::Internal`
-pub struct SingleResult(oneshot::Receiver<Result<rpc::Value>>);
+/// Converts `oneshot::Receiver` error into `Error::Internal`
+pub struct SingleResult(oneshot::Receiver<error::Result<rpc::Value>>);
 
 impl Future for SingleResult {
-    type Item = rpc::Value;
-    type Error = RpcError;
+    type Output = error::Result<rpc::Value>;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(self.0.poll().map_err(|_| RpcError::Internal));
+        let res = try_ready!(self.0.poll().map_err(|_| Error::Internal));
         res.map(futures::Async::Ready)
     }
 }
