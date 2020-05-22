@@ -1,30 +1,51 @@
 //! `Eth` namespace, filters.
 
-use futures::{Future, task::Poll, Stream};
+use futures::{Future, Stream, task::{Context, Poll}, stream, FutureExt, StreamExt};
+use futures_timer::Delay;
 use serde::de::DeserializeOwned;
-use std::marker::PhantomData;
+use std::marker::{Unpin, PhantomData};
+use std::pin::Pin;
 use std::time::Duration;
-use std::vec;
-use tokio_timer::{Interval, Timer};
+use std::{fmt, vec};
 
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{Filter, Log, H256};
-use crate::{error, rpc, Error, Transport};
+use crate::{error, rpc, Transport};
+
+fn interval(duration: Duration) -> impl Stream<Item=()> + Send + Unpin {
+	stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
+}
 
 /// Stream of events
-#[derive(Debug)]
 pub struct FilterStream<T: Transport, I> {
     base: BaseFilter<T, I>,
-    interval: Interval,
+    poll_interval: Duration,
+    interval: Box<dyn Stream<Item = ()> + Send + Unpin>,
     state: FilterStreamState<I, T::Out>,
+}
+
+
+impl<T, I> fmt::Debug for FilterStream<T, I> where
+    T: Transport,
+    T::Out: fmt::Debug,
+    I: fmt::Debug + 'static,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("FilterStream")
+            .field("base", &self.base)
+            .field("interval", &self.poll_interval)
+            .field("state", &self.state)
+            .finish()
+    }
 }
 
 impl<T: Transport, I> FilterStream<T, I> {
     fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
         FilterStream {
             base,
-            interval: Timer::default().interval(poll_interval),
+            poll_interval: poll_interval.clone(),
+            interval: Box::new(interval(poll_interval)),
             state: FilterStreamState::WaitForInterval,
         }
     }
@@ -42,24 +63,26 @@ enum FilterStreamState<I, O> {
     NextItem(vec::IntoIter<I>),
 }
 
-impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
+impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I> where
+    T::Out: Unpin,
+{
     type Item = error::Result<I>;
 
-    fn poll_next(&mut self) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = ready!(self.interval.poll().map_err(|_| Error::Unreachable));
+                    let _ready = ready!(Pin::new(&mut *self.interval).poll_next(ctx));
                     let id = helpers::serialize(&self.base.id);
                     let future = CallFuture::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
                     FilterStreamState::GetFilterChanges(future)
                 }
                 FilterStreamState::GetFilterChanges(ref mut future) => {
-                    let items = ready!(future.poll()).unwrap_or_default();
+                    let items = ready!(Pin::new(future).poll(ctx))?.unwrap_or_default();
                     FilterStreamState::NextItem(items.into_iter())
                 }
                 FilterStreamState::NextItem(ref mut iter) => match iter.next() {
-                    Some(item) => return Ok(Some(item).into()),
+                    Some(item) => return Poll::Ready(Some(Ok(item))),
                     None => FilterStreamState::WaitForInterval,
                 },
             };
@@ -116,12 +139,21 @@ impl FilterInterface for PendingTransactionsFilter {
 /// Base filter handle.
 /// Uninstall filter on drop.
 /// Allows to poll the filter.
-#[derive(Debug)]
 pub struct BaseFilter<T: Transport, I> {
     // TODO [ToDr] Workaround for ganache returning 0x03 instead of 0x3
     id: String,
     transport: T,
     item: PhantomData<I>,
+}
+
+impl<T: Transport, I: 'static> fmt::Debug for BaseFilter<T, I> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("BaseFilter")
+            .field("id", &self.id)
+            .field("transport", &self.transport)
+            .field("item", &std::any::TypeId::of::<I>())
+            .finish()
+    }
 }
 
 impl<T: Transport, I> Clone for BaseFilter<T, I> {
@@ -195,17 +227,19 @@ pub struct CreateFilter<T: Transport, I> {
 impl<T, I> Future for CreateFilter<T, I>
 where
     T: Transport,
+    T::Out: Unpin,
+    I: Unpin,
 {
     type Output = error::Result<BaseFilter<T, I>>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let id = ready!(self.future.poll());
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let id = ready!(Pin::new(&mut self.future).poll(ctx))?;
         let result = BaseFilter {
             id,
             transport: self.transport.take().expect("future polled after ready; qed"),
             item: PhantomData,
         };
-        Ok(result.into())
+        Poll::Ready(Ok(result))
     }
 }
 

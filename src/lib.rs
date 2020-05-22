@@ -38,7 +38,7 @@ pub type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send>;
 pub type RequestId = usize;
 
 /// Transport implementation
-pub trait Transport: std::fmt::Debug + Clone {
+pub trait Transport: std::fmt::Debug + Clone + Unpin {
     /// The type of future this transport returns when a call is made.
     type Out: futures::Future<Output = error::Result<rpc::Value>>;
 
@@ -84,6 +84,7 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type Out = T::Out;
 
@@ -102,6 +103,7 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type Batch = T::Batch;
 
@@ -119,6 +121,7 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type NotificationStream = T::NotificationStream;
 
@@ -149,8 +152,8 @@ impl<A, B, AOut, BOut> Transport for EitherTransport<A, B>
 where
     A: Transport<Out = AOut>,
     B: Transport<Out = BOut>,
-    AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
-    BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
+    AOut: futures::Future<Output = error::Result<rpc::Value>> + Unpin + 'static,
+    BOut: futures::Future<Output = error::Result<rpc::Value>> + Unpin + 'static,
 {
     type Out = Box<dyn futures::Future<Output = error::Result<rpc::Value>> + Unpin>;
 
@@ -173,8 +176,8 @@ impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B>
 where
     A: BatchTransport<Batch = ABatch>,
     B: BatchTransport<Batch = BBatch>,
-    A::Out: 'static,
-    B::Out: 'static,
+    A::Out: Unpin + 'static,
+    B::Out: Unpin + 'static,
     ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
     BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
 {
@@ -197,10 +200,10 @@ impl<A, B, AStream, BStream> DuplexTransport for EitherTransport<A, B>
 where
     A: DuplexTransport<NotificationStream = AStream>,
     B: DuplexTransport<NotificationStream = BStream>,
-    A::Out: 'static,
-    B::Out: 'static,
-    AStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
-    BStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static,
+    A::Out: Unpin + 'static,
+    B::Out: Unpin + 'static,
+    AStream: futures::Stream<Item = error::Result<rpc::Value>> + Unpin + 'static,
+    BStream: futures::Stream<Item = error::Result<rpc::Value>> + Unpin + 'static,
 {
     type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>> + Unpin>;
 

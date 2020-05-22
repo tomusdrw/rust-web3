@@ -1,13 +1,14 @@
 //! Easy to use utilities for confirmations.
 
+use futures::stream::Skip;
+use futures::{Future, Stream, StreamExt, task::{Context, Poll}};
+use std::pin::Pin;
 use std::time::Duration;
 
 use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use crate::helpers::CallFuture;
 use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
 use crate::{error, Error, Transport};
-use futures::stream::Skip;
-use futures::{Future, task::Poll};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -50,32 +51,35 @@ where
 impl<T, V, F> Future for WaitForConfirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
-    F: Future<Output = error::Result<Option<U64>>>,
+    T::Out: Unpin,
+    V: ConfirmationCheck<Check = F> + Unpin,
+    F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
     type Output = error::Result<()>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 WaitForConfirmationsState::WaitForNextBlock => {
-                    let _ = ready!(self.filter_stream.poll());
+                    let _ = ready!(Pin::new(&mut self.filter_stream).poll_next(ctx));
                     WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check())
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match ready!(future.poll()) {
-                    Some(confirmation_block_number) => {
-                        let future = self.eth.block_number();
-                        WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => {
+                    match ready!(Pin::new(future).poll(ctx))? {
+                        Some(confirmation_block_number) => {
+                            let future = self.eth.block_number();
+                            WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+                        }
+                        None => WaitForConfirmationsState::WaitForNextBlock,
                     }
-                    None => WaitForConfirmationsState::WaitForNextBlock,
                 },
                 WaitForConfirmationsState::CompareConfirmations(
                     confirmation_block_number,
                     ref mut block_number_future,
                 ) => {
-                    let block_number = ready!(block_number_future.poll()).low_u64();
+                    let block_number = ready!(Pin::new(block_number_future).poll(ctx))?.low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
-                        return Ok(().into());
+                        return Poll::Ready(Ok(()))
                     } else {
                         WaitForConfirmationsState::WaitForNextBlock
                     }
@@ -121,20 +125,21 @@ impl<T: Transport, V, F> Confirmations<T, V, F> {
 impl<T, V, F> Future for Confirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
-    F: Future<Output = error::Result<Option<U64>>>,
+    T::Out: Unpin,
+    V: ConfirmationCheck<Check = F> + Unpin,
+    F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
     type Output = error::Result<()>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 ConfirmationsState::Create(ref mut create) => {
-                    let filter = ready!(create.create_filter.poll());
+                    let filter = ready!(Pin::new(&mut create.create_filter).poll(ctx))?;
                     let future = WaitForConfirmations {
                         eth: create.eth.take().expect("future polled after ready; qed"),
                         state: WaitForConfirmationsState::WaitForNextBlock,
-                        filter_stream: filter.stream(create.poll_interval).skip(create.confirmations as u64),
+                        filter_stream: filter.stream(create.poll_interval).skip(create.confirmations),
                         confirmation_check: create
                             .confirmation_check
                             .take()
@@ -143,7 +148,7 @@ where
                     };
                     ConfirmationsState::Wait(future)
                 }
-                ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
+                ConfirmationsState::Wait(ref mut wait) => return Pin::new(wait).poll(ctx),
             };
             self.state = next_state;
         }
@@ -160,7 +165,7 @@ pub fn wait_for_confirmations<T, V, F>(
 ) -> Confirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
+    V: ConfirmationCheck<Check = F> + Unpin,
     F: Future<Output = error::Result<Option<U64>>>,
 {
     Confirmations::new(eth, eth_filter, poll_interval, confirmations, check)
@@ -170,12 +175,14 @@ struct TransactionReceiptBlockNumber<T: Transport> {
     future: CallFuture<Option<TransactionReceipt>, T::Out>,
 }
 
-impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
+impl<T: Transport> Future for TransactionReceiptBlockNumber<T> where
+    T::Out: Unpin,
+{
     type Output = error::Result<Option<U64>>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let receipt = ready!(self.future.poll());
-        Ok(receipt.and_then(|receipt| receipt.block_number).into())
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let receipt = ready!(Pin::new(&mut self.future).poll(ctx))?;
+        Poll::Ready(Ok(receipt.and_then(|receipt| receipt.block_number)))
     }
 }
 
@@ -190,7 +197,9 @@ impl<T: Transport> TransactionReceiptBlockNumberCheck<T> {
     }
 }
 
-impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
+impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> where
+    T::Out: Unpin,
+{
     type Check = TransactionReceiptBlockNumber<T>;
 
     fn check(&self) -> Self::Check {
@@ -247,19 +256,21 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
     }
 }
 
-impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
+impl<T: Transport> Future for SendTransactionWithConfirmation<T> where
+    T::Out: Unpin,
+{
     type Output = error::Result<TransactionReceipt>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 SendTransactionWithConfirmationState::Error(ref mut error) => {
-                    return Err(error
+                    return Poll::Ready(Err(error
                         .take()
-                        .expect("Error is initialized initially; future polled only once; qed"));
+                        .expect("Error is initialized initially; future polled only once; qed")));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    let hash = ready!(future.poll());
+                    let hash = ready!(Pin::new(future).poll(ctx))?;
                     if self.confirmations > 0 {
                         let confirmation_check =
                             TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash);
@@ -279,14 +290,14 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     }
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
-                    let _confirmed = ready!(Future::poll(future));
+                    let _confirmed = ready!(Pin::new(future).poll(ctx))?;
                     let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
                     SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
                 }
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = ready!(Future::poll(future))
+                    let receipt = ready!(Pin::new(future).poll(ctx))?
                         .expect("receipt can't be null after wait for confirmations; qed");
-                    return Ok(receipt.into());
+                    return Poll::Ready(Ok(receipt))
                 }
             };
             self.state = next_state;

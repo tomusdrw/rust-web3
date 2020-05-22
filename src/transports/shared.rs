@@ -159,7 +159,7 @@ where
                 }
                 RequestState::WaitingForResponse(ref mut rx) => {
                     log::trace!("[{}] Checking response.", self.id);
-                    let result = ready!(rx.poll().map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
+                    let result = ready!(rx.poll(ctx).map_err(|_| Error::Io(::std::io::ErrorKind::TimedOut.into())));
                     log::trace!("[{}] Extracting result.", self.id);
                     return result.and_then(|x| extract(x)).map(futures::Poll::Ready);
                 }

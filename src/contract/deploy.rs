@@ -1,9 +1,11 @@
 //! Contract deployment utilities
 
 use ethabi;
-use futures::{Future, task::Poll};
+use futures::{Future, TryFutureExt, task::{Context, Poll}};
 use rustc_hex::{FromHex, ToHex};
-use std::{collections::HashMap, time};
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::time;
 
 use crate::api::{Eth, Namespace};
 use crate::confirm;
@@ -50,6 +52,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
+        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -75,6 +78,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
+        T::Out: Unpin, // TODO get rid of
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -165,23 +169,27 @@ pub struct PendingContract<
     waiting: F,
 }
 
-impl<T: Transport, F: Future<Output = error::Result<TransactionReceipt>>> Future for PendingContract<T, F> {
+impl<T, F> Future for PendingContract<T, F> where
+    F: Future<Output = error::Result<TransactionReceipt>> + Unpin,
+    T: Transport,
+    T::Out: Unpin,
+{
     type Output = Result<Contract<T>, Error>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let receipt = ready!(self.waiting.poll());
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let receipt = ready!(Pin::new(&mut self.waiting).poll(ctx))?;
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");
 
-        match receipt.status {
+        Poll::Ready(match receipt.status {
             Some(status) if status == 0.into() => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             // If the `status` field is not present we use the presence of `contract_address` to
             // determine if deployment was successfull.
             _ => match receipt.contract_address {
-                Some(address) => Ok(Poll::Ready(Contract::new(eth, address, abi))),
+                Some(address) => Ok(Contract::new(eth, address, abi)),
                 None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             },
-        }
+        })
     }
 }
 

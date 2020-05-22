@@ -1,7 +1,8 @@
 use ethabi;
-use futures::{Future, task::Poll};
+use futures::{Future, task::{Context, Poll}};
 use serde;
 use std::mem;
+use std::pin::Pin;
 
 use crate::contract;
 use crate::contract::tokens::Detokenize;
@@ -75,18 +76,19 @@ impl<T, F> QueryResult<T, F> {
 
 impl<T: Detokenize, F> Future for QueryResult<T, F>
 where
-    F: Future<Output = error::Result<rpc::Value>>,
+    T: Unpin,
+    F: Future<Output = error::Result<rpc::Value>> + Unpin,
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
-            let bytes: Bytes = ready!(inner.poll());
-            return Ok(Poll::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
+            let bytes: Bytes = ready!(Pin::new(inner).poll(ctx))?;
+            return Poll::Ready(Ok(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Poll::Ready),
+            ResultType::Constant(res) => Poll::Ready(res),
             _ => panic!("Unsupported state"),
         }
     }
@@ -94,18 +96,19 @@ where
 
 impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
-    F: Future<Output = error::Result<rpc::Value>>,
+    F: Future<Output = error::Result<rpc::Value>> + Unpin,
+    T: Unpin,
 {
     type Output = Result<T, contract::Error>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Simple(ref mut inner) = self.inner {
-            let hash: T = ready!(inner.poll());
-            return Ok(Poll::Ready(hash));
+            let hash: T = ready!(Pin::new(inner).poll(ctx))?;
+            return Poll::Ready(Ok(hash));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Poll::Ready),
+            ResultType::Constant(res) => Poll::Ready(res),
             _ => panic!("Unsupported state"),
         }
     }

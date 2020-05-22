@@ -1,6 +1,8 @@
 //! Web3 helpers.
 
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::marker::Unpin;
 
 use crate::{error, rpc};
 use futures::{Future, task::{Context, Poll}};
@@ -27,18 +29,16 @@ impl<T, F> CallFuture<T, F> {
     }
 }
 
-impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
+impl<T, F> Future for CallFuture<T, F>
 where
-    F: Future<Output = error::Result<rpc::Value>>,
+    T: serde::de::DeserializeOwned + Unpin,
+    F: Future<Output = error::Result<rpc::Value>> + Unpin,
 {
     type Output = error::Result<T>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        match self.inner.poll(ctx) {
-            Ok(Poll::Ready(x)) => serde_json::from_value(x).map(Poll::Ready).map_err(Into::into),
-            Ok(Poll::Pending) => Ok(Poll::Pending),
-            Err(e) => Err(e),
-        }
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let x = ready!(Pin::new(&mut self.inner).poll(ctx));
+        Poll::Ready(x.and_then(|x| serde_json::from_value(x).map_err(Into::into)))
     }
 }
 

@@ -211,7 +211,7 @@ impl Future for WriteStream {
             self.state = match self.state {
                 WriteState::WaitingForRequest => {
                     // Ask for more to write
-                    let to_send = ready!(self.incoming.poll());
+                    let to_send = ready!(self.incoming.poll(ctx));
                     if let Some(to_send) = to_send {
                         log::trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
                         WriteState::Writing {
