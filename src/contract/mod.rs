@@ -105,37 +105,35 @@ impl<T: Transport> Contract<T> {
         self.address
     }
 
-    /// Execute a contract function
-    pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<H256, T::Out>
+    /// Returns calldata for contract function call
+    pub fn construct_calldata<P>(&self, func: &str, params: P) -> Vec<u8>
     where
         P: Tokenize,
     {
         self.abi
             .function(func)
             .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(move |data| {
-                let Options {
-                    gas,
-                    gas_price,
-                    value,
-                    nonce,
-                    condition,
-                } = options;
+            .unwrap()
+    }
 
-                self.eth
-                    .send_transaction(TransactionRequest {
-                        from,
-                        to: Some(self.address),
-                        gas,
-                        gas_price,
-                        value,
-                        nonce,
-                        data: Some(Bytes(data)),
-                        condition,
-                    })
-                    .into()
+    /// Execute a contract function
+    pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<H256, T::Out>
+    where
+        P: Tokenize,
+    {
+        let data = Some(Bytes(self.construct_calldata(func, params)));
+        self.eth
+            .send_transaction(TransactionRequest {
+                from,
+                to: Some(self.address),
+                gas: options.gas,
+                gas_price: options.gas_price,
+                value: options.value,
+                nonce: options.nonce,
+                data,
+                condition: options.condition,
             })
-            .unwrap_or_else(Into::into)
+            .into()
     }
 
     /// Execute a contract function and wait for confirmations
