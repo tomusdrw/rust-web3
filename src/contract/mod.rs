@@ -100,20 +100,14 @@ impl<T: Transport> Contract<T> {
         Ok(Self::new(eth, address, abi))
     }
 
+    /// Get the underlying contract ABI.
+    pub fn abi(&self) -> &ethabi::Contract {
+        &self.abi
+    }
+
     /// Returns contract address
     pub fn address(&self) -> Address {
         self.address
-    }
-
-    /// Returns calldata for contract function call
-    pub fn construct_calldata<P>(&self, func: &str, params: P) -> Vec<u8>
-    where
-        P: Tokenize,
-    {
-        self.abi
-            .function(func)
-            .and_then(|function| function.encode_input(&params.into_tokens()))
-            .unwrap()
     }
 
     /// Execute a contract function
@@ -121,19 +115,32 @@ impl<T: Transport> Contract<T> {
     where
         P: Tokenize,
     {
-        let data = Some(Bytes(self.construct_calldata(func, params)));
-        self.eth
-            .send_transaction(TransactionRequest {
-                from,
-                to: Some(self.address),
-                gas: options.gas,
-                gas_price: options.gas_price,
-                value: options.value,
-                nonce: options.nonce,
-                data,
-                condition: options.condition,
+        self.abi
+            .function(func)
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+            .map(move |data| {
+                let Options {
+                    gas,
+                    gas_price,
+                    value,
+                    nonce,
+                    condition,
+                } = options;
+
+                self.eth
+                    .send_transaction(TransactionRequest {
+                        from,
+                        to: Some(self.address),
+                        gas,
+                        gas_price,
+                        value,
+                        nonce,
+                        data: Some(Bytes(data)),
+                        condition,
+                    })
+                    .into()
             })
-            .into()
+            .unwrap_or_else(Into::into)
     }
 
     /// Execute a contract function and wait for confirmations
