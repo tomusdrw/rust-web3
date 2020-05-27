@@ -100,6 +100,11 @@ impl<T: Transport> Contract<T> {
         Ok(Self::new(eth, address, abi))
     }
 
+    /// Get the underlying contract ABI.
+    pub fn abi(&self) -> &ethabi::Contract {
+        &self.abi
+    }
+
     /// Returns contract address
     pub fn address(&self) -> Address {
         self.address
