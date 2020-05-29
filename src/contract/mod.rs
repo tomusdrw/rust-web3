@@ -17,6 +17,9 @@ pub mod tokens;
 pub use crate::contract::error::Error;
 pub use crate::contract::result::{CallFuture, QueryResult};
 
+/// Contract `Result` type.
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Options {
@@ -54,7 +57,7 @@ pub struct Contract<T: Transport> {
 
 impl<T: Transport> Contract<T> {
     /// Creates deployment builder for a contract given it's ABI in JSON.
-    pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>, ethabi::Error> {
+    pub fn deploy(eth: Eth<T>, json: &[u8]) -> ethabi::Result<deploy::Builder<T>> {
         let abi = ethabi::Contract::load(json)?;
         Ok(deploy::Builder {
             eth,
@@ -71,7 +74,7 @@ impl<T: Transport> Contract<T> {
         eth: Eth<T>,
         json: &[u8],
         linker: HashMap<S, Address>,
-    ) -> Result<deploy::Builder<T>, ethabi::Error>
+    ) -> ethabi::Result<deploy::Builder<T>>
     where
         S: AsRef<str> + Eq + Hash,
     {
@@ -95,7 +98,7 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Creates new Contract Interface given blockchain address and JSON containing ABI
-    pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self, ethabi::Error> {
+    pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> ethabi::Result<Self> {
         let abi = ethabi::Contract::load(json)?;
         Ok(Self::new(eth, address, abi))
     }
@@ -275,7 +278,7 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .query(
                     "name",
                     (),
@@ -283,8 +286,7 @@ mod tests {
                     Options::default(),
                     BlockId::Number(BlockNumber::Number(1.into())),
                 )
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then
@@ -309,10 +311,9 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .query("name", (), None, Options::default(), BlockId::Hash(H256::default()))
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then
@@ -337,7 +338,7 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .query(
                     "name",
                     (),
@@ -347,8 +348,7 @@ mod tests {
                     }),
                     BlockId::Number(BlockNumber::Latest),
                 )
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then
@@ -367,10 +367,9 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .call("name", (), Address::from_low_u64_be(5), Options::default())
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then
@@ -389,10 +388,9 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .estimate_gas("name", (), Address::from_low_u64_be(5), Options::default())
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then
@@ -413,10 +411,9 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
+            futures::executor::block_on(token
                 .query("balanceOf", Address::from_low_u64_be(5), None, Options::default(), None)
-                .wait()
-                .unwrap()
+            ).unwrap()
         };
 
         // then

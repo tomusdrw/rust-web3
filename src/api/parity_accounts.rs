@@ -60,8 +60,6 @@ impl<T: Transport> ParityAccounts<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
     use crate::api::Namespace;
     use crate::rpc::Value;
     use ethereum_types::{Address, H256};

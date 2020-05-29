@@ -24,7 +24,6 @@ pub use self::ws::WebSocket;
 #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
 mod shared;
 #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-extern crate tokio_core;
 #[cfg(any(feature = "ipc"))]
 extern crate tokio_io;
 #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]

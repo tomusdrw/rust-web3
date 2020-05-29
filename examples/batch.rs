@@ -1,35 +1,26 @@
-extern crate tokio_core;
 extern crate web3;
 
 use web3::futures::Future;
 
-const MAX_PARALLEL_REQUESTS: usize = 64;
+fn main() -> web3::Result<()> {
+    web3::block_on(run())
+}
 
-fn main() {
-    let mut event_loop = tokio_core::reactor::Core::new().unwrap();
-    let remote = event_loop.remote();
-
-    let http =
-        web3::transports::Http::with_event_loop("http://localhost:8545", &event_loop.handle(), MAX_PARALLEL_REQUESTS)
-            .unwrap();
-
+async fn run() -> web3::Result<()> {
+    let http = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(web3::transports::Batch::new(http));
-    let _ = web3.eth().accounts();
 
-    let block = web3.eth().block_number().then(|block| {
-        println!("Best Block: {:?}", block);
-        Ok(())
-    });
+    let accounts = web3.eth().accounts();
+    let block = web3.eth().block_number();
 
-    let result = web3.transport().submit_batch().then(|accounts| {
-        println!("Result: {:?}", accounts);
-        Ok(())
-    });
+    let result = web3.transport().submit_batch()?;
+    println!("Result: {:?}", result);
 
-    remote.spawn(move |_| block);
-    remote.spawn(move |_| result);
+    let accounts = accounts.await?;
+    println!("Accounts: {:?}", accounts);
 
-    loop {
-        event_loop.turn(None);
-    }
+    let block = block.await?;
+    println!("Block: {:?}", block);
+
+    Ok(())
 }

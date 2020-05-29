@@ -411,7 +411,7 @@ mod tests {
 
         let signed = {
             let accounts = Accounts::new(&transport);
-            accounts.sign_transaction(tx, &key).wait()
+            futures::executor::block_on(accounts.sign_transaction(tx, &key))
         };
 
         transport.assert_request(
@@ -453,18 +453,18 @@ mod tests {
             .unwrap();
 
         let accounts = Accounts::new(TestTransport::default());
-        accounts
-            .sign_transaction(
-                TransactionParameters {
-                    nonce: Some(0.into()),
-                    gas_price: Some(1.into()),
-                    chain_id: Some(42),
-                    ..Default::default()
-                },
-                &key,
-            )
-            .wait()
-            .unwrap();
+        futures::executor::block_on(
+            accounts
+                .sign_transaction(
+                    TransactionParameters {
+                        nonce: Some(0.into()),
+                        gas_price: Some(1.into()),
+                        chain_id: Some(42),
+                        ..Default::default()
+                    },
+                    &key,
+                )
+        ).unwrap();
 
         // sign_transaction makes no requests when all parameters are specified
         accounts.transport().assert_no_more_requests();
@@ -556,7 +556,7 @@ mod tests {
         let recovered = accounts.recover(&signed).unwrap();
         assert_eq!(recovered, address);
 
-        let signed = accounts
+        let signed = futures::executor::block_on(accounts
             .sign_transaction(
                 TransactionParameters {
                     nonce: Some(0.into()),
@@ -565,9 +565,7 @@ mod tests {
                     ..Default::default()
                 },
                 &key,
-            )
-            .wait()
-            .unwrap();
+            )).unwrap();
         let recovered = accounts.recover(&signed).unwrap();
         assert_eq!(recovered, address);
 

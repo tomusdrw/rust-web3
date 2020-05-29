@@ -1,69 +1,59 @@
 extern crate rustc_hex;
-extern crate tokio_core;
 extern crate web3;
 
 use std::time;
 use web3::contract::{Contract, Options};
-use web3::futures::{Future, Stream};
+use web3::futures::{future, Future, StreamExt};
 use web3::types::FilterBuilder;
 
-fn main() {
-    let mut eloop = tokio_core::reactor::Core::new().unwrap();
-    let web3 =
-        web3::Web3::new(web3::transports::WebSocket::with_event_loop("ws://localhost:8546", &eloop.handle()).unwrap());
+fn main() -> web3::contract::Result<()> {
+    web3::block_on(run())
+}
+
+async fn run() -> web3::contract::Result<()> {
+    let web3 = web3::Web3::new(web3::transports::WebSocket::new("ws://localhost:8546")?);
 
     // Get the contract bytecode for instance from Solidity compiler
     let bytecode = include_str!("./build/SimpleEvent.bin");
 
-    eloop
-        .run(web3.eth().accounts().then(|accounts| {
-            let accounts = accounts.unwrap();
-            println!("accounts: {:?}", &accounts);
+    let accounts = web3.eth().accounts().await?;
+    println!("accounts: {:?}", &accounts);
 
-            Contract::deploy(web3.eth(), include_bytes!("./build/SimpleEvent.abi"))
-                .unwrap()
-                .confirmations(1)
-                .poll_interval(time::Duration::from_secs(10))
-                .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
-                .execute(bytecode, (), accounts[0])
-                .unwrap()
-                .then(move |contract| {
-                    let contract = contract.unwrap();
-                    println!("contract deployed at: {}", contract.address());
+    let contract = Contract::deploy(web3.eth(), include_bytes!("./build/SimpleEvent.abi"))?
+        .confirmations(1)
+        .poll_interval(time::Duration::from_secs(10))
+        .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
+        .execute(bytecode, (), accounts[0])?;
+    let contract = contract.await?;
+    println!("contract deployed at: {}", contract.address());
 
-                    // Filter for Hello event in our contract
-                    let filter = FilterBuilder::default()
-                        .address(vec![contract.address()])
-                        .topics(
-                            Some(vec![
-                                "0xd282f389399565f3671145f5916e51652b60eee8e5c759293a2f5771b8ddfd2e"
-                                    .parse()
-                                    .unwrap(),
-                            ]),
-                            None,
-                            None,
-                            None,
-                        )
-                        .build();
+    // Filter for Hello event in our contract
+    let filter = FilterBuilder::default()
+        .address(vec![contract.address()])
+        .topics(
+            Some(vec![
+                "0xd282f389399565f3671145f5916e51652b60eee8e5c759293a2f5771b8ddfd2e"
+                    .parse()
+                    .unwrap(),
+            ]),
+            None,
+            None,
+            None,
+        )
+        .build();
 
-                    let event_future = web3
-                        .eth_subscribe()
-                        .subscribe_logs(filter)
-                        .then(|sub| {
-                            sub.unwrap().for_each(|log| {
-                                println!("got log: {:?}", log);
-                                Ok(())
-                            })
-                        })
-                        .map_err(|_| ());
+    let sub = web3
+        .eth_subscribe()
+        .subscribe_logs(filter)
+        .await?;
 
-                    let call_future = contract.call("hello", (), accounts[0], Options::default()).then(|tx| {
-                        println!("got tx: {:?}", tx);
-                        Ok(())
-                    });
+    sub.for_each(|log| {
+        println!("got log: {:?}", log);
+        future::ready(())
+    }).await;
 
-                    event_future.join(call_future)
-                })
-        }))
-        .unwrap();
+    let tx = contract.call("hello", (), accounts[0], Options::default()).await?;
+    println!("got tx: {:?}", tx);
+
+    Ok(())
 }

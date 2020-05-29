@@ -4,7 +4,6 @@ extern crate web3;
 use parking_lot::Mutex;
 use std::sync::{atomic, Arc};
 use std::{thread, time};
-use web3::futures::Future;
 
 fn as_millis(dur: time::Duration) -> u64 {
     dur.as_secs() * 1_000 + dur.subsec_nanos() as u64 / 1_000_000
@@ -61,19 +60,22 @@ impl Ticker {
 
 fn main() {
     let requests = 200_000;
-    let (eloop, http) = web3::transports::Http::new("http://localhost:8545/").unwrap();
-    bench("http", eloop, http, requests);
+    let http = web3::transports::Http::new("http://localhost:8545/").unwrap();
+    bench("http", http, requests);
 
-    let (eloop, http) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
-    bench(" ipc", eloop, http, requests);
+    let http = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
+    bench(" ipc", http, requests);
 }
 
-fn bench<T: web3::Transport>(id: &str, eloop: web3::transports::EventLoopHandle, transport: T, max: usize)
+fn bench<T: web3::Transport>(id: &str, transport: T, max: usize)
 where
     T::Out: Send + 'static,
 {
+    use futures::FutureExt;
+
     let web3 = web3::Web3::new(transport);
     let ticker = Arc::new(Ticker::new(id));
+    let mut tasks = vec![];
     for _ in 0..max {
         let ticker = ticker.clone();
         ticker.start();
@@ -84,7 +86,11 @@ where
             ticker.tick();
             Ok(())
         });
-        eloop.remote().spawn(|_| accounts);
+        tasks.push(accounts);
+    }
+
+    for task in tasks {
+        web3::block_on(task).unwrap();
     }
 
     ticker.wait()

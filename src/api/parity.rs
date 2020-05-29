@@ -41,7 +41,6 @@ mod tests {
         rpc::Value,
         types::{Address, Bytes, CallRequest},
     };
-    use futures::Future;
 
     rpc_test!(
         Parity:call,

@@ -4,6 +4,7 @@ use derive_more::{Display, From};
 use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
+use std::sync::Arc;
 
 /// Web3 `Result` type.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -73,6 +74,7 @@ impl Clone for Error {
     }
 }
 
+#[cfg(test)]
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
         use self::Error::*;

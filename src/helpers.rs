@@ -90,14 +90,16 @@ pub fn to_result_from_output(output: rpc::Output) -> error::Result<rpc::Value> {
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
-    use crate::error::Error;
+    use crate::error::{self, Error};
     use crate::rpc;
-    use crate::{RequestId, Result, Transport};
-    use futures;
-    use serde_json;
+    use crate::{RequestId, Transport};
+    use futures::future;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::marker::Unpin;
     use std::rc::Rc;
+
+    type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send + Unpin>;
 
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
@@ -116,13 +118,13 @@ pub mod tests {
         }
 
         fn send(&self, id: RequestId, request: rpc::Call) -> Result<rpc::Value> {
-            match self.responses.borrow_mut().pop_front() {
-                Some(response) => Box::new(futures::finished(response)),
+            Box::new(future::ready(match self.responses.borrow_mut().pop_front() {
+                Some(response) => Ok(response),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
-                    Box::new(futures::failed(Error::Unreachable))
+                    Err(Error::Unreachable)
                 }
-            }
+            }))
         }
     }
 
@@ -177,7 +179,8 @@ pub mod tests {
         // then
         transport.assert_request($method, &$results.into_iter().map(Into::into).collect::<Vec<_>>());
         transport.assert_no_more_requests();
-        assert_eq!(result.wait(), Ok($expected.into()));
+        let result = futures::executor::block_on(result);
+        assert_eq!(result, Ok($expected.into()));
       }
     };
     // With parameters (implicit test name)
@@ -211,7 +214,8 @@ pub mod tests {
         // then
         transport.assert_request($method, &[]);
         transport.assert_no_more_requests();
-        assert_eq!(result.wait(), Ok($expected.into()));
+        let result = futures::executor::block_on(result);
+        assert_eq!(result, Ok($expected.into()));
       }
     };
 

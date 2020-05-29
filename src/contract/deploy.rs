@@ -235,17 +235,17 @@ mod tests {
             let builder = Contract::deploy(api::Eth::new(&transport), include_bytes!("./res/token.json")).unwrap();
 
             // when
-            builder
-                .options(Options::with(|opt| opt.value = Some(5.into())))
-                .confirmations(1)
-                .execute(
-                    "0x01020304",
-                    (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
-                    Address::from_low_u64_be(5),
-                )
-                .unwrap()
-                .wait()
-                .unwrap();
+            futures::executor::block_on(
+                builder
+                    .options(Options::with(|opt| opt.value = Some(5.into())))
+                    .confirmations(1)
+                    .execute(
+                        "0x01020304",
+                        (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
+                        Address::from_low_u64_be(5),
+                    )
+                    .unwrap()
+            ).unwrap();
         };
 
         // then
@@ -302,10 +302,11 @@ mod tests {
         let lib_address;
         {
             let builder = Contract::deploy(api::Eth::new(&transport), &lib_abi).unwrap();
-            lib_address = builder
-                .execute(lib_code, (), Address::zero())
-                .unwrap()
-                .wait()
+            lib_address = futures::executor::block_on(
+                builder
+                    .execute(lib_code, (), Address::zero())
+                    .unwrap()
+            )
                 .unwrap()
                 .address();
         }
@@ -333,7 +334,9 @@ mod tests {
                 linker
             })
             .unwrap();
-            let _ = builder.execute(main_code, (), Address::zero()).unwrap().wait().unwrap();
+            let _ = futures::executor::block_on(
+                builder.execute(main_code, (), Address::zero()).unwrap()
+            ).unwrap();
         }
 
         transport.assert_request("eth_sendTransaction", &[

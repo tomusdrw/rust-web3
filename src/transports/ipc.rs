@@ -374,7 +374,6 @@ impl ReadStream {
 
 #[cfg(all(test, unix))]
 mod tests {
-    extern crate tokio_core;
     extern crate tokio_uds;
 
     use super::Ipc;

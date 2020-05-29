@@ -14,6 +14,7 @@ use jsonrpc_core as rpc;
 /// Re-export of the `futures` crate.
 #[macro_use]
 pub extern crate futures;
+pub use futures::executor::{block_on, block_on_stream};
 
 // it needs to be before other modules
 // otherwise the macro for tests is not available.
@@ -29,10 +30,7 @@ pub mod types;
 pub mod confirm;
 
 pub use crate::api::Web3;
-pub use crate::error::Error;
-
-/// RPC result
-pub type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send>;
+pub use crate::error::{Result, Error};
 
 /// Assigned RequestId
 pub type RequestId = usize;
@@ -224,15 +222,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{rpc, RequestId, Transport};
+    use super::{error, rpc, RequestId, Transport};
+
     use crate::api::Web3;
     use futures::Future;
+    use std::marker::Unpin;
     use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;
+
     impl Transport for FakeTransport {
-        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + 'static>;
+        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + Unpin>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

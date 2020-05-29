@@ -399,7 +399,7 @@ mod tests {
         let confirmation = {
             let future =
                 send_transaction_with_confirmation(&transport, transaction_request, poll_interval, confirmations);
-            future.wait()
+            futures::executor::block_on(future)
         };
 
         transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into()]);

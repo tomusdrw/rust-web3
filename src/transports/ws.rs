@@ -231,7 +231,6 @@ impl DuplexTransport for WebSocket {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_core;
     extern crate websocket;
 
     use self::websocket::message::OwnedMessage;

@@ -283,7 +283,6 @@ impl<T: Transport> EthFilter<T> {
 #[cfg(test)]
 mod tests {
     use crate::rpc::Value;
-    use futures::{Future, Stream};
     use serde_json;
     use std::time::Duration;
 
@@ -303,7 +302,7 @@ mod tests {
 
             // when
             let filter = FilterBuilder::default().limit(10).build();
-            let filter = eth.create_logs_filter(filter).wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_logs_filter(filter)).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
         };
 
@@ -339,9 +338,9 @@ mod tests {
             let filter = FilterBuilder::default()
                 .topics(None, Some(vec![H256::from_low_u64_be(2)]), None, None)
                 .build();
-            let filter = eth.create_logs_filter(filter).wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_logs_filter(filter)).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
-            filter.logs().wait()
+            futures::executor::block_on(filter.logs())
         };
 
         // then
@@ -381,9 +380,9 @@ mod tests {
             let filter = FilterBuilder::default()
                 .address(vec![Address::from_low_u64_be(2)])
                 .build();
-            let filter = eth.create_logs_filter(filter).wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_logs_filter(filter)).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
-            filter.poll().wait()
+            futures::executor::block_on(filter.poll())
         };
 
         // then
@@ -405,7 +404,7 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = eth.create_blocks_filter().wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_blocks_filter()).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
         };
 
@@ -426,9 +425,9 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = eth.create_blocks_filter().wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_blocks_filter()).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
-            filter.poll().wait()
+            futures::executor::block_on(filter.poll())
         };
 
         // then
@@ -453,22 +452,23 @@ mod tests {
         transport.add_response(Value::Array(vec![Value::String(
             r#"0x0000000000000000000000000000000000000000000000000000000000000459"#.into(),
         )]));
-        let result = {
+        let result: Vec<_> = {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = eth.create_blocks_filter().wait().unwrap();
-            filter.stream(Duration::from_secs(0)).take(4).collect().wait()
+            let filter = futures::executor::block_on(eth.create_blocks_filter()).unwrap();
+            futures::executor::block_on_stream(filter.stream(Duration::from_secs(0))).take(4).collect()
         };
 
         // then
         assert_eq!(
             result,
-            Ok([0x456, 0x457, 0x458, 0x459]
+            [0x456, 0x457, 0x458, 0x459]
                 .iter()
                 .copied()
                 .map(H256::from_low_u64_be)
-                .collect::<Vec<_>>())
+                .map(Ok)
+                .collect::<Vec<_>>()
         );
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
@@ -485,7 +485,7 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = eth.create_pending_transactions_filter().wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_pending_transactions_filter()).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
         };
 
@@ -506,9 +506,9 @@ mod tests {
             let eth = EthFilter::new(&transport);
 
             // when
-            let filter = eth.create_pending_transactions_filter().wait().unwrap();
+            let filter = futures::executor::block_on(eth.create_pending_transactions_filter()).unwrap();
             assert_eq!(filter.id, "0x123".to_owned());
-            filter.poll().wait()
+            futures::executor::block_on(filter.poll())
         };
 
         // then

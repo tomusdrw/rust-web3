@@ -131,8 +131,6 @@ impl<T: Transport> ParitySet<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
     use super::ParitySet;
     use crate::api::Namespace;
     use crate::rpc::Value;
