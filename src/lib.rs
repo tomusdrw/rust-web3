@@ -22,12 +22,11 @@ pub use futures::executor::{block_on, block_on_stream};
 pub mod helpers;
 
 pub mod api;
+pub mod confirm;
 pub mod contract;
 pub mod error;
-//pub mod transports;
+pub mod transports;
 pub mod types;
-
-pub mod confirm;
 
 pub use crate::api::Web3;
 pub use crate::error::{Result, Error};
@@ -35,6 +34,8 @@ pub use crate::error::{Result, Error};
 /// Assigned RequestId
 pub type RequestId = usize;
 
+// TODO [ToDr] The transport most likely don't need to be thread-safe.
+// (though it has to be Send)
 /// Transport implementation
 pub trait Transport: std::fmt::Debug + Clone + Unpin {
     /// The type of future this transport returns when a call is made.

@@ -12,7 +12,7 @@ fn main() -> web3::contract::Result<()> {
 }
 
 async fn run() -> web3::contract::Result<()> {
-    let transport = web3::transports::Http::new("http://localhost:8545");
+    let transport = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(transport);
     let accounts = web3.eth().accounts().await?;
 

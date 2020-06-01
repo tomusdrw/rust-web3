@@ -69,7 +69,7 @@ fn main() {
 
 fn bench<T: web3::Transport>(id: &str, transport: T, max: usize)
 where
-    T::Out: Send + 'static,
+    T::Out: Send + Unpin + 'static,
 {
     use futures::FutureExt;
 
@@ -84,13 +84,13 @@ where
                 println!("Error: {:?}", e);
             }
             ticker.tick();
-            Ok(())
+            futures::future::ready(())
         });
         tasks.push(accounts);
     }
 
     for task in tasks {
-        web3::block_on(task).unwrap();
+        web3::block_on(task);
     }
 
     ticker.wait()

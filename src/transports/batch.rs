@@ -3,12 +3,13 @@
 use crate::rpc;
 use crate::error::{self, Error};
 use crate::{BatchTransport, RequestId, Transport};
-use futures::sync::oneshot;
-use futures::{self, future, Future};
+use futures::channel::oneshot;
+use futures::{self, future, Future, task::{Context, Poll}};
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::mem;
 use std::sync::Arc;
+use std::pin::Pin;
 
 type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -60,7 +61,7 @@ where
     }
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-        let (tx, rx) = futures::oneshot();
+        let (tx, rx) = oneshot::channel();
         self.pending.lock().insert(id, tx);
         self.batch.lock().push((id, request));
 
@@ -70,10 +71,6 @@ where
 
 enum BatchState<T> {
     SendingBatch(T, Vec<RequestId>),
-    Resolving(
-        future::JoinAll<Vec<Result<(), error::Result<rpc::Value>>>>,
-        error::Result<Vec<error::Result<rpc::Value>>>,
-    ),
     Done,
 }
 
@@ -84,44 +81,37 @@ pub struct BatchFuture<T> {
     pending: PendingRequests,
 }
 
-impl<T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>> Future for BatchFuture<T> {
+impl<T> Future for BatchFuture<T> where
+    T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin,
+{
+
     type Output = error::Result<Vec<error::Result<rpc::Value>>>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             match mem::replace(&mut self.state, BatchState::Done) {
                 BatchState::SendingBatch(mut batch, ids) => {
-                    let res = match batch.poll(ctx) {
-                        Ok(futures::Poll::Pending) => {
+                    let res = match Pin::new(&mut batch).poll(ctx) {
+                        Poll::Pending => {
                             self.state = BatchState::SendingBatch(batch, ids);
-                            return Ok(futures::Poll::Pending);
+                            return Poll::Pending;
                         }
-                        Ok(futures::Poll::Ready(v)) => Ok(v),
-                        Err(err) => Err(err),
+                        Poll::Ready(v) => v,
                     };
 
                     let mut pending = self.pending.lock();
-                    let sending = ids
-                        .into_iter()
-                        .enumerate()
-                        .filter_map(|(idx, request_id)| {
-                            pending.remove(&request_id).map(|rx| match res {
+                    for (idx, request_id) in ids.into_iter().enumerate() {
+                        if let Some(rx) = pending.remove(&request_id) {
+                            // Ignore sending error
+                            let _ = match res {
                                 Ok(ref results) if results.len() > idx => rx.send(results[idx].clone()),
                                 Err(ref err) => rx.send(Err(err.clone())),
                                 _ => rx.send(Err(Error::Internal)),
-                            })
-                        })
-                        .collect::<Vec<_>>();
-
-                    self.state = BatchState::Resolving(future::join_all(sending), res);
-                }
-                BatchState::Resolving(mut all, res) => {
-                    if let Ok(futures::Poll::Pending) = all.poll(ctx) {
-                        self.state = BatchState::Resolving(all, res);
-                        return Ok(futures::Poll::Pending);
+                            };
+                        }
                     }
 
-                    return Ok(futures::Poll::Ready(res?));
+                    return Poll::Ready(res);
                 }
                 BatchState::Done => {
                     panic!("Poll after Ready.");
@@ -138,8 +128,10 @@ pub struct SingleResult(oneshot::Receiver<error::Result<rpc::Value>>);
 impl Future for SingleResult {
     type Output = error::Result<rpc::Value>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> futures::Poll<Self::Output> {
-        let res = ready!(self.0.poll(ctx).map_err(|_| Error::Internal));
-        res.map(futures::Poll::Ready)
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        Poll::Ready(
+            ready!(Pin::new(&mut self.0).poll(ctx))
+                .map_err(|_| Error::Internal)?
+        )
     }
 }

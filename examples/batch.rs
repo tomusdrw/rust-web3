@@ -13,7 +13,7 @@ async fn run() -> web3::Result<()> {
     let accounts = web3.eth().accounts();
     let block = web3.eth().block_number();
 
-    let result = web3.transport().submit_batch()?;
+    let result = web3.transport().submit_batch().await?;
     println!("Result: {:?}", result);
 
     let accounts = accounts.await?;

@@ -3,7 +3,7 @@ extern crate web3;
 
 use std::time;
 use web3::contract::{Contract, Options};
-use web3::futures::{Future, Stream, StreamExt};
+use web3::futures::{future, Future, Stream, StreamExt};
 use web3::types::FilterBuilder;
 
 fn main() -> web3::contract::Result<()> {
@@ -51,10 +51,11 @@ async fn run() -> web3::contract::Result<()> {
     filter.stream(time::Duration::from_secs(0))
         .for_each(|log| {
             println!("got log: {:?}", log);
+            future::ready(())
         })
-        .await?;
+        .await;
 
-    let tx = contract.call("hello", (), accounts[0], Options::default()).await?
+    let tx = contract.call("hello", (), accounts[0], Options::default()).await?;
     println!("got tx: {:?}", tx);
 
     Ok(())

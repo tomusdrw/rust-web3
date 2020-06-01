@@ -6,25 +6,77 @@ pub type Result<T> = crate::error::Result<T>;
 pub mod batch;
 pub use self::batch::Batch;
 
-#[cfg(feature = "http")]
-pub mod http;
-#[cfg(feature = "http")]
-pub use self::http::Http;
+use super::*;
+#[derive(Debug, Clone)]
+pub struct Dummy;
 
-#[cfg(feature = "ipc")]
-pub mod ipc;
-#[cfg(feature = "ipc")]
-pub use self::ipc::Ipc;
+impl Dummy {
+    pub fn new(_s: &str) -> error::Result<Self> {
+        Ok(Dummy)
+    }
+}
 
-#[cfg(feature = "ws")]
-pub mod ws;
-#[cfg(feature = "ws")]
-pub use self::ws::WebSocket;
+impl Transport for Dummy {
+    type Out = futures::future::Ready<error::Result<rpc::Value>>;
 
-#[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-mod shared;
-#[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-#[cfg(any(feature = "ipc"))]
-extern crate tokio_io;
-#[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-pub use self::shared::EventLoopHandle;
+    fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
+        unimplemented!()
+    }
+
+    fn send(&self, _id: RequestId, _request: rpc::Call) -> Self::Out {
+        unimplemented!()
+    }
+}
+
+impl BatchTransport for Dummy {
+    /// The type of future this transport returns when a call is made.
+    type Batch = futures::future::Ready<error::Result<Vec<error::Result<rpc::Value>>>>;
+
+    /// Sends a batch of prepared RPC calls.
+    fn send_batch<T>(&self, _requests: T) -> Self::Batch
+    where
+        T: IntoIterator<Item = (RequestId, rpc::Call)> {
+        unimplemented!()
+    }
+}
+
+impl DuplexTransport for Dummy {
+    type NotificationStream = futures::stream::Iter<
+        std::vec::IntoIter<error::Result<rpc::Value>>
+        >;
+
+    fn subscribe(&self, _id: &api::SubscriptionId) -> Self::NotificationStream {
+        unimplemented!()
+    }
+
+    fn unsubscribe(&self, _id: &api::SubscriptionId) {
+        unimplemented!()
+    }
+}
+
+pub use Dummy as Http;
+pub use Dummy as WebSocket;
+pub use Dummy as Ipc;
+
+// #[cfg(feature = "http")]
+// pub mod http;
+// #[cfg(feature = "http")]
+// pub use self::http::Http;
+//
+// #[cfg(feature = "ipc")]
+// pub mod ipc;
+// #[cfg(feature = "ipc")]
+// pub use self::ipc::Ipc;
+//
+// #[cfg(feature = "ws")]
+// pub mod ws;
+// #[cfg(feature = "ws")]
+// pub use self::ws::WebSocket;
+//
+// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
+// mod shared;
+// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
+// #[cfg(any(feature = "ipc"))]
+// extern crate tokio_io;
+// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
+// pub use self::shared::EventLoopHandle;
