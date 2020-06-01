@@ -97,8 +97,6 @@ impl<T: Transport> Traces<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
     use crate::api::Namespace;
     use crate::types::{
         Address, BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256,

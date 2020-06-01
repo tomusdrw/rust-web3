@@ -3,7 +3,7 @@ extern crate web3;
 
 use std::time;
 use web3::contract::{Contract, Options};
-use web3::futures::{future, Future, Stream, StreamExt};
+use web3::futures::{future, StreamExt};
 use web3::types::FilterBuilder;
 
 fn main() -> web3::contract::Result<()> {

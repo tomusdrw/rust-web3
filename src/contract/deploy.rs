@@ -200,7 +200,6 @@ mod tests {
     use crate::helpers::tests::TestTransport;
     use crate::rpc;
     use crate::types::{Address, U256};
-    use futures::Future;
     use serde_json::Value;
     use std::collections::HashMap;
 

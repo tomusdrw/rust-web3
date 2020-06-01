@@ -4,7 +4,6 @@ extern crate web3;
 
 use std::time;
 use web3::contract::{Contract, Options};
-use web3::futures::Future;
 use web3::types::U256;
 
 fn main() -> web3::contract::Result<()> {

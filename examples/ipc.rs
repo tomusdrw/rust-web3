@@ -1,7 +1,5 @@
 extern crate web3;
 
-use web3::futures::Future;
-
 fn main() -> web3::Result<()> {
     web3::block_on(run())
 }

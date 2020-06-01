@@ -4,7 +4,7 @@ use crate::rpc;
 use crate::error::{self, Error};
 use crate::{BatchTransport, RequestId, Transport};
 use futures::channel::oneshot;
-use futures::{self, future, Future, task::{Context, Poll}};
+use futures::{Future, task::{Context, Poll}};
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::mem;

@@ -261,7 +261,6 @@ mod tests {
     use crate::rpc;
     use crate::types::{Address, BlockId, BlockNumber, H256, U256};
     use crate::Transport;
-    use futures::Future;
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);

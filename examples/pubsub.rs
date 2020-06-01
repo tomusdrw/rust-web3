@@ -1,6 +1,6 @@
 extern crate web3;
 
-use web3::futures::{future, Future, StreamExt};
+use web3::futures::{future, StreamExt};
 
 fn main() -> web3::Result<()> {
     web3::block_on(run())
