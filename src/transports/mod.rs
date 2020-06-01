@@ -1,8 +1,5 @@
 //! Supported Ethereum JSON-RPC transports.
 
-/// RPC Result.
-pub type Result<T> = crate::error::Result<T>;
-
 pub mod batch;
 pub use self::batch::Batch;
 
@@ -54,29 +51,16 @@ impl DuplexTransport for Dummy {
     }
 }
 
-pub use Dummy as Http;
+// pub use Dummy as Http;
 pub use Dummy as WebSocket;
 pub use Dummy as Ipc;
 
-// #[cfg(feature = "http")]
-// pub mod http;
-// #[cfg(feature = "http")]
-// pub use self::http::Http;
-//
-// #[cfg(feature = "ipc")]
-// pub mod ipc;
-// #[cfg(feature = "ipc")]
-// pub use self::ipc::Ipc;
+#[cfg(feature = "http")]
+pub mod http;
+#[cfg(feature = "http")]
+pub use self::http::Http;
 //
 // #[cfg(feature = "ws")]
 // pub mod ws;
 // #[cfg(feature = "ws")]
 // pub use self::ws::WebSocket;
-//
-// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-// mod shared;
-// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-// #[cfg(any(feature = "ipc"))]
-// extern crate tokio_io;
-// #[cfg(any(feature = "ipc", feature = "http", feature = "ws"))]
-// pub use self::shared::EventLoopHandle;
