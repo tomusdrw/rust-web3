@@ -1,4 +1,3 @@
-extern crate web3;
 
 fn main() -> web3::Result<()> {
     let ws = web3::transports::WebSocket::new("ws://localhost:8546")?;

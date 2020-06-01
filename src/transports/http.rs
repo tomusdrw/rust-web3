@@ -1,12 +1,8 @@
 //! HTTP Transport
 
-extern crate hyper;
-extern crate url;
 
 #[cfg(feature = "tls")]
-extern crate hyper_tls;
 #[cfg(feature = "tls")]
-extern crate native_tls;
 
 use std::ops::Deref;
 use std::sync::atomic::{self, AtomicUsize};

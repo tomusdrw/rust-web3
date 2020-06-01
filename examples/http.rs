@@ -1,4 +1,3 @@
-extern crate web3;
 
 fn main() {
     let web3 = web3::Web3::new(

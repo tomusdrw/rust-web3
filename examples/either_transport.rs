@@ -1,4 +1,3 @@
-extern crate web3;
 
 pub type Transport = web3::EitherTransport<web3::transports::Ipc, web3::transports::Http>;
 

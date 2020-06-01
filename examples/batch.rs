@@ -1,4 +1,3 @@
-extern crate web3;
 
 fn main() -> web3::Result<()> {
     web3::block_on(run())

@@ -1,7 +1,6 @@
 //! IPC Transport for *nix
 
 #[cfg(unix)]
-extern crate tokio_uds;
 
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};

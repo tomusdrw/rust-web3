@@ -22,12 +22,10 @@ web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 Next, add this to your crate:
 
 ```rust
-extern crate web3;
 ```
 
 ## Examples
 ```rust
-extern crate web3;
 
 use web3::futures::Future;
 

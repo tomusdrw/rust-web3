@@ -1,6 +1,3 @@
-extern crate env_logger;
-extern crate rustc_hex;
-extern crate web3;
 
 use web3::contract::{Contract, Options};
 use web3::types::{Address, U256};

@@ -1,6 +1,4 @@
 //based on examples/contract.rs
-extern crate rustc_hex;
-extern crate web3;
 
 use std::time;
 use web3::contract::{Contract, Options};

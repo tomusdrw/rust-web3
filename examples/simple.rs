@@ -1,4 +1,3 @@
-extern crate web3;
 
 async fn run() -> Result<(), web3::Error> {
     let http = web3::transports::Http::new("http://localhost:8545")?;

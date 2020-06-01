@@ -1,5 +1,3 @@
-extern crate parking_lot;
-extern crate web3;
 
 use parking_lot::Mutex;
 use std::sync::{atomic, Arc};

@@ -1,6 +1,5 @@
 //! WebSocket Transport
 
-extern crate websocket;
 
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};

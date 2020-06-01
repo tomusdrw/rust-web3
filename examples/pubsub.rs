@@ -1,4 +1,3 @@
-extern crate web3;
 
 use web3::futures::{future, StreamExt};
 
