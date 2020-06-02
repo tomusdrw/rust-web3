@@ -11,7 +11,11 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, Error, RequestId, Transport};
 use futures::task::{Context, Poll};
+<<<<<<< HEAD
 use futures::{self, Future, Stream};
+=======
+use futures::{self, future, Future, Stream};
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
 use hyper::header::HeaderValue;
 use serde_json;
 use url::Url;
@@ -92,7 +96,11 @@ impl Http {
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> Response<F>
     where
+<<<<<<< HEAD
         F: Fn(Vec<u8>) -> O,
+=======
+        F: Fn(hyper::body::Bytes) -> O,
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
     {
         let request = helpers::to_string(&request);
         log::debug!("[{}] Sending: {} to {}", id, request, self.url);
@@ -126,7 +134,11 @@ impl Http {
 }
 
 impl Transport for Http {
+<<<<<<< HEAD
     type Out = Response<fn(Vec<u8>) -> error::Result<rpc::Value>>;
+=======
+    type Out = Response<fn(hyper::body::Bytes) -> error::Result<rpc::Value>>;
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -141,7 +153,11 @@ impl Transport for Http {
 }
 
 impl BatchTransport for Http {
+<<<<<<< HEAD
     type Batch = Response<fn(Vec<u8>) -> error::Result<Vec<error::Result<rpc::Value>>>>;
+=======
+    type Batch = Response<fn(hyper::body::Bytes) -> error::Result<Vec<error::Result<rpc::Value>>>>;
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -175,6 +191,7 @@ fn batch_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<Vec<err
     }
 }
 
+<<<<<<< HEAD
 enum ResponseState {
     Waiting(hyper::client::ResponseFuture),
     Reading(Vec<u8>, hyper::Body),
@@ -185,6 +202,13 @@ pub struct Response<T> {
     id: RequestId,
     extract: T,
     state: ResponseState,
+=======
+/// A future representing a response to a pending request.
+pub struct Response<T> {
+    id: RequestId,
+    response: hyper::client::ResponseFuture,
+    extract: T,
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
 }
 
 impl<T> Response<T> {
@@ -193,20 +217,30 @@ impl<T> Response<T> {
         log::trace!("[{}] Request pending.", id);
         Response {
             id,
+<<<<<<< HEAD
             extract,
             state: ResponseState::Waiting(response)
+=======
+            response,
+            extract,
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
         }
     }
 }
 
 impl<T, Out> Future for Response<T>
 where
+<<<<<<< HEAD
     T: Fn(Vec<u8>) -> error::Result<Out> + Unpin,
+=======
+    T: Fn(hyper::body::Bytes) -> error::Result<Out> + Unpin,
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
     Out: fmt::Debug + Unpin,
 {
     type Output = error::Result<Out>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+<<<<<<< HEAD
         let id = self.id;
         loop {
             match self.state {
@@ -240,6 +274,22 @@ where
                 },
             }
         }
+=======
+        log::trace!("[{}] Checking response.", self.id);
+        let response = ready!(Pin::new(&mut self.response).poll(ctx))?;
+        if !response.status().is_success() {
+            return Poll::Ready(Err(Error::Transport(format!(
+                            "Unexpected response status code: {}",
+                            response.status()
+            ))));
+        }
+        log::trace!("[{}] Extracting result.", self.id);
+        // TODO [ToDr] New state
+        let mut body = response.into_body();
+        let chunk = ready!(Pin::new(&mut body).poll_next(ctx)).unwrap()?;
+        // TODO [ToDr] Concat all chunks
+        Poll::Ready((self.extract)(chunk))
+>>>>>>> aecd9b9c0599d826173e38def4c00f3a6fca2f2e
     }
 }
 
