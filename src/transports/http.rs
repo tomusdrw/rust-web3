@@ -92,7 +92,7 @@ impl Http {
 
     fn send_request<F, O>(&self, id: RequestId, request: rpc::Request, extract: F) -> Response<F>
     where
-        F: Fn(hyper::body::Bytes) -> O,
+        F: Fn(Vec<u8>) -> O,
     {
         let request = helpers::to_string(&request);
         log::debug!("[{}] Sending: {} to {}", id, request, self.url);
@@ -126,7 +126,7 @@ impl Http {
 }
 
 impl Transport for Http {
-    type Out = Response<fn(hyper::body::Bytes) -> error::Result<rpc::Value>>;
+    type Out = Response<fn(Vec<u8>) -> error::Result<rpc::Value>>;
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -141,7 +141,7 @@ impl Transport for Http {
 }
 
 impl BatchTransport for Http {
-    type Batch = Response<fn(hyper::body::Bytes) -> error::Result<Vec<error::Result<rpc::Value>>>>;
+    type Batch = Response<fn(Vec<u8>) -> error::Result<Vec<error::Result<rpc::Value>>>>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -175,11 +175,16 @@ fn batch_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<Vec<err
     }
 }
 
+enum ResponseState {
+    Waiting(hyper::client::ResponseFuture),
+    Reading(Vec<u8>, hyper::Body),
+}
+
 /// A future representing a response to a pending request.
 pub struct Response<T> {
     id: RequestId,
-    response: hyper::client::ResponseFuture,
     extract: T,
+    state: ResponseState,
 }
 
 impl<T> Response<T> {
@@ -188,34 +193,53 @@ impl<T> Response<T> {
         log::trace!("[{}] Request pending.", id);
         Response {
             id,
-            response,
             extract,
+            state: ResponseState::Waiting(response)
         }
     }
 }
 
 impl<T, Out> Future for Response<T>
 where
-    T: Fn(hyper::body::Bytes) -> error::Result<Out> + Unpin,
+    T: Fn(Vec<u8>) -> error::Result<Out> + Unpin,
     Out: fmt::Debug + Unpin,
 {
     type Output = error::Result<Out>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        log::trace!("[{}] Checking response.", self.id);
-        let response = ready!(Pin::new(&mut self.response).poll(ctx))?;
-        if !response.status().is_success() {
-            return Poll::Ready(Err(Error::Transport(format!(
-                            "Unexpected response status code: {}",
-                            response.status()
-            ))));
+        let id = self.id;
+        loop {
+            match self.state {
+                ResponseState::Waiting(ref mut waiting) => {
+                    log::trace!("[{}] Checking response.", id);
+                    let response = ready!(Pin::new(waiting).poll(ctx))?;
+                    if !response.status().is_success() {
+                        return Poll::Ready(Err(Error::Transport(format!(
+                                        "Unexpected response status code: {}",
+                                        response.status()
+                        ))));
+                    }
+                    self.state = ResponseState::Reading(Default::default(), response.into_body());
+                },
+                ResponseState::Reading(ref mut content, ref mut body) => {
+                    log::trace!("[{}] Reading body.", id);
+                    match ready!(Pin::new(body).poll_next(ctx)) {
+                        Some(chunk) => {
+                            content.extend(&*chunk?);
+                        },
+                        None => {
+                            let response = std::mem::replace(content, Default::default());
+                            log::trace!(
+                                "[{}] Extracting result from:\n{}",
+                                self.id,
+                                std::str::from_utf8(&response).unwrap_or("<invalid utf8>")
+                            );
+                            return Poll::Ready((self.extract)(response));
+                        }
+                    }
+                },
+            }
         }
-        log::trace!("[{}] Extracting result.", self.id);
-        // TODO [ToDr] New state
-        let mut body = response.into_body();
-        let chunk = ready!(Pin::new(&mut body).poll_next(ctx)).unwrap()?;
-        // TODO [ToDr] Concat all chunks
-        Poll::Ready((self.extract)(chunk))
     }
 }
 

@@ -8,6 +8,7 @@ use super::*;
 pub struct Dummy;
 
 impl Dummy {
+    /// asd
     pub fn new(_s: &str) -> error::Result<Self> {
         Ok(Dummy)
     }

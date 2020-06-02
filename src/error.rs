@@ -6,7 +6,7 @@ use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 
 /// Web3 `Result` type.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T = ()> = std::result::Result<T, Error>;
 
 /// Errors which can occur when attempting to generate resource uri.
 #[derive(Debug, Display, From)]

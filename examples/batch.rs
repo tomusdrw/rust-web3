@@ -1,9 +1,5 @@
-
-fn main() -> web3::Result<()> {
-    web3::block_on(run())
-}
-
-async fn run() -> web3::Result<()> {
+#[tokio::main]
+async fn main() -> web3::Result {
     let http = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(web3::transports::Batch::new(http));
 
