@@ -29,11 +29,15 @@ serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 zeroize = "1.1.0"
 # Optional deps
+## HTTP
 hyper = { version = "0.13", optional = true }
 hyper-tls = { version = "0.4", optional = true }
 native-tls = { version = "0.2", optional = true }
 url = { version = "2.1.0", optional = true }
 base64 = { version = "0.12.0", optional = true }
+## WS
+soketto = { version = "0.3.2", optional = true }
+async-std = { version = "1.5.0", optional = true }
 
 [dev-dependencies]
 # For examples
@@ -41,10 +45,9 @@ tokio = { version = "0.2", features = ["full"] }
 env_logger = "0.7.0"
 
 [features]
-default = ["http"]
-#default = ["http", "ws"]
+default = ["http", "ws", "tls"]
 http = ["hyper", "url", "base64"]
-#ws = ["soketto"]
 tls = ["hyper-tls", "native-tls"]
+ws = ["soketto", "async-std"]
 
 [workspace]

@@ -57,7 +57,7 @@ pub struct Http {
     url: hyper::Uri,
     basic_auth: Option<HeaderValue>,
     #[cfg(feature = "tls")]
-    client: hyper::Client<hyper_tls::HttpsConnector>,
+    client: hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>,
     #[cfg(not(feature = "tls"))]
     client: hyper::Client<hyper::client::HttpConnector>,
 }
@@ -292,5 +292,10 @@ mod tests {
             }
             Err(_) => assert!(false, ""),
         }
+    }
+
+    #[test]
+    fn add_me() {
+        assert_eq!(true, false);
     }
 }

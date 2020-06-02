@@ -10,7 +10,7 @@ pub mod http;
 #[cfg(feature = "http")]
 pub use self::http::Http;
 
-// #[cfg(feature = "ws")]
-// pub mod ws;
-// #[cfg(feature = "ws")]
-// pub use self::ws::WebSocket;
+#[cfg(feature = "ws")]
+pub mod ws;
+#[cfg(feature = "ws")]
+pub use self::ws::WebSocket;
