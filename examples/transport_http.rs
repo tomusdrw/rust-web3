@@ -1,13 +1,6 @@
-pub type Transport = web3::EitherTransport<web3::transports::Ipc, web3::transports::Http>;
-
 #[tokio::main]
-async fn main() -> web3::Result {
+async fn main() -> web3::Result<()> {
     let transport = web3::transports::Http::new("http://localhost:8545")?;
-
-    run(web3::EitherTransport::Right(transport)).await
-}
-
-async fn run(transport: Transport) -> web3::Result {
     let web3 = web3::Web3::new(transport);
 
     println!("Calling accounts.");
