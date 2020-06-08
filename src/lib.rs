@@ -71,10 +71,10 @@ pub trait DuplexTransport: Transport {
     type NotificationStream: futures::Stream<Item = error::Result<rpc::Value>>;
 
     /// Add a subscription to this transport
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream;
+    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: &api::SubscriptionId);
+    fn unsubscribe(&self, id: api::SubscriptionId);
 }
 
 impl<X, T> Transport for X
@@ -124,11 +124,11 @@ where
 {
     type NotificationStream = T::NotificationStream;
 
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
+    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream {
         (**self).subscribe(id)
     }
 
-    fn unsubscribe(&self, id: &api::SubscriptionId) {
+    fn unsubscribe(&self, id: api::SubscriptionId) {
         (**self).unsubscribe(id)
     }
 }

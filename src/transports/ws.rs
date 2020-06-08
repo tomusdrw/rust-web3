@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
+use std::{pin::Pin, fmt};
 
 use crate::api::SubscriptionId;
 use crate::error;
@@ -9,8 +10,7 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
-use futures::{future, StreamExt, Stream, Future, FutureExt};
-use parking_lot::Mutex;
+use futures::{future, StreamExt, Stream, Future, task::{Poll, Context}};
 
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -29,22 +29,22 @@ impl From<connection::Error> for Error {
     }
 }
 
-type BatchResult = error::Result<Vec<error::Result<rpc::Value>>>;
+type SingleResult = error::Result<rpc::Value>;
+type BatchResult = error::Result<Vec<SingleResult>>;
 type Pending = oneshot::Sender<BatchResult>;
 type Subscription = mpsc::UnboundedSender<rpc::Value>;
 
-/// WebSocket transport
-#[derive(Debug, Clone)]
-pub struct WebSocket {
+struct WsServerTask {
     id: Arc<atomic::AtomicUsize>,
-    pending: Arc<Mutex<BTreeMap<RequestId, Pending>>>,
-    subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>,
+    pending: BTreeMap<RequestId, Pending>,
+    subscriptions: BTreeMap<SubscriptionId, Subscription>,
     sender: connection::Sender<TcpStream>,
+    receiver: connection::Receiver<TcpStream>,
 }
 
-impl WebSocket {
+impl WsServerTask {
     /// Create new WebSocket transport.
-    pub async fn new(url: &str) -> error::Result<Self> {
+    pub async fn new(id: Arc<atomic::AtomicUsize>, url: &str) -> error::Result<Self> {
         let socket = TcpStream::connect(url).await?;
         let mut client = Client::new(socket, "localhost", "web3");
         let (sender, receiver) = match client.handshake().await? {
@@ -57,11 +57,24 @@ impl WebSocket {
             ))),
         };
 
-        let pending: Arc<Mutex<BTreeMap<RequestId, Pending>>> = Default::default();
-        let subscriptions: Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>> = Default::default();
+        Ok(Self {
+            id,
+            pending: Default::default(),
+            subscriptions: Default::default(),
+            sender,
+            receiver,
+        })
+    }
 
-        let pending_ = pending.clone();
-        let subscriptions_ = subscriptions.clone();
+    async fn into_task(self, requests: mpsc::UnboundedReceiver<TransportMessage>) -> impl Future<Output = ()> {
+        let Self {
+            receiver,
+            sender,
+            mut pending,
+            mut subscriptions,
+            id
+        } = self;
+
         let recv_future = connection::into_stream(receiver).for_each(move |message| {
             let message = match message {
                 Ok(m) => m,
@@ -81,7 +94,7 @@ impl WebSocket {
 
                             if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
                                 let id: SubscriptionId = id.clone().into();
-                                if let Some(stream) = subscriptions_.lock().get(&id) {
+                                if let Some(stream) = subscriptions.get(&id) {
                                     return future::ready(stream.unbounded_send(result.clone()).unwrap_or_else(|e| {
                                         log::error!("Error sending notification: {:?} (id: {:?}", e, id);
                                     }));
@@ -110,7 +123,7 @@ impl WebSocket {
                     };
 
                     if let rpc::Id::Num(num) = id {
-                        if let Some(request) = pending_.lock().remove(&(num as usize)) {
+                        if let Some(request) = pending.remove(&(num as usize)) {
                             log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
                             if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
                                 log::warn!("Sending a response to deallocated channel: {:?}", err);
@@ -127,33 +140,149 @@ impl WebSocket {
             future::ready(())
         });
 
-        async_std::task::spawn(recv_future);
+        // TODO [ToDr] Select on incoming messages
+        // if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
+        //     log::warn!("Replacing already-registered subscription with id {:?}", id)
+        // }
+        // Box::new(rx.map_err(|()| Error::Transport("No data available".into())))
+
+        // self.pending.lock().insert(id, tx);
+        //
+        // let result = self
+        //     .sender
+        //     .lock()
+        //     .send_text(request)
+        //     .await?;
+        // rx.await
+
+        recv_future
+    }
+}
+
+enum TransportMessage {
+    Request {
+        id: RequestId,
+        request: String,
+        sender: oneshot::Sender<BatchResult>,
+    },
+    Subscribe {
+        id: SubscriptionId,
+        sink: mpsc::UnboundedSender<SingleResult>,
+    },
+    Unsubscribe {
+        id: SubscriptionId,
+    },
+}
+
+/// WebSocket transport
+#[derive(Clone)]
+pub struct WebSocket {
+    id: Arc<atomic::AtomicUsize>,
+    requests: mpsc::UnboundedSender<TransportMessage>,
+}
+
+impl fmt::Debug for WebSocket {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("WebSocket")
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+impl WebSocket {
+    /// Create new WebSocket transport.
+    pub async fn new(url: &str) -> error::Result<Self> {
+        let id = Arc::new(atomic::AtomicUsize::default());
+        let task = WsServerTask::new(id.clone(), url).await?;
+        // TODO [ToDr] Not unbounded?
+        let (sink, stream) = mpsc::unbounded();
+        task.into_task(
+            stream,
+        );
 
         Ok(Self {
-            id: Arc::new(atomic::AtomicUsize::new(1)),
-            pending,
-            subscriptions,
-            sender,
+            id,
+            requests: sink,
         })
     }
 
-    async fn send_request(&mut self, id: RequestId, request: rpc::Request) -> BatchResult {
+    fn send(&self, msg: TransportMessage) -> error::Result<()> {
+        self.requests.unbounded_send(msg)
+            .map_err(dropped_err)
+    }
+
+    fn send_request(&self, id: RequestId, request: rpc::Request) -> error::Result<oneshot::Receiver<BatchResult>> {
         let request = helpers::to_string(&request);
         log::debug!("[{}] Calling: {}", id, request);
-        let (tx, rx) = oneshot::channel();
-        self.pending.lock().insert(id, tx);
+        let (sender, receiver) = oneshot::channel();
+        self.send(TransportMessage::Request {
+            id,
+            request,
+            sender,
+        })?;
+        Ok(receiver)
+    }
+}
 
-        let result = self
-            .sender
-            .send_text(request)
-            .await?;
+fn dropped_err<T>(_: T) -> error::Error {
+    Error::Transport("Cannot send request. Internal task finished.".into())
+}
 
-        rx.await.map_err(|_| Error::Transport("Dropped.".into()))?
+fn batch_to_single(response: BatchResult) -> SingleResult {
+    match response?.into_iter().next() {
+        Some(res) => res,
+        None => Err(Error::InvalidResponse("Expected single, got batch.".into())),
+    }
+}
+
+fn batch_to_batch(res: BatchResult) -> BatchResult { res }
+
+enum ResponseState {
+    Receiver(Option<error::Result<oneshot::Receiver<BatchResult>>>),
+    Waiting(oneshot::Receiver<BatchResult>),
+}
+
+/// A WS resonse wrapper.
+pub struct Response<R, T> {
+    extract: T,
+    state: ResponseState,
+    _data: std::marker::PhantomData<R>,
+}
+
+impl<R, T> Response<R, T> {
+    fn new(response: error::Result<oneshot::Receiver<BatchResult>>, extract: T) -> Self {
+        Self {
+            extract,
+            state: ResponseState::Receiver(Some(response)),
+            _data: Default::default(),
+        }
+    }
+}
+
+impl<R, T> Future for Response<R, T> where
+    R: Unpin + 'static,
+    T: Fn(BatchResult) -> error::Result<R> + Unpin + 'static,
+{
+    type Output = error::Result<R>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        loop {
+            match self.state {
+                ResponseState::Receiver(ref mut res) => {
+                    let receiver = res.take().expect("Receiver state is active only once; qed")?;
+                    self.state = ResponseState::Waiting(receiver)
+                }
+                ResponseState::Waiting(ref mut future) => {
+                    let response = ready!(Pin::new(future).poll(cx))
+                        .map_err(dropped_err)?;
+                    return Poll::Ready((self.extract)(response));
+                }
+            }
+        }
     }
 }
 
 impl Transport for WebSocket {
-    type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + Unpin>;
+    type Out = Response<rpc::Value, fn(BatchResult) -> SingleResult>;
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         let id = self.id.fetch_add(1, atomic::Ordering::AcqRel);
@@ -164,17 +293,12 @@ impl Transport for WebSocket {
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
         let response = self.send_request(id, rpc::Request::Single(request));
-        Box::new(response.map(|response| {
-            match response.into_iter().next() {
-                Some(res) => Ok(res),
-                None => Err(Error::InvalidResponse("Expected single, got batch.".into())),
-            }
-        }))
+        Response::new(response, batch_to_single)
     }
 }
 
 impl BatchTransport for WebSocket {
-    type Batch = Box<dyn Future<Output = BatchResult> + Send + Unpin>;
+    type Batch = Response<Vec<SingleResult>, fn(BatchResult) -> BatchResult>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -184,30 +308,32 @@ impl BatchTransport for WebSocket {
         let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
         let response = self.send_request(id, rpc::Request::Batch(requests));
-        Box::new(response)
+        Response::new(response, batch_to_batch)
     }
 }
 
 impl DuplexTransport for WebSocket {
-    type NotificationStream = Box<dyn Stream<Item = error::Result<rpc::Value>> + Send + Unpin>;
+    type NotificationStream = mpsc::UnboundedReceiver<SingleResult>;
 
-    fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
-        let (tx, rx) = mpsc::unbounded();
-        if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
-            log::warn!("Replacing already-registered subscription with id {:?}", id)
-        }
-        Box::new(rx.map_err(|()| Error::Transport("No data available".into())))
+    fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream {
+        // TODO [ToDr] Not unbounded?
+        let (sink, stream) = mpsc::unbounded();
+        let res = self.send(TransportMessage::Subscribe {
+            id,
+            sink,
+        });
+        stream
     }
 
-    fn unsubscribe(&self, id: &SubscriptionId) {
-        self.subscriptions.lock().remove(id);
+    fn unsubscribe(&self, id: SubscriptionId) {
+        let task = self.send(TransportMessage::Unsubscribe {
+            id,
+        });
     }
 }
 
 #[cfg(test)]
 mod tests {
-    extern crate websocket;
-
     use self::websocket::message::OwnedMessage;
     use self::websocket::r#async::Server;
     use self::websocket::server::InvalidConnection;

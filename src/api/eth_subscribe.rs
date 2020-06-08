@@ -53,7 +53,7 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
 
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
     fn new(transport: T, id: SubscriptionId) -> Self {
-        let rx = transport.subscribe(&id);
+        let rx = transport.subscribe(id.clone());
         SubscriptionStream {
             transport,
             id,
@@ -92,7 +92,7 @@ where
 
 impl<T: DuplexTransport, I> Drop for SubscriptionStream<T, I> {
     fn drop(&mut self) {
-        self.transport.unsubscribe(self.id());
+        self.transport.unsubscribe(self.id().clone());
     }
 }
 

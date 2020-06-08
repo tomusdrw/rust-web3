@@ -78,14 +78,14 @@ where
 {
     type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>> + Unpin>;
 
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
+    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream {
         match *self {
             Self::Left(ref a) => Box::new(a.subscribe(id)),
             Self::Right(ref b) => Box::new(b.subscribe(id)),
         }
     }
 
-    fn unsubscribe(&self, id: &api::SubscriptionId) {
+    fn unsubscribe(&self, id: api::SubscriptionId) {
         match *self {
             Self::Left(ref a) => a.unsubscribe(id),
             Self::Right(ref b) => b.unsubscribe(id),
