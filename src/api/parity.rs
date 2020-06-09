@@ -47,7 +47,7 @@ mod tests {
         vec![
             CallRequest {
                 from: None,
-                to: Address::from_low_u64_be(0x123),
+                to: Some(Address::from_low_u64_be(0x123)),
                 gas: None,
                 gas_price: None,
                 value: Some(0x1.into()),
@@ -55,7 +55,7 @@ mod tests {
             },
             CallRequest {
                 from: Some(Address::from_low_u64_be(0x321)),
-                to: Address::from_low_u64_be(0x123),
+                to: Some(Address::from_low_u64_be(0x123)),
                 gas: None,
                 gas_price: None,
                 value: None,
@@ -63,7 +63,7 @@ mod tests {
             },
             CallRequest {
                 from: None,
-                to: Address::from_low_u64_be(0x765),
+                to: Some(Address::from_low_u64_be(0x765)),
                 gas: None,
                 gas_price: None,
                 value: Some(0x5.into()),

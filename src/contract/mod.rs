@@ -103,6 +103,11 @@ impl<T: Transport> Contract<T> {
         Ok(Self::new(eth, address, abi))
     }
 
+    /// Get the underlying contract ABI.
+    pub fn abi(&self) -> &ethabi::Contract {
+        &self.abi
+    }
+
     /// Returns contract address
     pub fn address(&self) -> Address {
         self.address
@@ -200,7 +205,7 @@ impl<T: Transport> Contract<T> {
                     .estimate_gas(
                         CallRequest {
                             from: Some(from),
-                            to: self.address,
+                            to: Some(self.address),
                             gas: options.gas,
                             gas_price: options.gas_price,
                             value: options.value,
@@ -239,7 +244,7 @@ impl<T: Transport> Contract<T> {
                 let result = self.eth.call(
                     CallRequest {
                         from: from.into(),
-                        to: self.address,
+                        to: Some(self.address),
                         gas: options.gas,
                         gas_price: options.gas_price,
                         value: options.value,
