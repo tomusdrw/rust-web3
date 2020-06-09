@@ -59,7 +59,8 @@ For more see [examples folder](./examples).
 - [ ] Consider getting rid of `Unpin` requirements.
 - [ ] WebSockets: TLS support
 - [ ] WebSockets: Reconnecting & Pings
-- [ ] Consider using tokio instead of async-std for ws transport (issue with test).
+- [ ] Consider using `tokio` instead of `async-std` for `ws.rs` transport (issue with test).
+- [ ] Restore IPC Transport
 
 ## General
 - [ ] More flexible API (accept `Into<X>`)
