@@ -49,7 +49,6 @@ impl WsServerTask {
         let socket = TcpStream::connect(url).await?;
         let mut client = Client::new(socket, url, "/");
         let handshake = client.handshake();
-        println!("Awaiting handshake");
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
             ServerResponse::Redirect { status_code, location } => return Err(error::Error::Transport(format!(
@@ -213,7 +212,7 @@ impl fmt::Debug for WebSocket {
 impl WebSocket {
     /// Create new WebSocket transport.
     pub async fn new(url: &str) -> error::Result<Self> {
-        let id = Arc::new(atomic::AtomicUsize::default());
+        let id = Arc::new(atomic::AtomicUsize::new(1));
         let task = WsServerTask::new(url).await?;
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
@@ -363,47 +362,36 @@ mod tests {
     use futures::io::{BufReader, BufWriter};
     use soketto::handshake;
 
-    #[tokio::test(core_threads=4)]
+    #[async_std::test]
     async fn should_send_a_request() {
         let _ = env_logger::try_init();
         // given
-        println!("Starting a server");
         let addr = "127.0.0.1:3000";
-        let listener = futures::executor::block_on(TcpListener::bind(addr)).expect("Failed to bind");
-        tokio::spawn(server(addr, listener));
+        async_std::task::spawn(server(addr));
 
-        std::thread::sleep(std::time::Duration::from_millis(5000));
-        println!("Connecting");
-        let ws = WebSocket::new(addr);
-        println!("Awaiting connection");
-        let ws = ws.await.unwrap();
+        let ws = WebSocket::new(addr).await.unwrap();
 
         // when
-        println!("Making a request");
         let res = ws.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
         // then
-        println!("Awaiting response");
         assert_eq!(res.await, Ok(rpc::Value::String("x".into())));
     }
 
-    async fn server(addr: &str, listener: TcpListener) {
+    async fn server(addr: &str) {
+        let listener = futures::executor::block_on(TcpListener::bind(addr)).expect("Failed to bind");
         let mut incoming = listener.incoming();
         println!("Listening on: {}", addr);
         while let Some(Ok(socket)) = incoming.next().await {
-            println!("Accepting connection");
             let mut server = handshake::Server::new(
                 BufReader::new(BufWriter::new(socket))
             );
-            println!("Retrieving handshake");
             let key = {
                 let req = server.receive_request().await.unwrap();
                 req.into_key()
             };
-            println!("Responding to handshake");
             let accept = handshake::server::Response::Accept { key: &key, protocol: None };
             server.send_response(&accept).await.unwrap();
-            println!("Listening for data.");
             let (mut sender, mut receiver) = server.into_builder().finish();
             loop {
                 match receiver.receive_data().await {
