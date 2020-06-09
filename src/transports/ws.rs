@@ -363,7 +363,7 @@ mod tests {
     use futures::io::{BufReader, BufWriter};
     use soketto::handshake;
 
-    #[tokio::test(core_threads=2)]
+    #[tokio::test(core_threads=4)]
     async fn should_send_a_request() {
         let _ = env_logger::try_init();
         // given
@@ -372,6 +372,7 @@ mod tests {
         let listener = futures::executor::block_on(TcpListener::bind(addr)).expect("Failed to bind");
         tokio::spawn(server(addr, listener));
 
+        std::thread::sleep(std::time::Duration::from_millis(5000));
         println!("Connecting");
         let ws = WebSocket::new(addr);
         println!("Awaiting connection");
