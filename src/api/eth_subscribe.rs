@@ -52,14 +52,14 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
 }
 
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
-    fn new(transport: T, id: SubscriptionId) -> Self {
-        let rx = transport.subscribe(id.clone());
-        SubscriptionStream {
+    fn new(transport: T, id: SubscriptionId) -> error::Result<Self> {
+        let rx = transport.subscribe(id.clone())?;
+        Ok(SubscriptionStream {
             transport,
             id,
             rx,
             _marker: PhantomData,
-        }
+        })
     }
 
     /// Return the ID of this subscription
@@ -86,13 +86,13 @@ where
 
     fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         let x = ready!(Pin::new(&mut self.rx).poll_next(ctx));
-        Poll::Ready(x.map(|result| serde_json::from_value(result?).map_err(Into::into)))
+        Poll::Ready(x.map(|result| serde_json::from_value(result).map_err(Into::into)))
     }
 }
 
 impl<T: DuplexTransport, I> Drop for SubscriptionStream<T, I> {
     fn drop(&mut self) {
-        self.transport.unsubscribe(self.id().clone());
+        let _ = self.transport.unsubscribe(self.id().clone());
     }
 }
 
@@ -124,11 +124,11 @@ where
     type Output = error::Result<SubscriptionStream<T, I>>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let id = ready!(Pin::new(&mut self.inner).poll(ctx));
-        Poll::Ready(id.map(|id| SubscriptionStream::new(
+        let id = ready!(Pin::new(&mut self.inner).poll(ctx))?;
+        Poll::Ready(SubscriptionStream::new(
             self.transport.clone(),
             SubscriptionId(id),
-        )))
+        ))
     }
 }
 

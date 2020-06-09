@@ -8,6 +8,8 @@
     clippy::match_wild_err_arm
 )]
 #![warn(missing_docs)]
+// select! in WS transport
+#![recursion_limit = "256"]
 
 use jsonrpc_core as rpc;
 
@@ -68,13 +70,13 @@ pub trait BatchTransport: Transport {
 /// A transport implementation supporting pub sub subscriptions.
 pub trait DuplexTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: futures::Stream<Item = error::Result<rpc::Value>>;
+    type NotificationStream: futures::Stream<Item = rpc::Value>;
 
     /// Add a subscription to this transport
-    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream;
+    fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream>;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: api::SubscriptionId);
+    fn unsubscribe(&self, id: api::SubscriptionId) -> error::Result<()>;
 }
 
 impl<X, T> Transport for X
@@ -124,11 +126,11 @@ where
 {
     type NotificationStream = T::NotificationStream;
 
-    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream {
+    fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream> {
         (**self).subscribe(id)
     }
 
-    fn unsubscribe(&self, id: api::SubscriptionId) {
+    fn unsubscribe(&self, id: api::SubscriptionId) -> error::Result<()> {
         (**self).unsubscribe(id)
     }
 }

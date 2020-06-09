@@ -10,7 +10,7 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
-use futures::{future, StreamExt, Stream, Future, task::{Poll, Context}};
+use futures::{future, StreamExt, Future, FutureExt, task::{Poll, Context}};
 
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -35,7 +35,6 @@ type Pending = oneshot::Sender<BatchResult>;
 type Subscription = mpsc::UnboundedSender<rpc::Value>;
 
 struct WsServerTask {
-    id: Arc<atomic::AtomicUsize>,
     pending: BTreeMap<RequestId, Pending>,
     subscriptions: BTreeMap<SubscriptionId, Subscription>,
     sender: connection::Sender<TcpStream>,
@@ -44,10 +43,14 @@ struct WsServerTask {
 
 impl WsServerTask {
     /// Create new WebSocket transport.
-    pub async fn new(id: Arc<atomic::AtomicUsize>, url: &str) -> error::Result<Self> {
+    pub async fn new(url: &str) -> error::Result<Self> {
+        let url = url.trim_start_matches("ws://");
+
         let socket = TcpStream::connect(url).await?;
-        let mut client = Client::new(socket, "localhost", "web3");
-        let (sender, receiver) = match client.handshake().await? {
+        let mut client = Client::new(socket, url, "/");
+        let handshake = client.handshake();
+        println!("Awaiting handshake");
+        let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
             ServerResponse::Redirect { status_code, location } => return Err(error::Error::Transport(format!(
                     "(code: {}) Unable to follow redirects: {}", status_code, location
@@ -58,7 +61,6 @@ impl WsServerTask {
         };
 
         Ok(Self {
-            id,
             pending: Default::default(),
             subscriptions: Default::default(),
             sender,
@@ -66,16 +68,15 @@ impl WsServerTask {
         })
     }
 
-    async fn into_task(self, requests: mpsc::UnboundedReceiver<TransportMessage>) -> impl Future<Output = ()> {
+    async fn into_task(self, requests: mpsc::UnboundedReceiver<TransportMessage>) {
         let Self {
             receiver,
-            sender,
+            mut sender,
             mut pending,
             mut subscriptions,
-            id
         } = self;
 
-        let recv_future = connection::into_stream(receiver).for_each(move |message| {
+        let recv_future = connection::into_stream(receiver).for_each(|message| {
             let message = match message {
                 Ok(m) => m,
                 Err(e) => {
@@ -140,22 +141,35 @@ impl WsServerTask {
             future::ready(())
         });
 
-        // TODO [ToDr] Select on incoming messages
-        // if self.subscriptions.lock().insert(id.clone(), tx).is_some() {
-        //     log::warn!("Replacing already-registered subscription with id {:?}", id)
-        // }
-        // Box::new(rx.map_err(|()| Error::Transport("No data available".into())))
-
-        // self.pending.lock().insert(id, tx);
-        //
-        // let result = self
-        //     .sender
-        //     .lock()
-        //     .send_text(request)
-        //     .await?;
-        // rx.await
-
-        recv_future
+        let recv_future = recv_future.fuse();
+        let requests = requests.fuse();
+        pin_mut!(recv_future);
+        pin_mut!(requests);
+        select! {
+            msg = requests.next() => match msg {
+                Some(TransportMessage::Request { id, request, sender: tx }) => {
+                    if pending.insert(id.clone(), tx).is_some() {
+                        log::warn!("Replacing a pending request with id {:?}", id);
+                    }
+                    if let Err(e) = sender.send_text(request).await {
+                        // TODO [ToDr] Re-connect.
+                        log::error!("WS connection error: {:?}", e);
+                    }
+                }
+                Some(TransportMessage::Subscribe { id, sink }) => {
+                    if subscriptions.insert(id.clone(), sink).is_some() {
+                        log::warn!("Replacing already-registered subscription with id {:?}", id);
+                    }
+                }
+                Some(TransportMessage::Unsubscribe { id }) => {
+                    if subscriptions.remove(&id).is_none() {
+                        log::warn!("Unsubscribing from non-existent subscription with id {:?}", id);
+                    }
+                }
+                None => {}
+            },
+            _ = recv_future => {},
+        }
     }
 }
 
@@ -167,7 +181,7 @@ enum TransportMessage {
     },
     Subscribe {
         id: SubscriptionId,
-        sink: mpsc::UnboundedSender<SingleResult>,
+        sink: mpsc::UnboundedSender<rpc::Value>,
     },
     Unsubscribe {
         id: SubscriptionId,
@@ -193,12 +207,13 @@ impl WebSocket {
     /// Create new WebSocket transport.
     pub async fn new(url: &str) -> error::Result<Self> {
         let id = Arc::new(atomic::AtomicUsize::default());
-        let task = WsServerTask::new(id.clone(), url).await?;
+        let task = WsServerTask::new(url).await?;
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
-        task.into_task(
+        // Spawn background task for the transport.
+        async_std::task::spawn(task.into_task(
             stream,
-        );
+        ));
 
         Ok(Self {
             id,
@@ -206,7 +221,7 @@ impl WebSocket {
         })
     }
 
-    fn send(&self, msg: TransportMessage) -> error::Result<()> {
+    fn send(&self, msg: TransportMessage) -> error::Result {
         self.requests.unbounded_send(msg)
             .map_err(dropped_err)
     }
@@ -313,82 +328,88 @@ impl BatchTransport for WebSocket {
 }
 
 impl DuplexTransport for WebSocket {
-    type NotificationStream = mpsc::UnboundedReceiver<SingleResult>;
+    type NotificationStream = mpsc::UnboundedReceiver<rpc::Value>;
 
-    fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream {
+    fn subscribe(&self, id: SubscriptionId) -> error::Result<Self::NotificationStream> {
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
-        let res = self.send(TransportMessage::Subscribe {
+        self.send(TransportMessage::Subscribe {
             id,
             sink,
-        });
-        stream
+        })?;
+        Ok(stream)
     }
 
-    fn unsubscribe(&self, id: SubscriptionId) {
-        let task = self.send(TransportMessage::Unsubscribe {
+    fn unsubscribe(&self, id: SubscriptionId) -> error::Result {
+        self.send(TransportMessage::Unsubscribe {
             id,
-        });
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use self::websocket::message::OwnedMessage;
-    use self::websocket::r#async::Server;
-    use self::websocket::server::InvalidConnection;
+    use async_std::net::TcpListener;
+    use crate::{rpc, Transport};
+    use futures::StreamExt;
     use super::WebSocket;
-    use crate::rpc;
-    use crate::Transport;
-    use futures::{Future, Sink, Stream};
+    use futures::io::{BufReader, BufWriter};
+    use soketto::handshake;
 
-    #[test]
-    fn should_send_a_request() {
+    #[tokio::test(core_threads=2)]
+    async fn should_send_a_request() {
+        let _ = env_logger::try_init();
         // given
-        let mut eloop = tokio_core::reactor::Core::new().unwrap();
-        let handle = eloop.handle();
-        let server = Server::bind("localhost:3000", &handle).unwrap();
-        let f = {
-            let handle_ = handle.clone();
-            server
-                .incoming()
-                .take(1)
-                .map_err(|InvalidConnection { error, .. }| error)
-                .for_each(move |(upgrade, addr)| {
-                    log::trace!("Got a connection from {}", addr);
-                    let f = upgrade.accept().and_then(|(s, _)| {
-                        let (sink, stream) = s.split();
+        println!("Starting a server");
+        tokio::spawn(server("127.0.0.1:3000"));
 
-                        stream
-                            .take_while(|m| Ok(!m.is_close()))
-                            .filter_map(|m| match m {
-                                OwnedMessage::Ping(p) => Some(OwnedMessage::Pong(p)),
-                                OwnedMessage::Pong(_) => None,
-                                OwnedMessage::Text(t) => {
-                                    assert_eq!(t, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
-                                    Some(OwnedMessage::Text(
-                                        r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#.to_owned(),
-                                    ))
-                                }
-                                _ => None,
-                            })
-                            .forward(sink)
-                            .and_then(|(_, sink)| sink.send(OwnedMessage::Close(None)))
-                    });
-
-                    handle_.spawn(f.map(|_| ()).map_err(|_| ()));
-
-                    Ok(())
-                })
-        };
-        handle.spawn(f.map_err(|_| ()));
-
-        let ws = WebSocket::with_event_loop("ws://localhost:3000", &handle).unwrap();
+        println!("Connecting");
+        let ws = WebSocket::new("127.0.0.1:3000");
+        println!("Awaiting connection");
+        let ws = ws.await.unwrap();
 
         // when
+        println!("Making a request");
         let res = ws.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
 
         // then
-        assert_eq!(eloop.run(res), Ok(rpc::Value::String("x".into())));
+        println!("Awaiting response");
+        assert_eq!(res.await, Ok(rpc::Value::String("x".into())));
+    }
+
+    async fn server(addr: &str) {
+        let listener = TcpListener::bind(addr).await.expect("Failed to bind");
+        let mut incoming = listener.incoming();
+        println!("Listening on: {}", addr);
+        while let Some(Ok(socket)) = incoming.next().await {
+            println!("Accepting connection");
+            let mut server = handshake::Server::new(
+                BufReader::new(BufWriter::new(socket))
+            );
+            println!("Retrieving handshake");
+            let key = {
+                let req = server.receive_request().await.unwrap();
+                req.into_key()
+            };
+            println!("Responding to handshake");
+            let accept = handshake::server::Response::Accept { key: &key, protocol: None };
+            server.send_response(&accept).await.unwrap();
+            println!("Listening for data.");
+            let (mut sender, mut receiver) = server.into_builder().finish();
+            loop {
+                match receiver.receive_data().await {
+                    Ok(data) if data.is_text() => {
+                        assert_eq!(
+                            data.as_ref(),
+                            r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#.as_bytes()
+                        );
+                        sender.send_text(r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#).await.unwrap();
+                        sender.flush().await.unwrap();
+                    },
+                    Err(soketto::connection::Error::Closed) => break,
+                    e => panic!("Unexpected data: {:?}", e),
+                }
+            }
+        }
     }
 }

@@ -73,19 +73,19 @@ where
     B: DuplexTransport<NotificationStream = BStream>,
     A::Out: Unpin + 'static,
     B::Out: Unpin + 'static,
-    AStream: futures::Stream<Item = error::Result<rpc::Value>> + Unpin + 'static,
-    BStream: futures::Stream<Item = error::Result<rpc::Value>> + Unpin + 'static,
+    AStream: futures::Stream<Item = rpc::Value> + Unpin + 'static,
+    BStream: futures::Stream<Item = rpc::Value> + Unpin + 'static,
 {
-    type NotificationStream = Box<dyn futures::Stream<Item = error::Result<rpc::Value>> + Unpin>;
+    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value> + Unpin>;
 
-    fn subscribe(&self, id: api::SubscriptionId) -> Self::NotificationStream {
-        match *self {
-            Self::Left(ref a) => Box::new(a.subscribe(id)),
-            Self::Right(ref b) => Box::new(b.subscribe(id)),
-        }
+    fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream> {
+        Ok(match *self {
+            Self::Left(ref a) => Box::new(a.subscribe(id)?),
+            Self::Right(ref b) => Box::new(b.subscribe(id)?),
+        })
     }
 
-    fn unsubscribe(&self, id: api::SubscriptionId) {
+    fn unsubscribe(&self, id: api::SubscriptionId) -> error::Result {
         match *self {
             Self::Left(ref a) => a.unsubscribe(id),
             Self::Right(ref b) => b.unsubscribe(id),

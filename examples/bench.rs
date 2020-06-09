@@ -9,7 +9,7 @@ async fn main() -> web3::Result {
     let http = web3::transports::Http::new("http://localhost:8545/")?;
     bench("http", http, requests);
 
-    let ipc = web3::transports::WebSocket::new("./jsonrpc.ipc")?;
+    let ipc = web3::transports::WebSocket::new("./jsonrpc.ipc").await?;
     bench(" ipc", ipc, requests);
 
     Ok(())
