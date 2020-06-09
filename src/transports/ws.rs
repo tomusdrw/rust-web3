@@ -368,10 +368,12 @@ mod tests {
         let _ = env_logger::try_init();
         // given
         println!("Starting a server");
-        tokio::spawn(server("127.0.0.1:3000"));
+        let addr = "127.0.0.1:3000";
+        let listener = futures::executor::block_on(TcpListener::bind(addr)).expect("Failed to bind");
+        tokio::spawn(server(addr, listener));
 
         println!("Connecting");
-        let ws = WebSocket::new("127.0.0.1:3000");
+        let ws = WebSocket::new(addr);
         println!("Awaiting connection");
         let ws = ws.await.unwrap();
 
@@ -384,8 +386,7 @@ mod tests {
         assert_eq!(res.await, Ok(rpc::Value::String("x".into())));
     }
 
-    async fn server(addr: &str) {
-        let listener = TcpListener::bind(addr).await.expect("Failed to bind");
+    async fn server(addr: &str, listener: TcpListener) {
         let mut incoming = listener.incoming();
         println!("Listening on: {}", addr);
         while let Some(Ok(socket)) = incoming.next().await {
