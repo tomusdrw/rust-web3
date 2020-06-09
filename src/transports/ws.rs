@@ -397,8 +397,8 @@ mod tests {
                 match receiver.receive_data().await {
                     Ok(data) if data.is_text() => {
                         assert_eq!(
-                            data.as_ref(),
-                            r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#.as_bytes()
+                            std::str::from_utf8(data.as_ref()),
+                            Ok(r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#)
                         );
                         sender.send_text(r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#).await.unwrap();
                         sender.flush().await.unwrap();

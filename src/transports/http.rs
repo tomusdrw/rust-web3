@@ -82,7 +82,7 @@ impl Http {
         };
 
         Ok(Http {
-            id: Default::default(),
+            id: Arc::new(AtomicUsize::new(1)),
             url: url.parse()?,
             basic_auth,
             client,
@@ -294,8 +294,46 @@ mod tests {
         }
     }
 
-    #[test]
-    fn add_me() {
-        assert_eq!(true, false);
+    async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
+        use hyper::body::HttpBody;
+
+        let expected = r#"{"jsonrpc":"2.0","method":"eth_getAccounts","params":[],"id":1}"#;
+        let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
+
+        assert_eq!(req.method(), &hyper::Method::POST);
+        assert_eq!(req.uri().path(), "/");
+        let mut content: Vec<u8> = vec![];
+        let mut body = req.into_body();
+        while let Some(Ok(chunk)) = body.data().await {
+            content.extend(&*chunk);
+        }
+        assert_eq!(std::str::from_utf8(&*content), Ok(expected));
+
+        Ok(hyper::Response::new(response.into()))
+    }
+
+
+    #[tokio::test]
+    async fn should_make_a_request() {
+        use hyper::service::{make_service_fn, service_fn};
+
+        // given
+        let addr = "127.0.0.1:3001";
+        // start server
+        let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(server)) });
+        let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
+        tokio::spawn(async move {
+            println!("Listening on http://{}", addr);
+            server.await.unwrap();
+        });
+
+        // when
+        let client = Http::new(&format!("http://{}", addr)).unwrap();
+        println!("Sending request");
+        let response = client.execute("eth_getAccounts", vec![]).await;
+        println!("Got response");
+
+        // then
+        assert_eq!(response, Ok(rpc::Value::String("x".into())));
     }
 }
