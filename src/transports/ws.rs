@@ -10,7 +10,7 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
-use futures::{future, StreamExt, Future, FutureExt, task::{Poll, Context}};
+use futures::{StreamExt, Future, task::{Poll, Context}};
 
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -76,101 +76,108 @@ impl WsServerTask {
             mut subscriptions,
         } = self;
 
-        let recv_future = connection::into_stream(receiver).for_each(|message| {
-            let message = match message {
-                Ok(m) => m,
-                Err(e) => {
-                    log::error!("WebSocket Error: {:?}", e);
-                    return future::ready(());
-                },
-            };
-            log::trace!("Message received: {:?}", message);
-            match message {
-                Incoming::Pong(_) => {},
-                Incoming::Data(t) => {
-                    if let Ok(notification) = helpers::to_notification_from_slice(t.as_ref()) {
-                        if let rpc::Params::Map(params) = notification.params {
-                            let id = params.get("subscription");
-                            let result = params.get("result");
-
-                            if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
-                                let id: SubscriptionId = id.clone().into();
-                                if let Some(stream) = subscriptions.get(&id) {
-                                    return future::ready(stream.unbounded_send(result.clone()).unwrap_or_else(|e| {
-                                        log::error!("Error sending notification: {:?} (id: {:?}", e, id);
-                                    }));
-                                } else {
-                                    log::warn!("Got notification for unknown subscription (id: {:?})", id);
-                                }
-                            } else {
-                                log::error!("Got unsupported notification (id: {:?})", id);
-                            }
-                        }
-
-                        return future::ready(());
-                    }
-
-                    let response = helpers::to_response_from_slice(t.as_ref());
-                    let outputs = match response {
-                        Ok(rpc::Response::Single(output)) => vec![output],
-                        Ok(rpc::Response::Batch(outputs)) => outputs,
-                        _ => vec![],
-                    };
-
-                    let id = match outputs.get(0) {
-                        Some(&rpc::Output::Success(ref success)) => success.id.clone(),
-                        Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
-                        None => rpc::Id::Num(0),
-                    };
-
-                    if let rpc::Id::Num(num) = id {
-                        if let Some(request) = pending.remove(&(num as usize)) {
-                            log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
-                            if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-                                log::warn!("Sending a response to deallocated channel: {:?}", err);
-                            }
-                        } else {
-                            log::warn!("Got response for unknown request (id: {:?})", num);
-                        }
-                    } else {
-                        log::warn!("Got unsupported response (id: {:?})", id);
-                    }
-                }
-            }
-
-            future::ready(())
-        });
-
-        let recv_future = recv_future.fuse();
+        let receiver = connection::into_stream(receiver);
+        let receiver = receiver.fuse();
         let requests = requests.fuse();
-        pin_mut!(recv_future);
+        pin_mut!(receiver);
         pin_mut!(requests);
-        select! {
-            msg = requests.next() => match msg {
-                Some(TransportMessage::Request { id, request, sender: tx }) => {
-                    if pending.insert(id.clone(), tx).is_some() {
-                        log::warn!("Replacing a pending request with id {:?}", id);
+        loop {
+            select! {
+                msg = requests.next() => match msg {
+                    Some(TransportMessage::Request { id, request, sender: tx }) => {
+                        if pending.insert(id.clone(), tx).is_some() {
+                            log::warn!("Replacing a pending request with id {:?}", id);
+                        }
+                        let res = sender.send_text(request).await;
+                        let res2 = sender.flush().await;
+                        if let Err(e) = res.and(res2) {
+                            // TODO [ToDr] Re-connect.
+                            log::error!("WS connection error: {:?}", e);
+                        }
                     }
-                    if let Err(e) = sender.send_text(request).await {
-                        // TODO [ToDr] Re-connect.
+                    Some(TransportMessage::Subscribe { id, sink }) => {
+                        if subscriptions.insert(id.clone(), sink).is_some() {
+                            log::warn!("Replacing already-registered subscription with id {:?}", id);
+                        }
+                    }
+                    Some(TransportMessage::Unsubscribe { id }) => {
+                        if subscriptions.remove(&id).is_none() {
+                            log::warn!("Unsubscribing from non-existent subscription with id {:?}", id);
+                        }
+                    }
+                    None => {}
+                },
+                message = receiver.next() => match message {
+                    Some(Ok(message)) => {
+                        handle_message(message, &subscriptions, &mut pending);
+                    },
+                    Some(Err(e)) => {
                         log::error!("WS connection error: {:?}", e);
-                    }
-                }
-                Some(TransportMessage::Subscribe { id, sink }) => {
-                    if subscriptions.insert(id.clone(), sink).is_some() {
-                        log::warn!("Replacing already-registered subscription with id {:?}", id);
-                    }
-                }
-                Some(TransportMessage::Unsubscribe { id }) => {
-                    if subscriptions.remove(&id).is_none() {
-                        log::warn!("Unsubscribing from non-existent subscription with id {:?}", id);
-                    }
-                }
-                None => {}
-            },
-            _ = recv_future => {},
+                        break;
+                    },
+                    None => break,
+                },
+                complete => break,
+            }
         }
     }
+}
+
+fn handle_message(
+    message: Incoming,
+    subscriptions: &BTreeMap<SubscriptionId, Subscription>,
+    pending: &mut BTreeMap<RequestId, Pending>,
+) {
+    log::trace!("Message received: {:?}", message);
+    match message {
+        Incoming::Pong(_) => {},
+        Incoming::Data(t) => if let Ok(notification) = helpers::to_notification_from_slice(t.as_ref()) {
+            if let rpc::Params::Map(params) = notification.params {
+                let id = params.get("subscription");
+                let result = params.get("result");
+
+                if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
+                    let id: SubscriptionId = id.clone().into();
+                    if let Some(stream) = subscriptions.get(&id) {
+                        if let Err(e) = stream.unbounded_send(result.clone()) {
+                            log::error!("Error sending notification: {:?} (id: {:?}", e, id);
+                        }
+                    } else {
+                        log::warn!("Got notification for unknown subscription (id: {:?})", id);
+                    }
+                } else {
+                    log::error!("Got unsupported notification (id: {:?})", id);
+                }
+            }
+        } else {
+            let response = helpers::to_response_from_slice(t.as_ref());
+            let outputs = match response {
+                Ok(rpc::Response::Single(output)) => vec![output],
+                Ok(rpc::Response::Batch(outputs)) => outputs,
+                _ => vec![],
+            };
+
+            let id = match outputs.get(0) {
+                Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+                Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+                None => rpc::Id::Num(0),
+            };
+
+            if let rpc::Id::Num(num) = id {
+                if let Some(request) = pending.remove(&(num as usize)) {
+                    log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+                    if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
+                        log::warn!("Sending a response to deallocated channel: {:?}", err);
+                    }
+                } else {
+                    log::warn!("Got response for unknown request (id: {:?})", num);
+                }
+            } else {
+                log::warn!("Got unsupported response (id: {:?})", id);
+            }
+        }
+    }
+
 }
 
 enum TransportMessage {
@@ -357,7 +364,6 @@ mod tests {
     use soketto::handshake;
 
     #[tokio::test(core_threads=2)]
-    #[ignore]
     async fn should_send_a_request() {
         let _ = env_logger::try_init();
         // given

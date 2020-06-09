@@ -1,5 +1,6 @@
 #[tokio::main]
 async fn main() -> web3::Result<()> {
+    let _ = env_logger::try_init();
     let transport = web3::transports::WebSocket::new("ws://localhost:8546").await?;
     let web3 = web3::Web3::new(transport);
 

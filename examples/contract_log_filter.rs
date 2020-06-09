@@ -5,8 +5,7 @@ use web3::types::FilterBuilder;
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
-    env_logger::init();
-
+    let _ = env_logger::try_init();
     let web3 = web3::Web3::new(web3::transports::Http::new("http://localhost:8545")?);
 
     // Get the contract bytecode for instance from Solidity compiler

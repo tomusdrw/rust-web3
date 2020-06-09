@@ -2,6 +2,7 @@ pub type Transport = web3::transports::Either<web3::transports::WebSocket, web3:
 
 #[tokio::main]
 async fn main() -> web3::Result {
+    let _ = env_logger::try_init();
     let transport = web3::transports::Http::new("http://localhost:8545")?;
 
     run(web3::transports::Either::Right(transport)).await

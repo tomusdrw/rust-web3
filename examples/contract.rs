@@ -3,8 +3,7 @@ use web3::types::{Address, U256};
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
-    env_logger::init();
-
+    let _ = env_logger::try_init();
     let http = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(http);
 

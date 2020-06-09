@@ -4,6 +4,7 @@ use std::{thread, time};
 
 #[tokio::main]
 async fn main() -> web3::Result {
+    let _ = env_logger::try_init();
     let requests = 200_000;
 
     let http = web3::transports::Http::new("http://localhost:8545/")?;

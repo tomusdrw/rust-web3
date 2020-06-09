@@ -6,6 +6,7 @@ use web3::types::U256;
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
+    let _ = env_logger::try_init();
     let transport = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(transport);
     let accounts = web3.eth().accounts().await?;
