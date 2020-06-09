@@ -357,6 +357,7 @@ mod tests {
     use soketto::handshake;
 
     #[tokio::test(core_threads=2)]
+    #[ignore]
     async fn should_send_a_request() {
         let _ = env_logger::try_init();
         // given
