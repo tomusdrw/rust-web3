@@ -92,6 +92,7 @@ impl WsServerTask {
                         if let Err(e) = res.and(res2) {
                             // TODO [ToDr] Re-connect.
                             log::error!("WS connection error: {:?}", e);
+                            pending.remove(&id);
                         }
                     }
                     Some(TransportMessage::Subscribe { id, sink }) => {
