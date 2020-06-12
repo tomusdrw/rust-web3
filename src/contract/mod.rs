@@ -2,11 +2,16 @@
 
 use ethabi;
 
-use crate::api::{Eth, Namespace};
+use crate::api::{Accounts, Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
-use crate::types::{Address, BlockId, Bytes, CallRequest, TransactionCondition, TransactionRequest, H256, U256};
+use crate::types::{
+    Address, BlockId, Bytes, CallRequest, TransactionCondition, TransactionParameters, TransactionReceipt,
+    TransactionRequest, H256, U256,
+};
 use crate::Transport;
+use futures::future::{Either, Future};
+use secp256k1::key::SecretKey;
 use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
@@ -28,7 +33,7 @@ pub struct Options {
     pub value: Option<U256>,
     /// Fixed transaction nonce
     pub nonce: Option<U256>,
-    /// A conditon to satisfy before including transaction.
+    /// A condition to satisfy before including transaction.
     pub condition: Option<TransactionCondition>,
 }
 
@@ -143,18 +148,64 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(Into::into)
     }
 
+    /// Execute a signed contract function and wait for confirmations
+    pub fn signed_call_with_confirmations<'a>(
+        &'a self,
+        func: &'a str,
+        params: impl Tokenize,
+        options: Options,
+        confirmations: usize,
+        key: &'a SecretKey,
+    ) -> impl 'a + futures::Future<Item = TransactionReceipt, Error = crate::Error> {
+        let poll_interval = time::Duration::from_secs(1);
+
+        self.abi
+            .function(func)
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+            .map(move |fn_data| {
+                let accounts = Accounts::new(self.eth.transport().clone());
+                let mut tx = TransactionParameters {
+                    nonce: options.nonce,
+                    to: Some(self.address),
+                    gas_price: options.gas_price,
+                    data: Bytes(fn_data),
+                    ..Default::default()
+                };
+                if let Some(gas) = options.gas {
+                    tx.gas = gas;
+                }
+                if let Some(value) = options.value {
+                    tx.value = value;
+                }
+                let sign_future = accounts.sign_transaction(tx, key);
+
+                Either::A(sign_future.and_then(move |signed| {
+                    confirm::send_raw_transaction_with_confirmation(
+                        self.eth.transport().clone(),
+                        signed.raw_transaction,
+                        poll_interval,
+                        confirmations,
+                    )
+                }))
+            })
+            .unwrap_or_else(|e| {
+                // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
+                // `contract::Error` instead of more generic `Error`.
+                Either::B(futures::future::err(
+                    crate::error::Error::Decoder(format!("{:?}", e)).into(),
+                ))
+            })
+    }
+
     /// Execute a contract function and wait for confirmations
     pub fn call_with_confirmations<P>(
         &self,
         func: &str,
-        params: P,
+        params: impl Tokenize,
         from: Address,
         options: Options,
         confirmations: usize,
-    ) -> confirm::SendTransactionWithConfirmation<T>
-    where
-        P: Tokenize,
-    {
+    ) -> confirm::SendTransactionWithConfirmation<T> {
         let poll_interval = time::Duration::from_secs(1);
 
         self.abi
