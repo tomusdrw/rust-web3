@@ -10,7 +10,7 @@ use crate::types::{
     TransactionRequest, H256, U256,
 };
 use crate::Transport;
-use futures::future::{Either, Future};
+use futures::future::Either;
 use secp256k1::key::SecretKey;
 use std::{collections::HashMap, hash::Hash, time};
 
@@ -159,7 +159,11 @@ impl<T: Transport> Contract<T> {
         options: Options,
         confirmations: usize,
         key: &'a SecretKey,
-    ) -> impl 'a + futures::Future<Item = TransactionReceipt, Error = crate::Error> {
+    ) -> impl futures::Future<Output = crate::Result<TransactionReceipt>> + 'a where
+        T::Out: Unpin,
+    {
+        use futures::TryFutureExt;
+
         let poll_interval = time::Duration::from_secs(1);
 
         self.abi
@@ -182,7 +186,7 @@ impl<T: Transport> Contract<T> {
                 }
                 let sign_future = accounts.sign_transaction(tx, key);
 
-                Either::A(sign_future.and_then(move |signed| {
+                Either::Left(sign_future.and_then(move |signed| {
                     confirm::send_raw_transaction_with_confirmation(
                         self.eth.transport().clone(),
                         signed.raw_transaction,
@@ -194,9 +198,8 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(|e| {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
-                Either::B(futures::future::err(
-                    crate::error::Error::Decoder(format!("{:?}", e)).into(),
-                ))
+                let err = crate::error::Error::Decoder(format!("{:?}", e));
+                Either::Right(futures::future::ready(Err(err)))
             })
     }
 

@@ -47,7 +47,7 @@ impl<T: Transport> Accounts<T> {
 
     /// Signs an Ethereum transaction with a given private key.
     pub fn sign_transaction(&self, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T> where
-        T::Out: Unpin, // TODO [Remove]
+            T::Out: Unpin,
     {
         SignTransactionFuture::new(self, tx, key)
     }

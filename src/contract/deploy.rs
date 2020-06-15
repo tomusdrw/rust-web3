@@ -78,7 +78,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
-        T::Out: Unpin, // TODO get rid of
+        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
