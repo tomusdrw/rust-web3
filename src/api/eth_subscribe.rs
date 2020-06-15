@@ -7,7 +7,10 @@ use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
 use crate::{error, DuplexTransport};
-use futures::{Future, Stream, task::{Context, Poll}, FutureExt, StreamExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, Stream, StreamExt,
+};
 use serde;
 use serde_json;
 
@@ -125,10 +128,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let id = ready!(self.inner.poll_unpin(ctx))?;
-        Poll::Ready(SubscriptionStream::new(
-            self.transport.clone(),
-            SubscriptionId(id),
-        ))
+        Poll::Ready(SubscriptionStream::new(self.transport.clone(), SubscriptionId(id)))
     }
 }
 

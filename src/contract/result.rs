@@ -1,5 +1,8 @@
 use ethabi;
-use futures::{Future, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt,
+};
 use serde;
 use std::mem;
 use std::pin::Pin;

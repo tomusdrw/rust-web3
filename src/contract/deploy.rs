@@ -1,7 +1,10 @@
 //! Contract deployment utilities
 
 use ethabi;
-use futures::{Future, TryFutureExt, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, TryFutureExt,
+};
 use rustc_hex::{FromHex, ToHex};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -169,7 +172,8 @@ pub struct PendingContract<
     waiting: F,
 }
 
-impl<T, F> Future for PendingContract<T, F> where
+impl<T, F> Future for PendingContract<T, F>
+where
     F: Future<Output = error::Result<TransactionReceipt>> + Unpin,
     T: Transport,
     T::Out: Unpin,
@@ -243,8 +247,9 @@ mod tests {
                         (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
                         Address::from_low_u64_be(5),
                     )
-                    .unwrap()
-            ).unwrap();
+                    .unwrap(),
+            )
+            .unwrap();
         };
 
         // then
@@ -301,11 +306,7 @@ mod tests {
         let lib_address;
         {
             let builder = Contract::deploy(api::Eth::new(&transport), &lib_abi).unwrap();
-            lib_address = futures::executor::block_on(
-                builder
-                    .execute(lib_code, (), Address::zero())
-                    .unwrap()
-            )
+            lib_address = futures::executor::block_on(builder.execute(lib_code, (), Address::zero()).unwrap())
                 .unwrap()
                 .address();
         }
@@ -333,9 +334,7 @@ mod tests {
                 linker
             })
             .unwrap();
-            let _ = futures::executor::block_on(
-                builder.execute(main_code, (), Address::zero()).unwrap()
-            ).unwrap();
+            let _ = futures::executor::block_on(builder.execute(main_code, (), Address::zero()).unwrap()).unwrap();
         }
 
         transport.assert_request("eth_sendTransaction", &[

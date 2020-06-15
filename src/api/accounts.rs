@@ -8,7 +8,10 @@ use crate::types::{
 };
 use crate::Transport;
 use futures::future::{self, Either, Join3};
-use futures::{Future, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt,
+};
 use rlp::RlpStream;
 use secp256k1::key::ONE_KEY;
 use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
@@ -46,8 +49,9 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Signs an Ethereum transaction with a given private key.
-    pub fn sign_transaction(&self, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T> where
-            T::Out: Unpin,
+    pub fn sign_transaction(&self, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T>
+    where
+        T::Out: Unpin,
     {
         SignTransactionFuture::new(self, tx, key)
     }
@@ -165,10 +169,7 @@ fn public_key_address(public_key: &PublicKey) -> Address {
     Address::from_slice(&hash[12..])
 }
 
-type MaybeReady<T, R> = Either<
-    future::Ready<error::Result<R>>,
-    CallFuture<R, <T as Transport>::Out>
->;
+type MaybeReady<T, R> = Either<future::Ready<error::Result<R>>, CallFuture<R, <T as Transport>::Out>>;
 
 type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, U256>>;
 
@@ -178,7 +179,8 @@ type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T,
 /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
 /// that if all transaction parameters were provided, this future will resolve
 /// immediately.
-pub struct SignTransactionFuture<T: Transport> where
+pub struct SignTransactionFuture<T: Transport>
+where
     T::Out: Unpin,
 {
     tx: TransactionParameters,
@@ -186,7 +188,8 @@ pub struct SignTransactionFuture<T: Transport> where
     inner: TxParams<T>,
 }
 
-impl<T: Transport> SignTransactionFuture<T> where
+impl<T: Transport> SignTransactionFuture<T>
+where
     T::Out: Unpin,
 {
     /// Creates a new SignTransactionFuture with accounts and transaction data.
@@ -215,7 +218,8 @@ impl<T: Transport> SignTransactionFuture<T> where
     }
 }
 
-impl<T: Transport> Future for SignTransactionFuture<T> where
+impl<T: Transport> Future for SignTransactionFuture<T>
+where
     T::Out: Unpin,
 {
     type Output = error::Result<SignedTransaction>;
@@ -239,7 +243,8 @@ impl<T: Transport> Future for SignTransactionFuture<T> where
     }
 }
 
-impl<T: Transport> Drop for SignTransactionFuture<T> where
+impl<T: Transport> Drop for SignTransactionFuture<T>
+where
     T::Out: Unpin,
 {
     fn drop(&mut self) {
@@ -453,18 +458,16 @@ mod tests {
             .unwrap();
 
         let accounts = Accounts::new(TestTransport::default());
-        futures::executor::block_on(
-            accounts
-                .sign_transaction(
-                    TransactionParameters {
-                        nonce: Some(0.into()),
-                        gas_price: Some(1.into()),
-                        chain_id: Some(42),
-                        ..Default::default()
-                    },
-                    &key,
-                )
-        ).unwrap();
+        futures::executor::block_on(accounts.sign_transaction(
+            TransactionParameters {
+                nonce: Some(0.into()),
+                gas_price: Some(1.into()),
+                chain_id: Some(42),
+                ..Default::default()
+            },
+            &key,
+        ))
+        .unwrap();
 
         // sign_transaction makes no requests when all parameters are specified
         accounts.transport().assert_no_more_requests();
@@ -556,16 +559,16 @@ mod tests {
         let recovered = accounts.recover(&signed).unwrap();
         assert_eq!(recovered, address);
 
-        let signed = futures::executor::block_on(accounts
-            .sign_transaction(
-                TransactionParameters {
-                    nonce: Some(0.into()),
-                    gas_price: Some(1.into()),
-                    chain_id: Some(42),
-                    ..Default::default()
-                },
-                &key,
-            )).unwrap();
+        let signed = futures::executor::block_on(accounts.sign_transaction(
+            TransactionParameters {
+                nonce: Some(0.into()),
+                gas_price: Some(1.into()),
+                chain_id: Some(42),
+                ..Default::default()
+            },
+            &key,
+        ))
+        .unwrap();
         let recovered = accounts.recover(&signed).unwrap();
         assert_eq!(recovered, address);
 

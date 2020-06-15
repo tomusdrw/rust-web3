@@ -1,9 +1,6 @@
 //! A strongly-typed transport alternative.
 
-use crate::{
-    error, rpc, api,
-    Transport, DuplexTransport, BatchTransport, RequestId,
-};
+use crate::{api, error, rpc, BatchTransport, DuplexTransport, RequestId, Transport};
 
 /// A wrapper over two possible transports.
 ///
@@ -52,9 +49,7 @@ where
     ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
     BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
 {
-    type Batch = Box<dyn futures::Future<
-        Output = error::Result<Vec<error::Result<rpc::Value>>>
-    > + Unpin>;
+    type Batch = Box<dyn futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
@@ -92,4 +87,3 @@ where
         }
     }
 }
-

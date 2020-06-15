@@ -1,7 +1,10 @@
 //! Easy to use utilities for confirmations.
 
 use futures::stream::Skip;
-use futures::{Future, StreamExt, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, StreamExt,
+};
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -64,14 +67,12 @@ where
                     let _ = ready!(self.filter_stream.poll_next_unpin(ctx));
                     WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check())
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => {
-                    match ready!(future.poll_unpin(ctx))? {
-                        Some(confirmation_block_number) => {
-                            let future = self.eth.block_number();
-                            WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
-                        }
-                        None => WaitForConfirmationsState::WaitForNextBlock,
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match ready!(future.poll_unpin(ctx))? {
+                    Some(confirmation_block_number) => {
+                        let future = self.eth.block_number();
+                        WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
                     }
+                    None => WaitForConfirmationsState::WaitForNextBlock,
                 },
                 WaitForConfirmationsState::CompareConfirmations(
                     confirmation_block_number,
@@ -79,7 +80,7 @@ where
                 ) => {
                     let block_number = ready!(block_number_future.poll_unpin(ctx))?.low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
-                        return Poll::Ready(Ok(()))
+                        return Poll::Ready(Ok(()));
                     } else {
                         WaitForConfirmationsState::WaitForNextBlock
                     }
@@ -175,7 +176,8 @@ struct TransactionReceiptBlockNumber<T: Transport> {
     future: CallFuture<Option<TransactionReceipt>, T::Out>,
 }
 
-impl<T: Transport> Future for TransactionReceiptBlockNumber<T> where
+impl<T: Transport> Future for TransactionReceiptBlockNumber<T>
+where
     T::Out: Unpin,
 {
     type Output = error::Result<Option<U64>>;
@@ -197,7 +199,8 @@ impl<T: Transport> TransactionReceiptBlockNumberCheck<T> {
     }
 }
 
-impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> where
+impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T>
+where
     T::Out: Unpin,
 {
     type Check = TransactionReceiptBlockNumber<T>;
@@ -256,7 +259,8 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
     }
 }
 
-impl<T: Transport> Future for SendTransactionWithConfirmation<T> where
+impl<T: Transport> Future for SendTransactionWithConfirmation<T>
+where
     T::Out: Unpin,
 {
     type Output = error::Result<TransactionReceipt>;
@@ -297,7 +301,7 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> where
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
                     let receipt = ready!(future.poll_unpin(ctx))?
                         .expect("receipt can't be null after wait for confirmations; qed");
-                    return Poll::Ready(Ok(receipt))
+                    return Poll::Ready(Ok(receipt));
                 }
             };
             self.state = next_state;

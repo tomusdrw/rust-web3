@@ -27,21 +27,16 @@ async fn main() -> web3::contract::Result<()> {
     let filter = FilterBuilder::default()
         .address(vec![contract.address()])
         .topics(
-            Some(vec![
-                "d282f389399565f3671145f5916e51652b60eee8e5c759293a2f5771b8ddfd2e"
+            Some(vec!["d282f389399565f3671145f5916e51652b60eee8e5c759293a2f5771b8ddfd2e"
                 .parse()
-                .unwrap(),
-            ]),
+                .unwrap()]),
             None,
             None,
             None,
         )
         .build();
 
-    let filter = web3
-        .eth_filter()
-        .create_logs_filter(filter)
-        .await?;
+    let filter = web3.eth_filter().create_logs_filter(filter).await?;
 
     let mut logs_stream = filter.stream(time::Duration::from_secs(1));
 

@@ -2,16 +2,16 @@
 
 use std::fmt;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::atomic::{self, AtomicUsize};
 use std::sync::Arc;
-use std::pin::Pin;
 
 use crate::error;
 use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, Error, RequestId, Transport};
 use futures::task::{Context, Poll};
-use futures::{self, Future, StreamExt, FutureExt};
+use futures::{self, Future, FutureExt, StreamExt};
 use hyper::header::HeaderValue;
 use serde_json;
 use url::Url;
@@ -116,9 +116,7 @@ impl Http {
             req.headers_mut()
                 .insert(hyper::header::AUTHORIZATION, basic_auth.clone());
         }
-        let result = self
-            .client
-            .request(req);
+        let result = self.client.request(req);
 
         Response::new(id, result, extract)
     }
@@ -193,7 +191,7 @@ impl<T> Response<T> {
         Response {
             id,
             extract,
-            state: ResponseState::Waiting(response)
+            state: ResponseState::Waiting(response),
         }
     }
 }
@@ -214,18 +212,18 @@ where
                     let response = ready!(waiting.poll_unpin(ctx))?;
                     if !response.status().is_success() {
                         return Poll::Ready(Err(Error::Transport(format!(
-                                        "Unexpected response status code: {}",
-                                        response.status()
+                            "Unexpected response status code: {}",
+                            response.status()
                         ))));
                     }
                     self.state = ResponseState::Reading(Default::default(), response.into_body());
-                },
+                }
                 ResponseState::Reading(ref mut content, ref mut body) => {
                     log::trace!("[{}] Reading body.", id);
                     match ready!(body.poll_next_unpin(ctx)) {
                         Some(chunk) => {
                             content.extend(&*chunk?);
-                        },
+                        }
                         None => {
                             let response = std::mem::replace(content, Default::default());
                             log::trace!(
@@ -236,7 +234,7 @@ where
                             return Poll::Ready((self.extract)(response));
                         }
                     }
-                },
+                }
             }
         }
     }
@@ -311,7 +309,6 @@ mod tests {
 
         Ok(hyper::Response::new(response.into()))
     }
-
 
     #[tokio::test]
     async fn should_make_a_request() {

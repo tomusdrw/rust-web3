@@ -1,15 +1,18 @@
 //! Batching Transport
 
-use crate::rpc;
 use crate::error::{self, Error};
+use crate::rpc;
 use crate::{BatchTransport, RequestId, Transport};
 use futures::channel::oneshot;
-use futures::{Future, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt,
+};
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::mem;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -81,10 +84,10 @@ pub struct BatchFuture<T> {
     pending: PendingRequests,
 }
 
-impl<T> Future for BatchFuture<T> where
+impl<T> Future for BatchFuture<T>
+where
     T: Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin,
 {
-
     type Output = error::Result<Vec<error::Result<rpc::Value>>>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
@@ -129,9 +132,6 @@ impl Future for SingleResult {
     type Output = error::Result<rpc::Value>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        Poll::Ready(
-            ready!(self.0.poll_unpin(ctx))
-                .map_err(|_| Error::Internal)?
-        )
+        Poll::Ready(ready!(self.0.poll_unpin(ctx)).map_err(|_| Error::Internal)?)
     }
 }

@@ -159,7 +159,8 @@ impl<T: Transport> Contract<T> {
         options: Options,
         confirmations: usize,
         key: &'a SecretKey,
-    ) -> impl futures::Future<Output = crate::Result<TransactionReceipt>> + 'a where
+    ) -> impl futures::Future<Output = crate::Result<TransactionReceipt>> + 'a
+    where
         T::Out: Unpin,
     {
         use futures::TryFutureExt;
@@ -336,15 +337,14 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .query(
-                    "name",
-                    (),
-                    None,
-                    Options::default(),
-                    BlockId::Number(BlockNumber::Number(1.into())),
-                )
-            ).unwrap()
+            futures::executor::block_on(token.query(
+                "name",
+                (),
+                None,
+                Options::default(),
+                BlockId::Number(BlockNumber::Number(1.into())),
+            ))
+            .unwrap()
         };
 
         // then
@@ -369,9 +369,14 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .query("name", (), None, Options::default(), BlockId::Hash(H256::default()))
-            ).unwrap()
+            futures::executor::block_on(token.query(
+                "name",
+                (),
+                None,
+                Options::default(),
+                BlockId::Hash(H256::default()),
+            ))
+            .unwrap()
         };
 
         // then
@@ -396,17 +401,16 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .query(
-                    "name",
-                    (),
-                    Address::from_low_u64_be(5),
-                    Options::with(|options| {
-                        options.gas_price = Some(10_000_000.into());
-                    }),
-                    BlockId::Number(BlockNumber::Latest),
-                )
-            ).unwrap()
+            futures::executor::block_on(token.query(
+                "name",
+                (),
+                Address::from_low_u64_be(5),
+                Options::with(|options| {
+                    options.gas_price = Some(10_000_000.into());
+                }),
+                BlockId::Number(BlockNumber::Latest),
+            ))
+            .unwrap()
         };
 
         // then
@@ -425,9 +429,8 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .call("name", (), Address::from_low_u64_be(5), Options::default())
-            ).unwrap()
+            futures::executor::block_on(token.call("name", (), Address::from_low_u64_be(5), Options::default()))
+                .unwrap()
         };
 
         // then
@@ -446,9 +449,8 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .estimate_gas("name", (), Address::from_low_u64_be(5), Options::default())
-            ).unwrap()
+            futures::executor::block_on(token.estimate_gas("name", (), Address::from_low_u64_be(5), Options::default()))
+                .unwrap()
         };
 
         // then
@@ -469,9 +471,14 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            futures::executor::block_on(token
-                .query("balanceOf", Address::from_low_u64_be(5), None, Options::default(), None)
-            ).unwrap()
+            futures::executor::block_on(token.query(
+                "balanceOf",
+                Address::from_low_u64_be(5),
+                None,
+                Options::default(),
+                None,
+            ))
+            .unwrap()
         };
 
         // then

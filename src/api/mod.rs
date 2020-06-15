@@ -26,8 +26,8 @@ pub use self::web3::Web3 as Web3Api;
 
 use crate::types::{Bytes, TransactionRequest, U64};
 use crate::{confirm, error, DuplexTransport, Transport};
-use std::time::Duration;
 use futures::Future;
+use std::time::Duration;
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {

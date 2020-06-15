@@ -1,9 +1,13 @@
 //! `Eth` namespace, filters.
 
-use futures::{Future, Stream, task::{Context, Poll}, stream, FutureExt, StreamExt};
+use futures::{
+    stream,
+    task::{Context, Poll},
+    Future, FutureExt, Stream, StreamExt,
+};
 use futures_timer::Delay;
 use serde::de::DeserializeOwned;
-use std::marker::{Unpin, PhantomData};
+use std::marker::{PhantomData, Unpin};
 use std::pin::Pin;
 use std::time::Duration;
 use std::{fmt, vec};
@@ -13,8 +17,8 @@ use crate::helpers::{self, CallFuture};
 use crate::types::{Filter, Log, H256};
 use crate::{error, rpc, Transport};
 
-fn interval(duration: Duration) -> impl Stream<Item=()> + Send + Unpin {
-	stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
+fn interval(duration: Duration) -> impl Stream<Item = ()> + Send + Unpin {
+    stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
 }
 
 /// Stream of events
@@ -25,8 +29,8 @@ pub struct FilterStream<T: Transport, I> {
     state: FilterStreamState<I, T::Out>,
 }
 
-
-impl<T, I> fmt::Debug for FilterStream<T, I> where
+impl<T, I> fmt::Debug for FilterStream<T, I>
+where
     T: Transport,
     T::Out: fmt::Debug,
     I: fmt::Debug + 'static,
@@ -63,7 +67,8 @@ enum FilterStreamState<I, O> {
     NextItem(vec::IntoIter<I>),
 }
 
-impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I> where
+impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I>
+where
     T::Out: Unpin,
 {
     type Item = error::Result<I>;
@@ -457,7 +462,9 @@ mod tests {
 
             // when
             let filter = futures::executor::block_on(eth.create_blocks_filter()).unwrap();
-            futures::executor::block_on_stream(filter.stream(Duration::from_secs(0))).take(4).collect()
+            futures::executor::block_on_stream(filter.stream(Duration::from_secs(0)))
+                .take(4)
+                .collect()
         };
 
         // then

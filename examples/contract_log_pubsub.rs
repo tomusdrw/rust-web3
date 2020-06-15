@@ -37,10 +37,7 @@ async fn main() -> web3::contract::Result<()> {
         )
         .build();
 
-    let sub = web3
-        .eth_subscribe()
-        .subscribe_logs(filter)
-        .await?;
+    let sub = web3.eth_subscribe().subscribe_logs(filter).await?;
 
     let tx = contract.call("hello", (), accounts[0], Options::default()).await?;
     println!("got tx: {:?}", tx);
@@ -48,7 +45,8 @@ async fn main() -> web3::contract::Result<()> {
     sub.for_each(|log| {
         println!("got log: {:?}", log);
         future::ready(())
-    }).await;
+    })
+    .await;
 
     Ok(())
 }

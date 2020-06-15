@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
-use std::{pin::Pin, fmt};
+use std::{fmt, pin::Pin};
 
 use crate::api::SubscriptionId;
 use crate::error;
@@ -10,7 +10,10 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
-use futures::{StreamExt, Future, FutureExt, task::{Poll, Context}};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, StreamExt,
+};
 
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -51,12 +54,18 @@ impl WsServerTask {
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
-            ServerResponse::Redirect { status_code, location } => return Err(error::Error::Transport(format!(
-                    "(code: {}) Unable to follow redirects: {}", status_code, location
-            ))),
-            ServerResponse::Rejected { status_code } => return Err(error::Error::Transport(format!(
-                    "(code: {}) Connection rejected.", status_code
-            ))),
+            ServerResponse::Redirect { status_code, location } => {
+                return Err(error::Error::Transport(format!(
+                    "(code: {}) Unable to follow redirects: {}",
+                    status_code, location
+                )))
+            }
+            ServerResponse::Rejected { status_code } => {
+                return Err(error::Error::Transport(format!(
+                    "(code: {}) Connection rejected.",
+                    status_code
+                )))
+            }
         };
 
         Ok(Self {
@@ -130,54 +139,55 @@ fn handle_message(
 ) {
     log::trace!("Message received: {:?}", message);
     match message {
-        Incoming::Pong(_) => {},
-        Incoming::Data(t) => if let Ok(notification) = helpers::to_notification_from_slice(t.as_ref()) {
-            if let rpc::Params::Map(params) = notification.params {
-                let id = params.get("subscription");
-                let result = params.get("result");
+        Incoming::Pong(_) => {}
+        Incoming::Data(t) => {
+            if let Ok(notification) = helpers::to_notification_from_slice(t.as_ref()) {
+                if let rpc::Params::Map(params) = notification.params {
+                    let id = params.get("subscription");
+                    let result = params.get("result");
 
-                if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
-                    let id: SubscriptionId = id.clone().into();
-                    if let Some(stream) = subscriptions.get(&id) {
-                        if let Err(e) = stream.unbounded_send(result.clone()) {
-                            log::error!("Error sending notification: {:?} (id: {:?}", e, id);
+                    if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
+                        let id: SubscriptionId = id.clone().into();
+                        if let Some(stream) = subscriptions.get(&id) {
+                            if let Err(e) = stream.unbounded_send(result.clone()) {
+                                log::error!("Error sending notification: {:?} (id: {:?}", e, id);
+                            }
+                        } else {
+                            log::warn!("Got notification for unknown subscription (id: {:?})", id);
                         }
                     } else {
-                        log::warn!("Got notification for unknown subscription (id: {:?})", id);
+                        log::error!("Got unsupported notification (id: {:?})", id);
                     }
-                } else {
-                    log::error!("Got unsupported notification (id: {:?})", id);
-                }
-            }
-        } else {
-            let response = helpers::to_response_from_slice(t.as_ref());
-            let outputs = match response {
-                Ok(rpc::Response::Single(output)) => vec![output],
-                Ok(rpc::Response::Batch(outputs)) => outputs,
-                _ => vec![],
-            };
-
-            let id = match outputs.get(0) {
-                Some(&rpc::Output::Success(ref success)) => success.id.clone(),
-                Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
-                None => rpc::Id::Num(0),
-            };
-
-            if let rpc::Id::Num(num) = id {
-                if let Some(request) = pending.remove(&(num as usize)) {
-                    log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
-                    if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
-                        log::warn!("Sending a response to deallocated channel: {:?}", err);
-                    }
-                } else {
-                    log::warn!("Got response for unknown request (id: {:?})", num);
                 }
             } else {
-                log::warn!("Got unsupported response (id: {:?})", id);
+                let response = helpers::to_response_from_slice(t.as_ref());
+                let outputs = match response {
+                    Ok(rpc::Response::Single(output)) => vec![output],
+                    Ok(rpc::Response::Batch(outputs)) => outputs,
+                    _ => vec![],
+                };
+
+                let id = match outputs.get(0) {
+                    Some(&rpc::Output::Success(ref success)) => success.id.clone(),
+                    Some(&rpc::Output::Failure(ref failure)) => failure.id.clone(),
+                    None => rpc::Id::Num(0),
+                };
+
+                if let rpc::Id::Num(num) = id {
+                    if let Some(request) = pending.remove(&(num as usize)) {
+                        log::trace!("Responding to (id: {:?}) with {:?}", num, outputs);
+                        if let Err(err) = request.send(helpers::to_results_from_outputs(outputs)) {
+                            log::warn!("Sending a response to deallocated channel: {:?}", err);
+                        }
+                    } else {
+                        log::warn!("Got response for unknown request (id: {:?})", num);
+                    }
+                } else {
+                    log::warn!("Got unsupported response (id: {:?})", id);
+                }
             }
         }
     }
-
 }
 
 enum TransportMessage {
@@ -204,9 +214,7 @@ pub struct WebSocket {
 
 impl fmt::Debug for WebSocket {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("WebSocket")
-            .field("id", &self.id)
-            .finish()
+        fmt.debug_struct("WebSocket").field("id", &self.id).finish()
     }
 }
 
@@ -218,30 +226,20 @@ impl WebSocket {
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
         // Spawn background task for the transport.
-        async_std::task::spawn(task.into_task(
-            stream,
-        ));
+        async_std::task::spawn(task.into_task(stream));
 
-        Ok(Self {
-            id,
-            requests: sink,
-        })
+        Ok(Self { id, requests: sink })
     }
 
     fn send(&self, msg: TransportMessage) -> error::Result {
-        self.requests.unbounded_send(msg)
-            .map_err(dropped_err)
+        self.requests.unbounded_send(msg).map_err(dropped_err)
     }
 
     fn send_request(&self, id: RequestId, request: rpc::Request) -> error::Result<oneshot::Receiver<BatchResult>> {
         let request = helpers::to_string(&request);
         log::debug!("[{}] Calling: {}", id, request);
         let (sender, receiver) = oneshot::channel();
-        self.send(TransportMessage::Request {
-            id,
-            request,
-            sender,
-        })?;
+        self.send(TransportMessage::Request { id, request, sender })?;
         Ok(receiver)
     }
 }
@@ -257,7 +255,9 @@ fn batch_to_single(response: BatchResult) -> SingleResult {
     }
 }
 
-fn batch_to_batch(res: BatchResult) -> BatchResult { res }
+fn batch_to_batch(res: BatchResult) -> BatchResult {
+    res
+}
 
 enum ResponseState {
     Receiver(Option<error::Result<oneshot::Receiver<BatchResult>>>),
@@ -281,7 +281,8 @@ impl<R, T> Response<R, T> {
     }
 }
 
-impl<R, T> Future for Response<R, T> where
+impl<R, T> Future for Response<R, T>
+where
     R: Unpin + 'static,
     T: Fn(BatchResult) -> error::Result<R> + Unpin + 'static,
 {
@@ -294,8 +295,7 @@ impl<R, T> Future for Response<R, T> where
                     self.state = ResponseState::Waiting(receiver)
                 }
                 ResponseState::Waiting(ref mut future) => {
-                    let response = ready!(future.poll_unpin(cx))
-                        .map_err(dropped_err)?;
+                    let response = ready!(future.poll_unpin(cx)).map_err(dropped_err)?;
                     return Poll::Ready((self.extract)(response));
                 }
             }
@@ -340,27 +340,22 @@ impl DuplexTransport for WebSocket {
     fn subscribe(&self, id: SubscriptionId) -> error::Result<Self::NotificationStream> {
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
-        self.send(TransportMessage::Subscribe {
-            id,
-            sink,
-        })?;
+        self.send(TransportMessage::Subscribe { id, sink })?;
         Ok(stream)
     }
 
     fn unsubscribe(&self, id: SubscriptionId) -> error::Result {
-        self.send(TransportMessage::Unsubscribe {
-            id,
-        })
+        self.send(TransportMessage::Unsubscribe { id })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use async_std::net::TcpListener;
-    use crate::{rpc, Transport};
-    use futures::StreamExt;
     use super::WebSocket;
+    use crate::{rpc, Transport};
+    use async_std::net::TcpListener;
     use futures::io::{BufReader, BufWriter};
+    use futures::StreamExt;
     use soketto::handshake;
 
     #[async_std::test]
@@ -384,14 +379,15 @@ mod tests {
         let mut incoming = listener.incoming();
         println!("Listening on: {}", addr);
         while let Some(Ok(socket)) = incoming.next().await {
-            let mut server = handshake::Server::new(
-                BufReader::new(BufWriter::new(socket))
-            );
+            let mut server = handshake::Server::new(BufReader::new(BufWriter::new(socket)));
             let key = {
                 let req = server.receive_request().await.unwrap();
                 req.into_key()
             };
-            let accept = handshake::server::Response::Accept { key: &key, protocol: None };
+            let accept = handshake::server::Response::Accept {
+                key: &key,
+                protocol: None,
+            };
             server.send_response(&accept).await.unwrap();
             let (mut sender, mut receiver) = server.into_builder().finish();
             loop {
@@ -401,9 +397,12 @@ mod tests {
                             std::str::from_utf8(data.as_ref()),
                             Ok(r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#)
                         );
-                        sender.send_text(r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#).await.unwrap();
+                        sender
+                            .send_text(r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#)
+                            .await
+                            .unwrap();
                         sender.flush().await.unwrap();
-                    },
+                    }
                     Err(soketto::connection::Error::Closed) => break,
                     e => panic!("Unexpected data: {:?}", e),
                 }

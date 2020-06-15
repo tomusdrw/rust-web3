@@ -1,14 +1,16 @@
 //! Web3 helpers.
 
 use std::marker::PhantomData;
-use std::pin::Pin;
 use std::marker::Unpin;
+use std::pin::Pin;
 
 use crate::{error, rpc};
-use futures::{Future, task::{Context, Poll}, FutureExt};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt,
+};
 use serde;
 use serde_json;
-
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value and a future which yields that
@@ -64,14 +66,12 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 
 /// Parse bytes slice into JSON-RPC response.
 pub fn to_response_from_slice(response: &[u8]) -> error::Result<rpc::Response> {
-    serde_json::from_slice(response)
-        .map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
+    serde_json::from_slice(response).map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse bytes slice into JSON-RPC notification.
 pub fn to_notification_from_slice(notification: &[u8]) -> error::Result<rpc::Notification> {
-    serde_json::from_slice(notification)
-        .map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
+    serde_json::from_slice(notification).map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
 }
 
 /// Parse a Vec of `rpc::Output` into `Result`.
