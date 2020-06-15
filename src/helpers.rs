@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::marker::Unpin;
 
 use crate::{error, rpc};
-use futures::{Future, task::{Context, Poll}};
+use futures::{Future, task::{Context, Poll}, FutureExt};
 use serde;
 use serde_json;
 
@@ -37,7 +37,7 @@ where
     type Output = error::Result<T>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let x = ready!(Pin::new(&mut self.inner).poll(ctx));
+        let x = ready!(self.inner.poll_unpin(ctx));
         Poll::Ready(x.and_then(|x| serde_json::from_value(x).map_err(Into::into)))
     }
 }

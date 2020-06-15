@@ -1,5 +1,5 @@
 use ethabi;
-use futures::{Future, task::{Context, Poll}};
+use futures::{Future, task::{Context, Poll}, FutureExt};
 use serde;
 use std::mem;
 use std::pin::Pin;
@@ -83,7 +83,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
-            let bytes: Bytes = ready!(Pin::new(inner).poll(ctx))?;
+            let bytes: Bytes = ready!(inner.poll_unpin(ctx))?;
             return Poll::Ready(Ok(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
@@ -103,7 +103,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Simple(ref mut inner) = self.inner {
-            let hash: T = ready!(Pin::new(inner).poll(ctx))?;
+            let hash: T = ready!(inner.poll_unpin(ctx))?;
             return Poll::Ready(Ok(hash));
         }
 

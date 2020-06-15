@@ -1,7 +1,7 @@
 //! Contract deployment utilities
 
 use ethabi;
-use futures::{Future, TryFutureExt, task::{Context, Poll}};
+use futures::{Future, TryFutureExt, task::{Context, Poll}, FutureExt};
 use rustc_hex::{FromHex, ToHex};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -177,7 +177,7 @@ impl<T, F> Future for PendingContract<T, F> where
     type Output = Result<Contract<T>, Error>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let receipt = ready!(Pin::new(&mut self.waiting).poll(ctx))?;
+        let receipt = ready!(self.waiting.poll_unpin(ctx))?;
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");
 

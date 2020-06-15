@@ -4,7 +4,7 @@ use crate::rpc;
 use crate::error::{self, Error};
 use crate::{BatchTransport, RequestId, Transport};
 use futures::channel::oneshot;
-use futures::{Future, task::{Context, Poll}};
+use futures::{Future, task::{Context, Poll}, FutureExt};
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::mem;
@@ -91,7 +91,7 @@ impl<T> Future for BatchFuture<T> where
         loop {
             match mem::replace(&mut self.state, BatchState::Done) {
                 BatchState::SendingBatch(mut batch, ids) => {
-                    let res = match Pin::new(&mut batch).poll(ctx) {
+                    let res = match batch.poll_unpin(ctx) {
                         Poll::Pending => {
                             self.state = BatchState::SendingBatch(batch, ids);
                             return Poll::Pending;
@@ -130,7 +130,7 @@ impl Future for SingleResult {
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         Poll::Ready(
-            ready!(Pin::new(&mut self.0).poll(ctx))
+            ready!(self.0.poll_unpin(ctx))
                 .map_err(|_| Error::Internal)?
         )
     }

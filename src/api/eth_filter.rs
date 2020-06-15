@@ -72,13 +72,13 @@ impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I> wh
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = ready!(Pin::new(&mut *self.interval).poll_next(ctx));
+                    let _ready = ready!(self.interval.poll_next_unpin(ctx));
                     let id = helpers::serialize(&self.base.id);
                     let future = CallFuture::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
                     FilterStreamState::GetFilterChanges(future)
                 }
                 FilterStreamState::GetFilterChanges(ref mut future) => {
-                    let items = ready!(Pin::new(future).poll(ctx))?.unwrap_or_default();
+                    let items = ready!(future.poll_unpin(ctx))?.unwrap_or_default();
                     FilterStreamState::NextItem(items.into_iter())
                 }
                 FilterStreamState::NextItem(ref mut iter) => match iter.next() {
@@ -233,7 +233,7 @@ where
     type Output = error::Result<BaseFilter<T, I>>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let id = ready!(Pin::new(&mut self.future).poll(ctx))?;
+        let id = ready!(self.future.poll_unpin(ctx))?;
         let result = BaseFilter {
             id,
             transport: self.transport.take().expect("future polled after ready; qed"),

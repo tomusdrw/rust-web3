@@ -10,7 +10,7 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
-use futures::{StreamExt, Future, task::{Poll, Context}};
+use futures::{StreamExt, Future, FutureExt, task::{Poll, Context}};
 
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -294,7 +294,7 @@ impl<R, T> Future for Response<R, T> where
                     self.state = ResponseState::Waiting(receiver)
                 }
                 ResponseState::Waiting(ref mut future) => {
-                    let response = ready!(Pin::new(future).poll(cx))
+                    let response = ready!(future.poll_unpin(cx))
                         .map_err(dropped_err)?;
                     return Poll::Ready((self.extract)(response));
                 }

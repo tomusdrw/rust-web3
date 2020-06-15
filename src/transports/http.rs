@@ -11,7 +11,7 @@ use crate::helpers;
 use crate::rpc;
 use crate::{BatchTransport, Error, RequestId, Transport};
 use futures::task::{Context, Poll};
-use futures::{self, Future, Stream};
+use futures::{self, Future, StreamExt, FutureExt};
 use hyper::header::HeaderValue;
 use serde_json;
 use url::Url;
@@ -211,7 +211,7 @@ where
             match self.state {
                 ResponseState::Waiting(ref mut waiting) => {
                     log::trace!("[{}] Checking response.", id);
-                    let response = ready!(Pin::new(waiting).poll(ctx))?;
+                    let response = ready!(waiting.poll_unpin(ctx))?;
                     if !response.status().is_success() {
                         return Poll::Ready(Err(Error::Transport(format!(
                                         "Unexpected response status code: {}",
@@ -222,7 +222,7 @@ where
                 },
                 ResponseState::Reading(ref mut content, ref mut body) => {
                     log::trace!("[{}] Reading body.", id);
-                    match ready!(Pin::new(body).poll_next(ctx)) {
+                    match ready!(body.poll_next_unpin(ctx)) {
                         Some(chunk) => {
                             content.extend(&*chunk?);
                         },
