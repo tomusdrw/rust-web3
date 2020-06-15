@@ -47,7 +47,7 @@ pub struct TransactionParameters {
     pub gas: U256,
     /// Gas price (None for estimated gas price)
     pub gas_price: Option<U256>,
-    /// Transfered value
+    /// Transferred value
     pub value: U256,
     /// Data
     pub data: Bytes,
@@ -57,7 +57,7 @@ pub struct TransactionParameters {
 
 /// The default fas for transactions.
 ///
-/// Unfortunatly there is no way to construct `U256`s with const functions for
+/// Unfortunately there is no way to construct `U256`s with const functions for
 /// constants so we just build it from it's `u64` words. Note that there is a
 /// unit test to verify that it is constructed correctly and holds the expected
 /// value of 100_000.
