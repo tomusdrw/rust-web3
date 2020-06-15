@@ -44,8 +44,6 @@ impl<T: Transport> Net<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::U256;

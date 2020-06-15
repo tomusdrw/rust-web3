@@ -80,8 +80,6 @@ impl<T: Transport> Personal<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::{Address, RawTransaction, TransactionRequest};

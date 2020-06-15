@@ -8,12 +8,15 @@
     clippy::match_wild_err_arm
 )]
 #![warn(missing_docs)]
+// select! in WS transport
+#![recursion_limit = "256"]
 
 use jsonrpc_core as rpc;
 
 /// Re-export of the `futures` crate.
 #[macro_use]
 pub extern crate futures;
+pub use futures::executor::{block_on, block_on_stream};
 
 // it needs to be before other modules
 // otherwise the macro for tests is not available.
@@ -21,26 +24,24 @@ pub extern crate futures;
 pub mod helpers;
 
 pub mod api;
+pub mod confirm;
 pub mod contract;
 pub mod error;
 pub mod transports;
 pub mod types;
 
-pub mod confirm;
-
 pub use crate::api::Web3;
-pub use crate::error::Error;
-
-/// RPC result
-pub type Result<T> = Box<dyn futures::Future<Item = T, Error = Error> + Send + 'static>;
+pub use crate::error::{Error, Result};
 
 /// Assigned RequestId
 pub type RequestId = usize;
 
+// TODO [ToDr] The transport most likely don't need to be thread-safe.
+// (though it has to be Send)
 /// Transport implementation
-pub trait Transport: ::std::fmt::Debug + Clone {
+pub trait Transport: std::fmt::Debug + Clone + Unpin {
     /// The type of future this transport returns when a call is made.
-    type Out: futures::Future<Item = rpc::Value, Error = Error>;
+    type Out: futures::Future<Output = error::Result<rpc::Value>>;
 
     /// Prepare serializable RPC call for given method with parameters.
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);
@@ -58,7 +59,7 @@ pub trait Transport: ::std::fmt::Debug + Clone {
 /// A transport implementation supporting batch requests.
 pub trait BatchTransport: Transport {
     /// The type of future this transport returns when a call is made.
-    type Batch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>;
+    type Batch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>>;
 
     /// Sends a batch of prepared RPC calls.
     fn send_batch<T>(&self, requests: T) -> Self::Batch
@@ -69,21 +70,22 @@ pub trait BatchTransport: Transport {
 /// A transport implementation supporting pub sub subscriptions.
 pub trait DuplexTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: futures::Stream<Item = rpc::Value, Error = Error>;
+    type NotificationStream: futures::Stream<Item = rpc::Value>;
 
     /// Add a subscription to this transport
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream;
+    fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream>;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: &api::SubscriptionId);
+    fn unsubscribe(&self, id: api::SubscriptionId) -> error::Result<()>;
 }
 
 impl<X, T> Transport for X
 where
     T: Transport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type Out = T::Out;
 
@@ -99,9 +101,10 @@ where
 impl<X, T> BatchTransport for X
 where
     T: BatchTransport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type Batch = T::Batch;
 
@@ -116,118 +119,36 @@ where
 impl<X, T> DuplexTransport for X
 where
     T: DuplexTransport + ?Sized,
-    X: ::std::ops::Deref<Target = T>,
-    X: ::std::fmt::Debug,
+    X: std::ops::Deref<Target = T>,
+    X: std::fmt::Debug,
     X: Clone,
+    X: Unpin,
 {
     type NotificationStream = T::NotificationStream;
 
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
+    fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream> {
         (**self).subscribe(id)
     }
 
-    fn unsubscribe(&self, id: &api::SubscriptionId) {
+    fn unsubscribe(&self, id: api::SubscriptionId) -> error::Result<()> {
         (**self).unsubscribe(id)
-    }
-}
-
-/// A wrapper over two possible transports.
-///
-/// This type can be used to write semi-generic
-/// code without the hassle of making all functions generic.
-///
-/// See the `examples` folder for an example how to use it.
-#[derive(Debug, Clone)]
-pub enum EitherTransport<A, B> {
-    /// First possible transport.
-    Left(A),
-    /// Second possible transport.
-    Right(B),
-}
-
-impl<A, B, AOut, BOut> Transport for EitherTransport<A, B>
-where
-    A: Transport<Out = AOut>,
-    B: Transport<Out = BOut>,
-    AOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
-    BOut: futures::Future<Item = rpc::Value, Error = Error> + 'static,
-{
-    type Out = Box<dyn futures::Future<Item = rpc::Value, Error = Error>>;
-
-    fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
-        match *self {
-            Self::Left(ref a) => a.prepare(method, params),
-            Self::Right(ref b) => b.prepare(method, params),
-        }
-    }
-
-    fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-        match *self {
-            Self::Left(ref a) => Box::new(a.send(id, request)),
-            Self::Right(ref b) => Box::new(b.send(id, request)),
-        }
-    }
-}
-
-impl<A, B, ABatch, BBatch> BatchTransport for EitherTransport<A, B>
-where
-    A: BatchTransport<Batch = ABatch>,
-    B: BatchTransport<Batch = BBatch>,
-    A::Out: 'static,
-    B::Out: 'static,
-    ABatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
-    BBatch: futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error> + 'static,
-{
-    type Batch = Box<dyn futures::Future<Item = Vec<::std::result::Result<rpc::Value, Error>>, Error = Error>>;
-
-    fn send_batch<T>(&self, requests: T) -> Self::Batch
-    where
-        T: IntoIterator<Item = (RequestId, rpc::Call)>,
-    {
-        match *self {
-            Self::Left(ref a) => Box::new(a.send_batch(requests)),
-            Self::Right(ref b) => Box::new(b.send_batch(requests)),
-        }
-    }
-}
-
-impl<A, B, AStream, BStream> DuplexTransport for EitherTransport<A, B>
-where
-    A: DuplexTransport<NotificationStream = AStream>,
-    B: DuplexTransport<NotificationStream = BStream>,
-    A::Out: 'static,
-    B::Out: 'static,
-    AStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
-    BStream: futures::Stream<Item = rpc::Value, Error = Error> + 'static,
-{
-    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value, Error = Error>>;
-
-    fn subscribe(&self, id: &api::SubscriptionId) -> Self::NotificationStream {
-        match *self {
-            Self::Left(ref a) => Box::new(a.subscribe(id)),
-            Self::Right(ref b) => Box::new(b.subscribe(id)),
-        }
-    }
-
-    fn unsubscribe(&self, id: &api::SubscriptionId) {
-        match *self {
-            Self::Left(ref a) => a.unsubscribe(id),
-            Self::Right(ref b) => b.unsubscribe(id),
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{rpc, Error, RequestId, Transport};
+    use super::{error, rpc, RequestId, Transport};
+
     use crate::api::Web3;
     use futures::Future;
+    use std::marker::Unpin;
     use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;
+
     impl Transport for FakeTransport {
-        type Out = Box<dyn Future<Item = rpc::Value, Error = Error> + Send + 'static>;
+        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + Unpin>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

@@ -330,7 +330,6 @@ impl<T: Transport> Eth<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
     use serde_json::json;
 
     use crate::api::Namespace;

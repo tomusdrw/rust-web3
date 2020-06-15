@@ -1,14 +1,20 @@
 //! Contract deployment utilities
 
 use ethabi;
-use futures::{Async, Future, Poll};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, TryFutureExt,
+};
 use rustc_hex::{FromHex, ToHex};
-use std::{collections::HashMap, time};
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::time;
 
 use crate::api::{Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::Tokenize;
 use crate::contract::{Contract, Options};
+use crate::error;
 use crate::types::{Address, Bytes, TransactionReceipt, TransactionRequest};
 use crate::Transport;
 
@@ -49,6 +55,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
+        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -70,10 +77,11 @@ impl<T: Transport> Builder<T> {
         params: P,
         from: Address,
         password: &str,
-    ) -> Result<PendingContract<T, impl Future<Item = TransactionReceipt, Error = crate::error::Error>>, ethabi::Error>
+    ) -> Result<PendingContract<T, impl Future<Output = error::Result<TransactionReceipt>>>, ethabi::Error>
     where
         P: Tokenize,
         V: AsRef<str>,
+        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -103,7 +111,7 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
-        Ft: Future<Item = TransactionReceipt, Error = crate::error::Error>,
+        Ft: Future<Output = error::Result<TransactionReceipt>>,
     {
         let options = self.options;
         let eth = self.eth;
@@ -157,31 +165,35 @@ impl<T: Transport> Builder<T> {
 /// Contract being deployed.
 pub struct PendingContract<
     T: Transport,
-    F: Future<Item = TransactionReceipt, Error = crate::error::Error> = confirm::SendTransactionWithConfirmation<T>,
+    F: Future<Output = error::Result<TransactionReceipt>> = confirm::SendTransactionWithConfirmation<T>,
 > {
     eth: Option<Eth<T>>,
     abi: Option<ethabi::Contract>,
     waiting: F,
 }
 
-impl<T: Transport, F: Future<Item = TransactionReceipt, Error = crate::error::Error>> Future for PendingContract<T, F> {
-    type Item = Contract<T>;
-    type Error = Error;
+impl<T, F> Future for PendingContract<T, F>
+where
+    F: Future<Output = error::Result<TransactionReceipt>> + Unpin,
+    T: Transport,
+    T::Out: Unpin,
+{
+    type Output = Result<Contract<T>, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let receipt = try_ready!(self.waiting.poll());
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let receipt = ready!(self.waiting.poll_unpin(ctx))?;
         let eth = self.eth.take().expect("future polled after ready; qed");
         let abi = self.abi.take().expect("future polled after ready; qed");
 
-        match receipt.status {
+        Poll::Ready(match receipt.status {
             Some(status) if status == 0.into() => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             // If the `status` field is not present we use the presence of `contract_address` to
             // determine if deployment was successfull.
             _ => match receipt.contract_address {
-                Some(address) => Ok(Async::Ready(Contract::new(eth, address, abi))),
+                Some(address) => Ok(Contract::new(eth, address, abi)),
                 None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             },
-        }
+        })
     }
 }
 
@@ -192,7 +204,6 @@ mod tests {
     use crate::helpers::tests::TestTransport;
     use crate::rpc;
     use crate::types::{Address, U256};
-    use futures::Future;
     use serde_json::Value;
     use std::collections::HashMap;
 
@@ -227,17 +238,18 @@ mod tests {
             let builder = Contract::deploy(api::Eth::new(&transport), include_bytes!("./res/token.json")).unwrap();
 
             // when
-            builder
-                .options(Options::with(|opt| opt.value = Some(5.into())))
-                .confirmations(1)
-                .execute(
-                    "0x01020304",
-                    (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
-                    Address::from_low_u64_be(5),
-                )
-                .unwrap()
-                .wait()
-                .unwrap();
+            futures::executor::block_on(
+                builder
+                    .options(Options::with(|opt| opt.value = Some(5.into())))
+                    .confirmations(1)
+                    .execute(
+                        "0x01020304",
+                        (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
+                        Address::from_low_u64_be(5),
+                    )
+                    .unwrap(),
+            )
+            .unwrap();
         };
 
         // then
@@ -294,10 +306,7 @@ mod tests {
         let lib_address;
         {
             let builder = Contract::deploy(api::Eth::new(&transport), &lib_abi).unwrap();
-            lib_address = builder
-                .execute(lib_code, (), Address::zero())
-                .unwrap()
-                .wait()
+            lib_address = futures::executor::block_on(builder.execute(lib_code, (), Address::zero()).unwrap())
                 .unwrap()
                 .address();
         }
@@ -325,7 +334,7 @@ mod tests {
                 linker
             })
             .unwrap();
-            let _ = builder.execute(main_code, (), Address::zero()).unwrap().wait().unwrap();
+            let _ = futures::executor::block_on(builder.execute(main_code, (), Address::zero()).unwrap()).unwrap();
         }
 
         transport.assert_request("eth_sendTransaction", &[

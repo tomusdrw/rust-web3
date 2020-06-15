@@ -5,6 +5,9 @@ use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 use std::io::Error as IoError;
 
+/// Web3 `Result` type.
+pub type Result<T = ()> = std::result::Result<T, Error>;
+
 /// Errors which can occur when attempting to generate resource uri.
 #[derive(Debug, Display, From)]
 pub enum Error {
@@ -70,6 +73,7 @@ impl Clone for Error {
     }
 }
 
+#[cfg(test)]
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
         use self::Error::*;

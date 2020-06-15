@@ -25,8 +25,8 @@ pub use self::traces::Traces;
 pub use self::web3::Web3 as Web3Api;
 
 use crate::types::{Bytes, TransactionRequest, U64};
-use crate::{confirm, DuplexTransport, Error, Transport};
-use futures::IntoFuture;
+use crate::{confirm, error, DuplexTransport, Transport};
+use futures::Future;
 use std::time::Duration;
 
 /// Common API for all namespaces
@@ -116,10 +116,10 @@ impl<T: Transport> Web3<T> {
         poll_interval: Duration,
         confirmations: usize,
         check: V,
-    ) -> confirm::Confirmations<T, V, F::Future>
+    ) -> confirm::Confirmations<T, V, F>
     where
-        F: IntoFuture<Item = Option<U64>, Error = Error>,
-        V: confirm::ConfirmationCheck<Check = F>,
+        F: Future<Output = error::Result<Option<U64>>>,
+        V: confirm::ConfirmationCheck<Check = F> + Unpin,
     {
         confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)
     }

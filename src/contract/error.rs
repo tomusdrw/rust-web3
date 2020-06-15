@@ -17,6 +17,9 @@ pub enum Error {
     /// Rpc error
     #[display(fmt = "Api error: {}", _0)]
     Api(ApiError),
+    /// An error during deployment.
+    #[display(fmt = "Deployment error: {}", _0)]
+    Deployment(crate::contract::deploy::Error),
 }
 
 impl std::error::Error for Error {
@@ -25,6 +28,7 @@ impl std::error::Error for Error {
             Error::InvalidOutputType(_) => None,
             Error::Abi(ref e) => Some(e),
             Error::Api(ref e) => Some(e),
+            Error::Deployment(ref e) => Some(e),
         }
     }
 }

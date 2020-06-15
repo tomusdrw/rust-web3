@@ -1,18 +1,22 @@
 //! Easy to use utilities for confirmations.
 
+use futures::stream::Skip;
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, StreamExt,
+};
+use std::pin::Pin;
 use std::time::Duration;
 
 use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use crate::helpers::CallFuture;
 use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
-use crate::{Error, Transport};
-use futures::stream::Skip;
-use futures::{Future, IntoFuture, Poll, Stream};
+use crate::{error, Error, Transport};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
     /// Future resolved when is known whether an event has been confirmed.
-    type Check: IntoFuture<Item = Option<U64>, Error = Error>;
+    type Check: Future<Output = error::Result<Option<U64>>>;
 
     /// Should be called to get future which resolves when confirmation state is known.
     fn check(&self) -> Self::Check;
@@ -21,7 +25,7 @@ pub trait ConfirmationCheck {
 impl<F, T> ConfirmationCheck for F
 where
     F: Fn() -> T,
-    T: IntoFuture<Item = Option<U64>, Error = Error>,
+    T: Future<Output = error::Result<Option<U64>>>,
 {
     type Check = T;
 
@@ -47,23 +51,23 @@ where
     confirmations: usize,
 }
 
-impl<T, V, F> Future for WaitForConfirmations<T, V, F::Future>
+impl<T, V, F> Future for WaitForConfirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    T::Out: Unpin,
+    V: ConfirmationCheck<Check = F> + Unpin,
+    F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
-    type Item = ();
-    type Error = Error;
+    type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 WaitForConfirmationsState::WaitForNextBlock => {
-                    let _ = try_ready!(self.filter_stream.poll());
-                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
+                    let _ = ready!(self.filter_stream.poll_next_unpin(ctx));
+                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check())
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match ready!(future.poll_unpin(ctx))? {
                     Some(confirmation_block_number) => {
                         let future = self.eth.block_number();
                         WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
@@ -74,9 +78,9 @@ where
                     confirmation_block_number,
                     ref mut block_number_future,
                 ) => {
-                    let block_number = try_ready!(block_number_future.poll()).low_u64();
+                    let block_number = ready!(block_number_future.poll_unpin(ctx))?.low_u64();
                     if confirmation_block_number + self.confirmations as u64 <= block_number {
-                        return Ok(().into());
+                        return Poll::Ready(Ok(()));
                     } else {
                         WaitForConfirmationsState::WaitForNextBlock
                     }
@@ -119,24 +123,24 @@ impl<T: Transport, V, F> Confirmations<T, V, F> {
     }
 }
 
-impl<T, V, F> Future for Confirmations<T, V, F::Future>
+impl<T, V, F> Future for Confirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    T::Out: Unpin,
+    V: ConfirmationCheck<Check = F> + Unpin,
+    F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
-    type Item = ();
-    type Error = Error;
+    type Output = error::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 ConfirmationsState::Create(ref mut create) => {
-                    let filter = try_ready!(create.create_filter.poll());
+                    let filter = ready!(create.create_filter.poll_unpin(ctx))?;
                     let future = WaitForConfirmations {
                         eth: create.eth.take().expect("future polled after ready; qed"),
                         state: WaitForConfirmationsState::WaitForNextBlock,
-                        filter_stream: filter.stream(create.poll_interval).skip(create.confirmations as u64),
+                        filter_stream: filter.stream(create.poll_interval).skip(create.confirmations),
                         confirmation_check: create
                             .confirmation_check
                             .take()
@@ -145,7 +149,7 @@ where
                     };
                     ConfirmationsState::Wait(future)
                 }
-                ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
+                ConfirmationsState::Wait(ref mut wait) => return wait.poll_unpin(ctx),
             };
             self.state = next_state;
         }
@@ -159,11 +163,11 @@ pub fn wait_for_confirmations<T, V, F>(
     poll_interval: Duration,
     confirmations: usize,
     check: V,
-) -> Confirmations<T, V, F::Future>
+) -> Confirmations<T, V, F>
 where
     T: Transport,
-    V: ConfirmationCheck<Check = F>,
-    F: IntoFuture<Item = Option<U64>, Error = Error>,
+    V: ConfirmationCheck<Check = F> + Unpin,
+    F: Future<Output = error::Result<Option<U64>>>,
 {
     Confirmations::new(eth, eth_filter, poll_interval, confirmations, check)
 }
@@ -172,13 +176,15 @@ struct TransactionReceiptBlockNumber<T: Transport> {
     future: CallFuture<Option<TransactionReceipt>, T::Out>,
 }
 
-impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
-    type Item = Option<U64>;
-    type Error = Error;
+impl<T: Transport> Future for TransactionReceiptBlockNumber<T>
+where
+    T::Out: Unpin,
+{
+    type Output = error::Result<Option<U64>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let receipt = try_ready!(self.future.poll());
-        Ok(receipt.and_then(|receipt| receipt.block_number).into())
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let receipt = ready!(self.future.poll_unpin(ctx))?;
+        Poll::Ready(Ok(receipt.and_then(|receipt| receipt.block_number)))
     }
 }
 
@@ -193,7 +199,10 @@ impl<T: Transport> TransactionReceiptBlockNumberCheck<T> {
     }
 }
 
-impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
+impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T>
+where
+    T::Out: Unpin,
+{
     type Check = TransactionReceiptBlockNumber<T>;
 
     fn check(&self) -> Self::Check {
@@ -250,20 +259,22 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
     }
 }
 
-impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
-    type Item = TransactionReceipt;
-    type Error = Error;
+impl<T: Transport> Future for SendTransactionWithConfirmation<T>
+where
+    T::Out: Unpin,
+{
+    type Output = error::Result<TransactionReceipt>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
                 SendTransactionWithConfirmationState::Error(ref mut error) => {
-                    return Err(error
+                    return Poll::Ready(Err(error
                         .take()
-                        .expect("Error is initialized initially; future polled only once; qed"));
+                        .expect("Error is initialized initially; future polled only once; qed")));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    let hash = try_ready!(future.poll());
+                    let hash = ready!(future.poll_unpin(ctx))?;
                     if self.confirmations > 0 {
                         let confirmation_check =
                             TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash);
@@ -283,14 +294,14 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                     }
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
-                    let _confirmed = try_ready!(Future::poll(future));
+                    let _confirmed = ready!(future.poll_unpin(ctx))?;
                     let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
                     SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
                 }
                 SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = try_ready!(Future::poll(future))
+                    let receipt = ready!(future.poll_unpin(ctx))?
                         .expect("receipt can't be null after wait for confirmations; qed");
-                    return Ok(receipt.into());
+                    return Poll::Ready(Ok(receipt));
                 }
             };
             self.state = next_state;
@@ -330,7 +341,6 @@ mod tests {
     use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
     use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U64};
-    use futures::Future;
     use serde_json::json;
     use std::time::Duration;
 
@@ -392,7 +402,7 @@ mod tests {
         let confirmation = {
             let future =
                 send_transaction_with_confirmation(&transport, transaction_request, poll_interval, confirmations);
-            future.wait()
+            futures::executor::block_on(future)
         };
 
         transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into()]);
