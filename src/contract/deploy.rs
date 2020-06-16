@@ -55,7 +55,6 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
-        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -81,7 +80,6 @@ impl<T: Transport> Builder<T> {
     where
         P: Tokenize,
         V: AsRef<str>,
-        T::Out: Unpin,
     {
         let transport = self.eth.transport().clone();
         let poll_interval = self.poll_interval;
@@ -176,7 +174,6 @@ impl<T, F> Future for PendingContract<T, F>
 where
     F: Future<Output = error::Result<TransactionReceipt>> + Unpin,
     T: Transport,
-    T::Out: Unpin,
 {
     type Output = Result<Contract<T>, Error>;
 

@@ -41,7 +41,7 @@ pub type RequestId = usize;
 /// Transport implementation
 pub trait Transport: std::fmt::Debug + Clone + Unpin {
     /// The type of future this transport returns when a call is made.
-    type Out: futures::Future<Output = error::Result<rpc::Value>>;
+    type Out: futures::Future<Output = error::Result<rpc::Value>> + Unpin;
 
     /// Prepare serializable RPC call for given method with parameters.
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);

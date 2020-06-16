@@ -16,7 +16,6 @@ use rlp::RlpStream;
 use secp256k1::key::ONE_KEY;
 use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
 use std::convert::TryInto;
-use std::marker::Unpin;
 use std::mem;
 use std::ops::Deref;
 use std::pin::Pin;
@@ -49,10 +48,7 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Signs an Ethereum transaction with a given private key.
-    pub fn sign_transaction(&self, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T>
-    where
-        T::Out: Unpin,
-    {
+    pub fn sign_transaction(&self, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T> {
         SignTransactionFuture::new(self, tx, key)
     }
 
@@ -179,19 +175,13 @@ type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T,
 /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
 /// that if all transaction parameters were provided, this future will resolve
 /// immediately.
-pub struct SignTransactionFuture<T: Transport>
-where
-    T::Out: Unpin,
-{
+pub struct SignTransactionFuture<T: Transport> {
     tx: TransactionParameters,
     key: ZeroizeSecretKey,
     inner: TxParams<T>,
 }
 
-impl<T: Transport> SignTransactionFuture<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> SignTransactionFuture<T> {
     /// Creates a new SignTransactionFuture with accounts and transaction data.
     pub fn new(accounts: &Accounts<T>, tx: TransactionParameters, key: &SecretKey) -> SignTransactionFuture<T> {
         macro_rules! maybe {
@@ -218,10 +208,7 @@ where
     }
 }
 
-impl<T: Transport> Future for SignTransactionFuture<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> Future for SignTransactionFuture<T> {
     type Output = error::Result<SignedTransaction>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
@@ -243,10 +230,7 @@ where
     }
 }
 
-impl<T: Transport> Drop for SignTransactionFuture<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> Drop for SignTransactionFuture<T> {
     fn drop(&mut self) {
         self.key.zeroize();
     }
