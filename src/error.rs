@@ -1,88 +1,90 @@
 //! Web3 Error
+use crate::rpc::error::Error as RPCError;
+use derive_more::{Display, From};
+use secp256k1::Error as Secp256k1Error;
+use serde_json::Error as SerdeError;
+use std::io::Error as IoError;
 
-#![allow(unknown_lints)]
-#![allow(missing_docs)]
+/// Web3 `Result` type.
+pub type Result<T = ()> = std::result::Result<T, Error>;
 
-use std::io;
-use serde_json;
-use rpc;
-
-error_chain! {
-  foreign_links {
-    Io(io::Error);
-  }
-  errors {
-    Unreachable {
-      description("server is unreachable"),
-      display("Server is unreachable"),
-    }
-    Decoder(e: String) {
-      description("decoder error"),
-      display("Decoder error: {}", e),
-    }
-    InvalidResponse(e: String) {
-      description("invalid response"),
-      display("Got invalid response: {}", e),
-    }
-    Transport(e: String) {
-      description("transport error"),
-      display("Transport error: {}", e),
-    }
-    // TODO [ToDr] Move to foreign_links
-    Rpc(e: rpc::Error) {
-      description("rpc error"),
-      display("RPC error: {:?}", e),
-    }
-    Internal {
-      description("web3 internal error"),
-      display("Internal Web3 error"),
-    }
-  }
+/// Errors which can occur when attempting to generate resource uri.
+#[derive(Debug, Display, From)]
+pub enum Error {
+    /// server is unreachable
+    #[display(fmt = "Server is unreachable")]
+    Unreachable,
+    /// decoder error
+    #[display(fmt = "Decoder error: {}", _0)]
+    Decoder(String),
+    /// invalid response
+    #[display(fmt = "Got invalid response: {}", _0)]
+    #[from(ignore)]
+    InvalidResponse(String),
+    /// transport error
+    #[display(fmt = "Transport error: {}", _0)]
+    #[from(ignore)]
+    Transport(String),
+    /// rpc error
+    #[display(fmt = "RPC error: {:?}", _0)]
+    Rpc(RPCError),
+    /// io error
+    #[display(fmt = "IO error: {}", _0)]
+    Io(IoError),
+    /// signing error
+    #[display(fmt = "Signing error: {}", _0)]
+    Signing(Secp256k1Error),
+    /// web3 internal error
+    #[display(fmt = "Internal Web3 error")]
+    Internal,
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Self {
-        ErrorKind::Decoder(format!("{:?}", err)).into()
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        use self::Error::*;
+        match *self {
+            Unreachable | Decoder(_) | InvalidResponse(_) | Transport(_) | Internal => None,
+            Rpc(ref e) => Some(e),
+            Io(ref e) => Some(e),
+            Signing(ref e) => Some(e),
+        }
+    }
+}
+
+impl From<SerdeError> for Error {
+    fn from(err: SerdeError) -> Self {
+        Error::Decoder(format!("{:?}", err))
     }
 }
 
 impl Clone for Error {
     fn clone(&self) -> Self {
-        match *self.kind() {
-            ErrorKind::Io(ref io) => ErrorKind::Io(io.kind().clone().into()),
-            ErrorKind::Unreachable => ErrorKind::Unreachable,
-            ErrorKind::Decoder(ref err) => ErrorKind::Decoder(err.to_owned()),
-            ErrorKind::InvalidResponse(ref t) => ErrorKind::InvalidResponse(t.to_owned()),
-            ErrorKind::Transport(ref t) => ErrorKind::Transport(t.to_owned()),
-            ErrorKind::Rpc(ref e) => ErrorKind::Rpc(e.clone()),
-            ErrorKind::Internal => ErrorKind::Internal,
-            ErrorKind::Msg(ref e) => ErrorKind::Msg(e.clone()).into(),
-            _ => unimplemented!(),
-        }.into()
+        use self::Error::*;
+        match self {
+            Unreachable => Unreachable,
+            Decoder(s) => Decoder(s.clone()),
+            InvalidResponse(s) => InvalidResponse(s.clone()),
+            Transport(s) => Transport(s.clone()),
+            Rpc(e) => Rpc(e.clone()),
+            Io(e) => Io(IoError::from(e.kind())),
+            Signing(e) => Signing(*e),
+            Internal => Internal,
+        }
     }
 }
 
 #[cfg(test)]
 impl PartialEq for Error {
-    fn eq(&self, o: &Self) -> bool {
-        *self.kind() == *o.kind()
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for ErrorKind {
-    fn eq(&self, o: &Self) -> bool {
-        use self::ErrorKind::*;
-
-        match (self, o) {
-            (&Io(_), &Io(_)) => true,
-            (&Unreachable, &Unreachable) => true,
-            (&Decoder(ref a), &Decoder(ref b)) => a == b,
-            (&InvalidResponse(ref a), &InvalidResponse(ref b)) => a == b,
-            (&Transport(ref a), &Transport(ref b)) => a == b,
-            (&Rpc(ref a), &Rpc(ref b)) => a == b,
-            (&Internal, &Internal) => true,
-            (&Msg(ref a), &Msg(ref b)) => a == b,
+    fn eq(&self, other: &Self) -> bool {
+        use self::Error::*;
+        match (self, other) {
+            (Unreachable, Unreachable) | (Internal, Internal) => true,
+            (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) | (Transport(a), Transport(b)) => {
+                a == b
+            }
+            (Rpc(a), Rpc(b)) => a == b,
+            (Io(a), Io(b)) => a.kind() == b.kind(),
+            (Signing(a), Signing(b)) => a == b,
             _ => false,
         }
     }

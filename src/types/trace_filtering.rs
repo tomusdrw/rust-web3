@@ -1,22 +1,22 @@
 //! Types for the Parity Transaction-Trace Filtering API
-use types::{BlockNumber, H160, H256, U256, Bytes, Address};
-use serde_derive::{Deserialize, Serialize};
+use crate::types::{Address, BlockNumber, Bytes, H160, H256, U256};
+use serde::{Deserialize, Serialize};
 
 /// Trace filter
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TraceFilter {
     /// From block
-    #[serde(rename="fromBlock", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
     from_block: Option<BlockNumber>,
     /// To block
-    #[serde(rename="toBlock", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
     to_block: Option<BlockNumber>,
     /// From address
-    #[serde(rename="fromAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "fromAddress", skip_serializing_if = "Option::is_none")]
     from_address: Option<Vec<Address>>,
     /// To address
-    #[serde(rename="toAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "toAddress", skip_serializing_if = "Option::is_none")]
     to_address: Option<Vec<Address>>,
     /// Output offset
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -33,7 +33,6 @@ pub struct TraceFilterBuilder {
 }
 
 impl TraceFilterBuilder {
-
     /// Sets From block
     pub fn from_block(mut self, block: BlockNumber) -> Self {
         self.filter.from_block = Some(block);
@@ -83,7 +82,7 @@ pub struct Trace {
     /// Action
     pub action: Action,
     /// Result
-    pub result: Res,
+    pub result: Option<Res>,
     /// Trace address
     #[serde(rename = "traceAddress")]
     pub trace_address: Vec<usize>,
@@ -101,8 +100,11 @@ pub struct Trace {
     /// Block Hash
     #[serde(rename = "blockHash")]
     pub block_hash: H256,
+    /// Action Type
     #[serde(rename = "type")]
-    action_type: ActionType,
+    pub action_type: ActionType,
+    /// Error
+    pub error: Option<String>,
 }
 
 /// Response
@@ -113,8 +115,6 @@ pub enum Res {
     Call(CallResult),
     /// Create
     Create(CreateResult),
-    /// Call or Create failure
-    FailedCallOrCreate(String),
     /// None
     None,
 }
@@ -127,7 +127,7 @@ impl Default for Res {
 
 /// Action
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(untagged, rename_all="lowercase")]
+#[serde(untagged, rename_all = "lowercase")]
 pub enum Action {
     /// Call
     Call(Call),
@@ -139,20 +139,25 @@ pub enum Action {
     Reward(Reward),
 }
 
+/// An external action type.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ActionType {
-  Call,
-  Create,
-  Suicide,
-  Reward
+    /// Contract call.
+    Call,
+    /// Contract creation.
+    Create,
+    /// Contract suicide.
+    Suicide,
+    /// A block reward.
+    Reward,
 }
 
 /// Call Result
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct CallResult {
     /// Gas used
-    #[serde(rename="gasUsed")]
+    #[serde(rename = "gasUsed")]
     pub gas_used: U256,
     /// Output bytes
     pub output: Bytes,
@@ -162,7 +167,7 @@ pub struct CallResult {
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct CreateResult {
     /// Gas used
-    #[serde(rename="gasUsed")]
+    #[serde(rename = "gasUsed")]
     pub gas_used: U256,
     /// Code
     pub code: Bytes,
@@ -184,7 +189,7 @@ pub struct Call {
     /// Input data
     pub input: Bytes,
     /// The type of the call.
-    #[serde(rename="callType")]
+    #[serde(rename = "callType")]
     pub call_type: CallType,
 }
 
@@ -192,19 +197,19 @@ pub struct Call {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum CallType {
     /// None
-    #[serde(rename="none")]
+    #[serde(rename = "none")]
     None,
     /// Call
-    #[serde(rename="call")]
+    #[serde(rename = "call")]
     Call,
     /// Call code
-    #[serde(rename="callcode")]
+    #[serde(rename = "callcode")]
     CallCode,
     /// Delegate call
-    #[serde(rename="delegatecall")]
+    #[serde(rename = "delegatecall")]
     DelegateCall,
     /// Static call
-    #[serde(rename="staticcall")]
+    #[serde(rename = "staticcall")]
     StaticCall,
 }
 
@@ -233,7 +238,7 @@ pub struct Suicide {
     /// Address.
     pub address: Address,
     /// Refund address.
-    #[serde(rename="refundAddress")]
+    #[serde(rename = "refundAddress")]
     pub refund_address: Address,
     /// Balance.
     pub balance: U256,
@@ -247,7 +252,7 @@ pub struct Reward {
     /// Reward amount.
     pub value: U256,
     /// Reward type.
-    #[serde(rename="rewardType")]
+    #[serde(rename = "rewardType")]
     pub reward_type: RewardType,
 }
 
@@ -255,16 +260,16 @@ pub struct Reward {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum RewardType {
     /// Block
-    #[serde(rename="block")]
+    #[serde(rename = "block")]
     Block,
     /// Uncle
-    #[serde(rename="uncle")]
+    #[serde(rename = "uncle")]
     Uncle,
     /// EmptyStep (AuthorityRound)
-    #[serde(rename="emptyStep")]
+    #[serde(rename = "emptyStep")]
     EmptyStep,
     /// External (attributed as part of an external protocol)
-    #[serde(rename="external")]
+    #[serde(rename = "external")]
     External,
 }
 
@@ -272,9 +277,7 @@ pub enum RewardType {
 mod tests {
     use super::*;
 
-
-    const EXAMPLE_TRACE_CALL: &'static str =
-    r#"{
+    const EXAMPLE_TRACE_CALL: &'static str = r#"{
         "action": {
             "callType": "call",
             "from": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
@@ -296,8 +299,7 @@ mod tests {
         "type": "call"
     }"#;
 
-    const EXAMPLE_TRACE_CREATE: &'static str =
-    r#"{
+    const EXAMPLE_TRACE_CREATE: &'static str = r#"{
         "action": {
             "from": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "gas": "0x63ab9",
@@ -317,8 +319,7 @@ mod tests {
         "type": "create"
     }"#;
 
-    const EXAMPLE_TRACE_SUICIDE: &'static str =
-    r#"{
+    const EXAMPLE_TRACE_SUICIDE: &'static str = r#"{
         "action": {
             "address": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "refundAddress": "0xfb6916095ca1df60bb79ce92ce3ea74c37c5d359",
@@ -337,8 +338,7 @@ mod tests {
         "type": "suicide"
     }"#;
 
-    const EXAMPLE_TRACE_REWARD: &'static str =
-    r#"{
+    const EXAMPLE_TRACE_REWARD: &'static str = r#"{
         "action": {
             "author": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "value": "0x0",
@@ -365,4 +365,3 @@ mod tests {
         let _trace: Trace = serde_json::from_str(EXAMPLE_TRACE_REWARD).unwrap();
     }
 }
-

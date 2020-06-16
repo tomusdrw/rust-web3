@@ -1,14 +1,18 @@
 //! `Eth` namespace, subscriptions
 
 use std::marker::PhantomData;
+use std::pin::Pin;
 
-use api::Namespace;
-use futures::{Async, Future, Poll, Stream};
-use helpers::{self, CallFuture};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
+use crate::{error, DuplexTransport};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt, Stream, StreamExt,
+};
 use serde;
 use serde_json;
-use types::{BlockHeader, Filter, H256, Log, SyncState};
-use {DuplexTransport, Error};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]
@@ -51,14 +55,14 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
 }
 
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
-    fn new(transport: T, id: SubscriptionId) -> Self {
-        let rx = transport.subscribe(&id);
-        SubscriptionStream {
+    fn new(transport: T, id: SubscriptionId) -> error::Result<Self> {
+        let rx = transport.subscribe(id.clone())?;
+        Ok(SubscriptionStream {
             transport,
             id,
             rx,
             _marker: PhantomData,
-        }
+        })
     }
 
     /// Return the ID of this subscription
@@ -77,29 +81,25 @@ impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
 impl<T, I> Stream for SubscriptionStream<T, I>
 where
     T: DuplexTransport,
-    I: serde::de::DeserializeOwned,
+    T::Out: Unpin,
+    T::NotificationStream: Unpin,
+    I: serde::de::DeserializeOwned + Unpin,
 {
-    type Item = I;
-    type Error = Error;
+    type Item = error::Result<I>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match self.rx.poll() {
-            Ok(Async::Ready(Some(x))) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
-            Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => Err(e),
-        }
+    fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
+        let x = ready!(self.rx.poll_next_unpin(ctx));
+        Poll::Ready(x.map(|result| serde_json::from_value(result).map_err(Into::into)))
     }
 }
 
 impl<T: DuplexTransport, I> Drop for SubscriptionStream<T, I> {
     fn drop(&mut self) {
-        self.transport.unsubscribe(self.id());
+        let _ = self.transport.unsubscribe(self.id().clone());
     }
 }
 
+/// A result of calling a subscription.
 #[derive(Debug)]
 pub struct SubscriptionResult<T: DuplexTransport, I> {
     transport: T,
@@ -108,6 +108,7 @@ pub struct SubscriptionResult<T: DuplexTransport, I> {
 }
 
 impl<T: DuplexTransport, I> SubscriptionResult<T, I> {
+    /// New `SubscriptionResult`.
     pub fn new(transport: T, id_future: CallFuture<String, T::Out>) -> Self {
         SubscriptionResult {
             transport,
@@ -120,20 +121,14 @@ impl<T: DuplexTransport, I> SubscriptionResult<T, I> {
 impl<T, I> Future for SubscriptionResult<T, I>
 where
     T: DuplexTransport,
-    I: serde::de::DeserializeOwned,
+    I: serde::de::DeserializeOwned + Unpin,
+    T::Out: Unpin,
 {
-    type Item = SubscriptionStream<T, I>;
-    type Error = Error;
+    type Output = error::Result<SubscriptionStream<T, I>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner.poll() {
-            Ok(Async::Ready(id)) => Ok(Async::Ready(SubscriptionStream::new(
-                self.transport.clone(),
-                SubscriptionId(id),
-            ))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => Err(e),
-        }
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let id = ready!(self.inner.poll_unpin(ctx))?;
+        Poll::Ready(SubscriptionStream::new(self.transport.clone(), SubscriptionId(id)))
     }
 }
 
@@ -149,10 +144,7 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     pub fn subscribe_logs(&self, filter: Filter) -> SubscriptionResult<T, Log> {
         let subscription = helpers::serialize(&&"logs");
         let filter = helpers::serialize(&filter);
-        let id_future = CallFuture::new(
-            self.transport
-                .execute("eth_subscribe", vec![subscription, filter]),
-        );
+        let id_future = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription, filter]));
         SubscriptionResult::new(self.transport().clone(), id_future)
     }
 

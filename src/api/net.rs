@@ -1,10 +1,10 @@
 //! `Net` namespace
 
-use api::Namespace;
-use helpers::CallFuture;
-use types::U256;
+use crate::api::Namespace;
+use crate::helpers::CallFuture;
+use crate::types::U256;
 
-use Transport;
+use crate::Transport;
 
 /// `Net` namespace
 #[derive(Debug, Clone)]
@@ -44,26 +44,24 @@ impl<T: Transport> Net<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
-    use api::Namespace;
-    use rpc::Value;
-    use types::U256;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::U256;
 
     use super::Net;
 
     rpc_test! (
-    Net:version => "net_version";
-    Value::String("Test123".into()) => "Test123"
-  );
+      Net:version => "net_version";
+      Value::String("Test123".into()) => "Test123"
+    );
 
     rpc_test! (
-    Net:peer_count => "net_peerCount";
-    Value::String("0x123".into()) => U256::from(0x123)
-  );
+      Net:peer_count => "net_peerCount";
+      Value::String("0x123".into()) => U256::from(0x123)
+    );
 
     rpc_test! (
-    Net:is_listening => "net_listening";
-    Value::Bool(true) => true
-  );
+      Net:is_listening => "net_listening";
+      Value::Bool(true) => true
+    );
 }

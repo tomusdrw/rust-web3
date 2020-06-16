@@ -1,13 +1,44 @@
-extern crate parking_lot;
-extern crate web3;
-
-use std::{thread, time};
-use std::sync::{atomic, Arc};
 use parking_lot::Mutex;
-use web3::futures::Future;
+use std::sync::{atomic, Arc};
+use std::{thread, time};
 
-fn as_millis(dur: time::Duration) -> u64 {
-    dur.as_secs() * 1_000 + dur.subsec_nanos() as u64 / 1_000_000
+#[tokio::main]
+async fn main() -> web3::Result {
+    let _ = env_logger::try_init();
+    let requests = 200_000;
+
+    let http = web3::transports::Http::new("http://localhost:8545/")?;
+    bench("http", http, requests);
+
+    let ipc = web3::transports::WebSocket::new("./jsonrpc.ipc").await?;
+    bench(" ipc", ipc, requests);
+
+    Ok(())
+}
+
+fn bench<T: web3::Transport>(id: &str, transport: T, max: usize)
+where
+    T::Out: Send + Unpin + 'static,
+{
+    use futures::FutureExt;
+
+    let web3 = web3::Web3::new(transport);
+    let ticker = Arc::new(Ticker::new(id));
+
+    for _ in 0..max {
+        let ticker = ticker.clone();
+        ticker.start();
+        let accounts = web3.eth().block_number().then(move |res| {
+            if let Err(e) = res {
+                println!("Error: {:?}", e);
+            }
+            ticker.tick();
+            futures::future::ready(())
+        });
+        tokio::spawn(accounts);
+    }
+
+    ticker.wait();
 }
 
 struct Ticker {
@@ -41,14 +72,15 @@ impl Ticker {
     }
 
     pub fn print_result(&self, reqs: u64) {
+        fn as_millis(dur: time::Duration) -> u64 {
+            dur.as_secs() * 1_000 + dur.subsec_nanos() as u64 / 1_000_000
+        }
+
         let mut time = self.time.lock();
         let elapsed = as_millis(time.elapsed());
         let result = reqs * 1_000 / elapsed;
 
-        println!(
-            "[{}] {} reqs/s ({} reqs in {} ms)",
-            self.id, result, reqs, elapsed
-        );
+        println!("[{}] {} reqs/s ({} reqs in {} ms)", self.id, result, reqs, elapsed);
 
         self.reqs.store(0, atomic::Ordering::Release);
         *time = time::Instant::now();
@@ -60,35 +92,4 @@ impl Ticker {
         }
         self.print_result(self.reqs.load(atomic::Ordering::Acquire) as u64);
     }
-}
-
-fn main() {
-    let requests = 200_000;
-    let (eloop, http) = web3::transports::Http::new("http://localhost:8545/").unwrap();
-    bench("http", eloop, http, requests);
-
-    let (eloop, http) = web3::transports::Ipc::new("./jsonrpc.ipc").unwrap();
-    bench(" ipc", eloop, http, requests);
-}
-
-fn bench<T: web3::Transport>(id: &str, eloop: web3::transports::EventLoopHandle, transport: T, max: usize)
-where
-    T::Out: Send + 'static,
-{
-    let web3 = web3::Web3::new(transport);
-    let ticker = Arc::new(Ticker::new(id));
-    for _ in 0..max {
-        let ticker = ticker.clone();
-        ticker.start();
-        let accounts = web3.eth().block_number().then(move |res| {
-            if let Err(e) = res {
-                println!("Error: {:?}", e);
-            }
-            ticker.tick();
-            Ok(())
-        });
-        eloop.remote().spawn(|_| accounts);
-    }
-
-    ticker.wait()
 }

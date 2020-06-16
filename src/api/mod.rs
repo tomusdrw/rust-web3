@@ -1,31 +1,33 @@
 //! `Web3` implementation
 
+mod accounts;
 mod eth;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
+mod parity;
 mod parity_accounts;
 mod parity_set;
 mod personal;
 mod traces;
 mod web3;
 
-
+pub use self::accounts::{Accounts, SignTransactionFuture};
 pub use self::eth::Eth;
 pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
-pub use self::eth_subscribe::{SubscriptionId, SubscriptionStream};
+pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
 pub use self::net::Net;
+pub use self::parity::Parity;
 pub use self::parity_accounts::ParityAccounts;
 pub use self::parity_set::ParitySet;
 pub use self::personal::Personal;
-pub use self::web3::Web3 as Web3Api;
 pub use self::traces::Traces;
+pub use self::web3::Web3 as Web3Api;
 
-
+use crate::types::{Bytes, TransactionRequest, U64};
+use crate::{confirm, error, DuplexTransport, Transport};
+use futures::Future;
 use std::time::Duration;
-use futures::IntoFuture;
-use {confirm, DuplexTransport, Error, Transport};
-use types::{Bytes, TransactionRequest, U256};
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {
@@ -58,6 +60,11 @@ impl<T: Transport> Web3<T> {
         A::new(self.transport.clone())
     }
 
+    /// Access methods from `accounts` namespace
+    pub fn accounts(&self) -> accounts::Accounts<T> {
+        self.api()
+    }
+
     /// Access methods from `eth` namespace
     pub fn eth(&self) -> eth::Eth<T> {
         self.api()
@@ -75,6 +82,11 @@ impl<T: Transport> Web3<T> {
 
     /// Access filter methods from `eth` namespace
     pub fn eth_filter(&self) -> eth_filter::EthFilter<T> {
+        self.api()
+    }
+
+    /// Access methods from `parity` namespace
+    pub fn parity(&self) -> parity::Parity<T> {
         self.api()
     }
 
@@ -99,27 +111,36 @@ impl<T: Transport> Web3<T> {
     }
 
     /// Should be used to wait for confirmations
-    pub fn wait_for_confirmations<F, V>(&self, poll_interval: Duration, confirmations: usize, check: V) -> confirm::Confirmations<T, V, F::Future>
+    pub fn wait_for_confirmations<F, V>(
+        &self,
+        poll_interval: Duration,
+        confirmations: usize,
+        check: V,
+    ) -> confirm::Confirmations<T, V, F>
     where
-        F: IntoFuture<Item = Option<U256>, Error = Error>,
-        V: confirm::ConfirmationCheck<Check = F>,
+        F: Future<Output = error::Result<Option<U64>>>,
+        V: confirm::ConfirmationCheck<Check = F> + Unpin,
     {
-        confirm::wait_for_confirmations(
-            self.eth(),
-            self.eth_filter(),
-            poll_interval,
-            confirmations,
-            check,
-        )
+        confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)
     }
 
     /// Sends transaction and returns future resolved after transaction is confirmed
-    pub fn send_transaction_with_confirmation(&self, tx: TransactionRequest, poll_interval: Duration, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T> {
+    pub fn send_transaction_with_confirmation(
+        &self,
+        tx: TransactionRequest,
+        poll_interval: Duration,
+        confirmations: usize,
+    ) -> confirm::SendTransactionWithConfirmation<T> {
         confirm::send_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
     }
 
     /// Sends raw transaction and returns future resolved after transaction is confirmed
-    pub fn send_raw_transaction_with_confirmation(&self, tx: Bytes, poll_interval: Duration, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T> {
+    pub fn send_raw_transaction_with_confirmation(
+        &self,
+        tx: Bytes,
+        poll_interval: Duration,
+        confirmations: usize,
+    ) -> confirm::SendTransactionWithConfirmation<T> {
         confirm::send_raw_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
     }
 }

@@ -4,21 +4,41 @@ branches:
   only:
   - master
 
-cache: cargo
+cache:
+  # Don't use `cache: cargo` since it adds the `target` directory and that can be huge.
+  # Saving and loading this directory dwarfes actual compilation and test times. But what is more
+  # important, is that travis timeouts the build since the job doesn't produce any output for more
+  # than 10 minutes.
+  #
+  # So we just cache ~/.cargo directory
+  directories:
+    - /home/travis/.cargo
+
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r $HOME/.cargo
+  # According to the Travis CI docs for building Rust project this is done by,
+  - rm -rf /home/travis/.cargo/registry
 
 matrix:
   fast_finish: false
+  allow_failures:
+    - rust: nightly
   include:
-  - rust: stable
-  - rust: beta
-  - rust: nightly
+    - rust: stable
+    - rust: beta
+    - rust: nightly
 
 before_script:
-  - rustup toolchain install stable
-  - rustup component add rustfmt-preview --toolchain=stable
+  - if [[ "${TRAVIS_RUST_VERSION}" == stable ]]; then
+      rustup component add rustfmt && cargo install cargo-deny;
+    fi
 
 script:
-  # - cargo +stable fmt --all -- --write-mode=diff
+  - if [[ "${TRAVIS_RUST_VERSION}" == "stable" ]]; then
+      cargo fmt -- --check && cargo deny check;
+    fi
+  - cargo check
   - cargo build
   - cargo test
 

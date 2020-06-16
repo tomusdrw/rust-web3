@@ -1,38 +1,60 @@
 //! Contract call/query error.
 
-#![allow(unknown_lints)]
-#![allow(missing_docs)]
+use ethabi::Error as EthError;
 
-use ethabi;
+use crate::error::Error as ApiError;
+use derive_more::{Display, From};
 
-error_chain! {
-  links {
-    Abi(ethabi::Error, ethabi::ErrorKind);
-    Api(::Error, ::ErrorKind);
-  }
-
-  errors {
-    InvalidOutputType(e: String) {
-      description("invalid output type requested by the caller"),
-      display("Invalid output type: {}", e),
-    }
-  }
+/// Contract error.
+#[derive(Debug, Display, From)]
+pub enum Error {
+    /// invalid output type requested by the caller
+    #[display(fmt = "Invalid output type: {}", _0)]
+    InvalidOutputType(String),
+    /// eth abi error
+    #[display(fmt = "Abi error: {}", _0)]
+    Abi(EthError),
+    /// Rpc error
+    #[display(fmt = "Api error: {}", _0)]
+    Api(ApiError),
+    /// An error during deployment.
+    #[display(fmt = "Deployment error: {}", _0)]
+    Deployment(crate::contract::deploy::Error),
 }
 
-/// Contract deployment error.
-pub mod deploy {
-    use types::H256;
-
-    error_chain! {
-      links {
-        Api(::Error, ::ErrorKind);
-      }
-
-      errors {
-        ContractDeploymentFailure(hash: H256) {
-          description("Contract deployment failed")
-          display("Failure during deployment. Tx hash: {:?}", hash),
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            Error::InvalidOutputType(_) => None,
+            Error::Abi(ref e) => Some(e),
+            Error::Api(ref e) => Some(e),
+            Error::Deployment(ref e) => Some(e),
         }
-      }
+    }
+}
+
+pub mod deploy {
+    use crate::error::Error as ApiError;
+    use crate::types::H256;
+    use derive_more::{Display, From};
+
+    /// Contract deployment error.
+    #[derive(Debug, Display, From)]
+    pub enum Error {
+        /// Rpc error
+        #[display(fmt = "Api error: {}", _0)]
+        Api(ApiError),
+        /// Contract deployment failed
+        #[display(fmt = "Failure during deployment.Tx hash: {:?}", _0)]
+        ContractDeploymentFailure(H256),
+    }
+
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match *self {
+                Error::Api(ref e) => Some(e),
+                Error::ContractDeploymentFailure(_) => None,
+            }
+        }
     }
 }

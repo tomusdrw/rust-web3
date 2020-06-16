@@ -19,24 +19,25 @@ First, add this to your `Cargo.toml`:
 web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 ```
 
-Next, add this to your crate:
-
-```rust
-extern crate web3;
-```
-
 ## Examples
 ```rust
-extern crate web3;
+#[tokio::main]
+async fn main() -> web3::Result<()> {
+    let transport = web3::transports::Http::new("http://localhost:8545")?;
+    let web3 = web3::Web3::new(transport);
 
-use web3::futures::Future;
+    println!("Calling accounts.");
+    let mut accounts = web3.eth().accounts().await?;
+    println!("Accounts: {:?}", accounts);
+    accounts.push("00a329c0648769a73afac7f9381e08fb43dbea72".parse().unwrap());
 
-fn main() {
-  let (_eloop, transport) = web3::transports::Http::new("http://localhost:8545").unwrap();
-  let web3 = web3::Web3::new(transport);
-  let accounts = web3.eth().accounts().wait().unwrap();
+    println!("Calling balance.");
+    for account in accounts {
+        let balance = web3.eth().balance(account, None).await?;
+        println!("Balance of {:?}: {}", account, balance);
+    }
 
-  println!("Accounts: {:?}", accounts);
+    Ok(())
 }
 ```
 
@@ -47,6 +48,14 @@ If you want to deploy smart contracts you have written you can do something like
 The solidity compiler is generating the binary and abi code for the smart contracts in a directory called contracts and is being output to a directory called build.
 
 For more see [examples folder](./examples).
+
+## Futures migration
+- [ ] Get rid of parking_lot (replace with async-aware locks if really needed).
+- [ ] Consider getting rid of `Unpin` requirements.
+- [ ] WebSockets: TLS support
+- [ ] WebSockets: Reconnecting & Pings
+- [ ] Consider using `tokio` instead of `async-std` for `ws.rs` transport (issue with test).
+- [ ] Restore IPC Transport
 
 ## General
 - [ ] More flexible API (accept `Into<X>`)
@@ -93,5 +102,5 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 Currently, Windows does not support IPC, which is enabled in the library by default.
 To complile, you need to disable IPC feature:
 ```
-web3 = { version = "0.1.0", default-features = false, features = ["http"] }
+web3 = { version = "0.11.0", default-features = false, features = ["http"] }
 ```

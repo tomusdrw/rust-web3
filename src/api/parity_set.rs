@@ -1,19 +1,17 @@
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{H256, Address};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Address, ParityPeerType, H256};
 
-
-use Transport;
+use crate::Transport;
 
 #[derive(Debug, Clone)]
 /// `Parity_Set` Specific API
 pub struct ParitySet<T> {
-    transport: T
+    transport: T,
 }
 
 impl<T: Transport> Namespace<T> for ParitySet<T> {
-    fn new(transport: T) -> Self
-    {
+    fn new(transport: T) -> Self {
         ParitySet { transport }
     }
 
@@ -23,7 +21,6 @@ impl<T: Transport> Namespace<T> for ParitySet<T> {
 }
 
 impl<T: Transport> ParitySet<T> {
-    
     /// Set Parity to accept non-reserved peers (default behavior)
     pub fn accept_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
         CallFuture::new(self.transport().execute("parity_acceptNonReservedPeers", vec![]))
@@ -38,6 +35,11 @@ impl<T: Transport> ParitySet<T> {
     /// Set Parity to drop all non-reserved peers. To restore default behavior call parity_acceptNonReservedPeers
     pub fn drop_non_reserved_peers(&self) -> CallFuture<bool, T::Out> {
         CallFuture::new(self.transport().execute("parity_dropNonReservedPeers", vec![]))
+    }
+
+    /// Get list of connected/connecting peers.
+    pub fn parity_net_peers(&self) -> CallFuture<ParityPeerType, T::Out> {
+        CallFuture::new(self.transport.execute("parity_netPeers", vec![]))
     }
 
     /// Attempts to upgrade Parity to the version specified in parity_upgradeReady
@@ -73,7 +75,10 @@ impl<T: Transport> ParitySet<T> {
     pub fn set_engine_signer(&self, address: &Address, password: &str) -> CallFuture<bool, T::Out> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
-        CallFuture::new(self.transport().execute("parity_setEngineSigner", vec![address, password]))
+        CallFuture::new(
+            self.transport()
+                .execute("parity_setEngineSigner", vec![address, password]),
+        )
     }
 
     /// Changes extra data for newly mined blocks
@@ -126,13 +131,10 @@ impl<T: Transport> ParitySet<T> {
 
 #[cfg(test)]
 mod tests {
-    use futures::Future;
-
-    use api::Namespace;
-    use rpc::Value;
-    use types::{H256, Address};
-
     use super::ParitySet;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Address, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, H256};
 
     rpc_test! (
         ParitySet:accept_non_reserved_peers => "parity_acceptNonReservedPeers";
@@ -141,9 +143,32 @@ mod tests {
 
     rpc_test! (
         ParitySet:add_reserved_peer,
-        "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770" 
+        "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770"
         => "parity_addReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
         Value::Bool(true) => true
+    );
+
+    rpc_test! (
+        ParitySet:parity_net_peers => "parity_netPeers";
+        serde_json::from_str::<Value>(r#"{"active":1,"connected":1,"max":1,"peers":[{"id":"f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo","name":"","caps":[],"network":{"remoteAddress":"Handshake","localAddress":"127.0.0.1:43128"},"protocols":{"eth":null,"pip":null}}]}"#).unwrap()
+            => ParityPeerType {
+                active: 1,
+                connected: 1,
+                max: 1,
+                peers: vec![ParityPeerInfo {
+                    id: Some(String::from("f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo")),
+                    name: String::from(""),
+                    caps: vec![],
+                    network: PeerNetworkInfo {
+                        remote_address: String::from("Handshake"),
+                        local_address: String::from("127.0.0.1:43128"),
+                    },
+                    protocols: PeerProtocolsInfo {
+                        eth: None,
+                        pip: None,
+                    },
+                }],
+            }
     );
 
     rpc_test! (
@@ -158,9 +183,9 @@ mod tests {
 
     rpc_test! (
         ParitySet:hash_content,
-        "https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md" 
+        "https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md"
         => "parity_hashContent", vec![r#""https://raw.githubusercontent.com/paritytech/parity-ethereum/master/README.md""#];
-        Value::String("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".into()) => H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46")
+        Value::String("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".into()) => "5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".parse::<H256>().unwrap()
     );
 
     rpc_test! (
@@ -169,9 +194,9 @@ mod tests {
         => "parity_removeReservedPeer", vec![r#""enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770""#];
         Value::Bool(true) => true
     );
-    
+
     rpc_test! (
-        ParitySet:set_author, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1")
+        ParitySet:set_author, &"407d73d8a49eeb85d32cf465507dd71d507100c1".parse::<Address>().unwrap()
         => "parity_setAuthor", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#];
         Value::Bool(true) => true
     );
@@ -183,38 +208,40 @@ mod tests {
     );
 
     rpc_test! (
-        ParitySet:set_engine_signer, &Address::from("0x407d73d8a49eeb85d32cf465507dd71d507100c1"), "hunter2"
+        ParitySet:set_engine_signer, &"407d73d8a49eeb85d32cf465507dd71d507100c1".parse::<Address>().unwrap(), "hunter2"
         => "parity_setEngineSigner", vec![r#""0x407d73d8a49eeb85d32cf465507dd71d507100c1""#, r#""hunter2""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
         ParitySet:set_extra_data,
-        &H256::from("0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46" )
+        &"5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46".parse::<H256>().unwrap()
         => "parity_setExtraData", vec![r#""0x5198e0fc1a9b90078c2e5bfbc6ab6595c470622d3c28f305d3433c300bba5a46""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_gas_ceil_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_gas_ceil_target, &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setGasCeilTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_gas_floor_target, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_gas_floor_target, &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setGasFloorTarget", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_max_transaction_gas, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_max_transaction_gas,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setMaxTransactionGas", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
 
     rpc_test! (
-        ParitySet:set_min_gas_price, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_min_gas_price,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setMinGasPrice", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );
@@ -226,7 +253,8 @@ mod tests {
     );
 
     rpc_test! (
-        ParitySet:set_transactions_limit, &H256::from("0x0000000000000000000000000000000000000000000000000000000000000123")
+        ParitySet:set_transactions_limit,
+        &"0000000000000000000000000000000000000000000000000000000000000123".parse::<H256>().unwrap()
         => "parity_setTransactionsLimit", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
         Value::Bool(true) => true
     );

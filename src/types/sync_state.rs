@@ -1,6 +1,7 @@
-use serde::de::{Deserialize, Deserializer, Error};
-use serde::ser::{Serialize, Serializer};
-use types::U256;
+use crate::types::U256;
+use serde::de::{Deserializer, Error};
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 
 /// Information about current blockchain syncing operations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -128,7 +129,7 @@ mod tests {
             SyncState::Syncing(SyncInfo {
                 starting_block: 0x0.into(),
                 current_block: 0x42.into(),
-                highest_block: 0x9001.into(),
+                highest_block: 0x9001.into()
             })
         );
     }
@@ -153,7 +154,7 @@ mod tests {
             SyncState::Syncing(SyncInfo {
                 starting_block: 0x0.into(),
                 current_block: 0x42.into(),
-                highest_block: 0x9001.into(),
+                highest_block: 0x9001.into()
             })
         );
     }

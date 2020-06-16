@@ -1,6 +1,6 @@
+use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
 use ethabi;
-use serde::{Serialize, Serializer};
-use types::{BlockNumber, Bytes, H160, H256, U256};
+use serde::{Deserialize, Serialize, Serializer};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -16,13 +16,13 @@ pub struct Log {
     pub block_hash: Option<H256>,
     /// Block Number
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Transaction Hash
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<H256>,
     /// Transaction Index
     #[serde(rename = "transactionIndex")]
-    pub transaction_index: Option<U256>,
+    pub transaction_index: Option<Index>,
     /// Log Index in Block
     #[serde(rename = "logIndex")]
     pub log_index: Option<U256>,
@@ -51,7 +51,7 @@ impl Log {
             }
             None => (),
         }
-        return false;
+        false
     }
 }
 
@@ -120,7 +120,13 @@ impl FilterBuilder {
     }
 
     /// Topics
-    pub fn topics(mut self, topic1: Option<Vec<H256>>, topic2: Option<Vec<H256>>, topic3: Option<Vec<H256>>, topic4: Option<Vec<H256>>) -> Self {
+    pub fn topics(
+        mut self,
+        topic1: Option<Vec<H256>>,
+        topic2: Option<Vec<H256>>,
+        topic3: Option<Vec<H256>>,
+        topic4: Option<Vec<H256>>,
+    ) -> Self {
         let mut topics = vec![topic1, topic2, topic3, topic4]
             .into_iter()
             .rev()
@@ -166,18 +172,21 @@ fn topic_to_option<T>(topic: ethabi::Topic<T>) -> Option<Vec<T>> {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::{
+        log::{Bytes, FilterBuilder, Log},
+        Address, H160, H256,
+    };
     use ethabi;
-    use types::log::{Bytes, Log, FilterBuilder};
 
     #[test]
     fn is_removed_removed_true() {
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -190,12 +199,12 @@ mod tests {
     #[test]
     fn is_removed_removed_false() {
         let log = Log {
-            address: 1.into(),
+            address: H160::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -208,12 +217,12 @@ mod tests {
     #[test]
     fn is_removed_log_type_removed() {
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -226,12 +235,12 @@ mod tests {
     #[test]
     fn is_removed_log_type_mined() {
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -244,12 +253,12 @@ mod tests {
     #[test]
     fn is_removed_log_type_and_removed_none() {
         let log = Log {
-            address: 1.into(),
+            address: Address::from_low_u64_be(1),
             topics: vec![],
             data: Bytes(vec![]),
-            block_hash: Some(2.into()),
+            block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
-            transaction_hash: Some(3.into()),
+            transaction_hash: Some(H256::from_low_u64_be(3)),
             transaction_index: Some(0.into()),
             log_index: Some(0.into()),
             transaction_log_index: Some(0.into()),
@@ -262,16 +271,19 @@ mod tests {
     #[test]
     fn does_topic_filter_set_topics_correctly() {
         let topic_filter = ethabi::TopicFilter {
-            topic0: ethabi::Topic::This(3.into()),
-            topic1: ethabi::Topic::OneOf(vec![5.into(), 8.into()]),
-            topic2: ethabi::Topic::This(13.into()),
+            topic0: ethabi::Topic::This(H256::from_low_u64_be(3)),
+            topic1: ethabi::Topic::OneOf(vec![5, 8].into_iter().map(H256::from_low_u64_be).collect()),
+            topic2: ethabi::Topic::This(H256::from_low_u64_be(13)),
             topic3: ethabi::Topic::Any,
         };
-        let filter0 = FilterBuilder::default()
-            .topic_filter(topic_filter)
-            .build();
+        let filter0 = FilterBuilder::default().topic_filter(topic_filter).build();
         let filter1 = FilterBuilder::default()
-            .topics(Some(vec![3.into()]), Some(vec![5.into(), 8.into()]), Some(vec![13.into()]), None)
+            .topics(
+                Some(vec![3].into_iter().map(H256::from_low_u64_be).collect()),
+                Some(vec![5, 8].into_iter().map(H256::from_low_u64_be).collect()),
+                Some(vec![13].into_iter().map(H256::from_low_u64_be).collect()),
+                None,
+            )
             .build();
         assert_eq!(filter0, filter1);
     }

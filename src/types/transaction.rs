@@ -1,4 +1,5 @@
-use types::{Bytes, H160, H256, Index, Log, U256, U64, H2048};
+use crate::types::{Bytes, Index, Log, H160, H2048, H256, U256, U64};
+use serde::{Deserialize, Serialize};
 
 /// Description of a Transaction, pending or in the chain.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
@@ -12,7 +13,7 @@ pub struct Transaction {
     pub block_hash: Option<H256>,
     /// Block number. None when pending.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Transaction Index. None when pending.
     #[serde(rename = "transactionIndex")]
     pub transaction_index: Option<Index>,
@@ -45,7 +46,7 @@ pub struct Receipt {
     pub block_hash: Option<H256>,
     /// Number of the block this transaction was included within.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<U256>,
+    pub block_number: Option<U64>,
     /// Cumulative gas used within the block after this was executed.
     #[serde(rename = "cumulativeGasUsed")]
     pub cumulative_gas_used: U256,
@@ -61,6 +62,8 @@ pub struct Receipt {
     pub logs: Vec<Log>,
     /// Status: either 1 (success) or 0 (failure).
     pub status: Option<U64>,
+    /// State root.
+    pub root: Option<H256>,
     /// Logs bloom
     #[serde(rename = "logsBloom")]
     pub logs_bloom: H2048,
@@ -69,54 +72,54 @@ pub struct Receipt {
 /// Raw bytes of a signed, but not yet sent transaction
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RawTransaction {
-  /// Signed transaction as raw bytes
-  pub raw: Bytes,
-  /// Transaction details
-  pub tx: RawTransactionDetails
+    /// Signed transaction as raw bytes
+    pub raw: Bytes,
+    /// Transaction details
+    pub tx: RawTransactionDetails,
 }
 
 /// Details of a signed transaction
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RawTransactionDetails {
-  /// Hash
-  pub hash: H256,
-  /// Nonce
-  pub nonce: U256,
-  /// Block hash. None when pending.
-  #[serde(rename = "blockHash")]
-  pub block_hash: Option<H256>,
-  /// Block number. None when pending.
-  #[serde(rename = "blockNumber")]
-  pub block_number: Option<U256>,
-  /// Transaction Index. None when pending.
-  #[serde(rename = "transactionIndex")]
-  pub transaction_index: Option<Index>,
-  /// Sender
-  pub from: Option<H160>,
-  /// Recipient (None when contract creation)
-  pub to: Option<H160>,
-  /// Transfered value
-  pub value: U256,
-  /// Gas Price
-  #[serde(rename = "gasPrice")]
-  pub gas_price: U256,
-  /// Gas amount
-  pub gas: U256,
-  /// Input data
-  pub input: Bytes,
-  /// ECDSA recovery id, set by Geth
-  pub v: Option<U64>,
-  /// ECDSA signature r, 32 bytes, set by Geth
-  pub r: Option<Bytes>,
-  /// ECDSA signature s, 32 bytes, set by Geth
-  pub s: Option<Bytes>,
+    /// Hash
+    pub hash: H256,
+    /// Nonce
+    pub nonce: U256,
+    /// Block hash. None when pending.
+    #[serde(rename = "blockHash")]
+    pub block_hash: Option<H256>,
+    /// Block number. None when pending.
+    #[serde(rename = "blockNumber")]
+    pub block_number: Option<U64>,
+    /// Transaction Index. None when pending.
+    #[serde(rename = "transactionIndex")]
+    pub transaction_index: Option<Index>,
+    /// Sender
+    pub from: Option<H160>,
+    /// Recipient (None when contract creation)
+    pub to: Option<H160>,
+    /// Transfered value
+    pub value: U256,
+    /// Gas Price
+    #[serde(rename = "gasPrice")]
+    pub gas_price: U256,
+    /// Gas amount
+    pub gas: U256,
+    /// Input data
+    pub input: Bytes,
+    /// ECDSA recovery id, set by Geth
+    pub v: Option<U64>,
+    /// ECDSA signature r, 32 bytes, set by Geth
+    pub r: Option<U256>,
+    /// ECDSA signature s, 32 bytes, set by Geth
+    pub s: Option<U256>,
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json;
-    use super::Receipt;
     use super::RawTransaction;
+    use super::Receipt;
+    use serde_json;
 
     #[test]
     fn test_deserialize_receipt() {
@@ -179,7 +182,8 @@ mod tests {
           "value": "0x7f110",
           "gas": "0x7f110",
           "gasPrice": "0x09184e72a000",
-          "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
+          "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360",
+          "s": "0x777"
         }
     }"#;
 

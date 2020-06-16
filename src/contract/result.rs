@@ -1,14 +1,18 @@
-use std::mem;
 use ethabi;
-use futures::{Async, Future, Poll};
+use futures::{
+    task::{Context, Poll},
+    Future, FutureExt,
+};
 use serde;
+use std::mem;
+use std::pin::Pin;
 
-use contract;
-use contract::tokens::Detokenize;
-use helpers;
-use rpc;
-use types::Bytes;
-use Error as ApiError;
+use crate::contract;
+use crate::contract::tokens::Detokenize;
+use crate::error;
+use crate::helpers;
+use crate::rpc;
+use crate::types::Bytes;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
@@ -26,8 +30,8 @@ pub struct CallFuture<T, F> {
     inner: ResultType<T, F>,
 }
 
-impl<T, F> From<::helpers::CallFuture<T, F>> for CallFuture<T, F> {
-    fn from(inner: ::helpers::CallFuture<T, F>) -> Self {
+impl<T, F> From<crate::helpers::CallFuture<T, F>> for CallFuture<T, F> {
+    fn from(inner: crate::helpers::CallFuture<T, F>) -> Self {
         CallFuture {
             inner: ResultType::Simple(inner),
         }
@@ -75,21 +79,19 @@ impl<T, F> QueryResult<T, F> {
 
 impl<T: Detokenize, F> Future for QueryResult<T, F>
 where
-    F: Future<Item = rpc::Value, Error = ApiError>,
+    T: Unpin,
+    F: Future<Output = error::Result<rpc::Value>> + Unpin,
 {
-    type Item = T;
-    type Error = contract::Error;
+    type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
-            let bytes: Bytes = try_ready!(inner.poll());
-            return Ok(Async::Ready(
-                T::from_tokens(function.decode_output(&bytes.0)?)?,
-            ));
+            let bytes: Bytes = ready!(inner.poll_unpin(ctx))?;
+            return Poll::Ready(Ok(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Async::Ready),
+            ResultType::Constant(res) => Poll::Ready(res),
             _ => panic!("Unsupported state"),
         }
     }
@@ -97,19 +99,19 @@ where
 
 impl<T: serde::de::DeserializeOwned, F> Future for CallFuture<T, F>
 where
-    F: Future<Item = rpc::Value, Error = ApiError>,
+    F: Future<Output = error::Result<rpc::Value>> + Unpin,
+    T: Unpin,
 {
-    type Item = T;
-    type Error = contract::Error;
+    type Output = Result<T, contract::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         if let ResultType::Simple(ref mut inner) = self.inner {
-            let hash: T = try_ready!(inner.poll());
-            return Ok(Async::Ready(hash));
+            let hash: T = ready!(inner.poll_unpin(ctx))?;
+            return Poll::Ready(Ok(hash));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {
-            ResultType::Constant(res) => res.map(Async::Ready),
+            ResultType::Constant(res) => Poll::Ready(res),
             _ => panic!("Unsupported state"),
         }
     }

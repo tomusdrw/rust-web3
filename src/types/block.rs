@@ -1,5 +1,5 @@
-use serde::{Serialize, Serializer};
-use types::{Bytes, H160, H2048, H256, U128, U256, H64};
+use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -25,7 +25,7 @@ pub struct BlockHeader {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -74,7 +74,7 @@ pub struct Block<TX> {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -86,14 +86,14 @@ pub struct Block<TX> {
     pub extra_data: Bytes,
     /// Logs bloom
     #[serde(rename = "logsBloom")]
-    pub logs_bloom: H2048,
+    pub logs_bloom: Option<H2048>,
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
     pub difficulty: U256,
     /// Total difficulty
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: U256,
+    pub total_difficulty: Option<U256>,
     /// Seal fields
     #[serde(default, rename = "sealFields")]
     pub seal_fields: Vec<Bytes>,
@@ -120,12 +120,12 @@ pub enum BlockNumber {
     /// Pending block (not yet part of the blockchain)
     Pending,
     /// Block by number from canon chain
-    Number(u64),
+    Number(U64),
 }
 
-impl From<u64> for BlockNumber {
-    fn from(num: u64) -> Self {
-        BlockNumber::Number(num)
+impl<T: Into<U64>> From<T> for BlockNumber {
+    fn from(num: T) -> Self {
+        BlockNumber::Number(num.into())
     }
 }
 
@@ -144,7 +144,7 @@ impl Serialize for BlockNumber {
 }
 
 /// Block Identifier
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockId {
     /// By Hash
     Hash(H256),
@@ -158,14 +158,18 @@ impl Serialize for BlockId {
         S: Serializer,
     {
         match *self {
-            BlockId::Hash(ref x) => serializer.serialize_str(&format!("0x{}", x)),
+            BlockId::Hash(ref x) => {
+                let mut s = serializer.serialize_struct("BlockIdEip1898", 1)?;
+                s.serialize_field("blockHash", &format!("{:?}", x))?;
+                s.end()
+            }
             BlockId::Number(ref num) => num.serialize(serializer),
         }
     }
 }
 
-impl From<u64> for BlockId {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockId {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num).into()
     }
 }
