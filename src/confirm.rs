@@ -54,7 +54,6 @@ where
 impl<T, V, F> Future for WaitForConfirmations<T, V, F>
 where
     T: Transport,
-    T::Out: Unpin,
     V: ConfirmationCheck<Check = F> + Unpin,
     F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
@@ -126,7 +125,6 @@ impl<T: Transport, V, F> Confirmations<T, V, F> {
 impl<T, V, F> Future for Confirmations<T, V, F>
 where
     T: Transport,
-    T::Out: Unpin,
     V: ConfirmationCheck<Check = F> + Unpin,
     F: Future<Output = error::Result<Option<U64>>> + Unpin,
 {
@@ -176,10 +174,7 @@ struct TransactionReceiptBlockNumber<T: Transport> {
     future: CallFuture<Option<TransactionReceipt>, T::Out>,
 }
 
-impl<T: Transport> Future for TransactionReceiptBlockNumber<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> Future for TransactionReceiptBlockNumber<T> {
     type Output = error::Result<Option<U64>>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
@@ -199,10 +194,7 @@ impl<T: Transport> TransactionReceiptBlockNumberCheck<T> {
     }
 }
 
-impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
     type Check = TransactionReceiptBlockNumber<T>;
 
     fn check(&self) -> Self::Check {
@@ -259,10 +251,7 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
     }
 }
 
-impl<T: Transport> Future for SendTransactionWithConfirmation<T>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
     type Output = error::Result<TransactionReceipt>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {

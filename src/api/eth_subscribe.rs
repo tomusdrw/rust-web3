@@ -81,7 +81,6 @@ impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
 impl<T, I> Stream for SubscriptionStream<T, I>
 where
     T: DuplexTransport,
-    T::Out: Unpin,
     T::NotificationStream: Unpin,
     I: serde::de::DeserializeOwned + Unpin,
 {
@@ -122,7 +121,6 @@ impl<T, I> Future for SubscriptionResult<T, I>
 where
     T: DuplexTransport,
     I: serde::de::DeserializeOwned + Unpin,
-    T::Out: Unpin,
 {
     type Output = error::Result<SubscriptionStream<T, I>>;
 

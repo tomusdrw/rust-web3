@@ -67,10 +67,7 @@ enum FilterStreamState<I, O> {
     NextItem(vec::IntoIter<I>),
 }
 
-impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I>
-where
-    T::Out: Unpin,
-{
+impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I> {
     type Item = error::Result<I>;
 
     fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -232,7 +229,6 @@ pub struct CreateFilter<T: Transport, I> {
 impl<T, I> Future for CreateFilter<T, I>
 where
     T: Transport,
-    T::Out: Unpin,
     I: Unpin,
 {
     type Output = error::Result<BaseFilter<T, I>>;

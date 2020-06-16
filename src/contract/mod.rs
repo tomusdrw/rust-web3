@@ -5,10 +5,10 @@ use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
 use crate::types::{
     Address, BlockId, Bytes, CallRequest, TransactionCondition, TransactionParameters, TransactionReceipt,
-    TransactionRequest, H256, U256,
+    TransactionRequest, H256, U256, FilterBuilder,
 };
 use crate::Transport;
-use futures::future::Either;
+use futures::{Future, FutureExt, TryFutureExt, future::{self, Either}};
 use secp256k1::key::SecretKey;
 use std::{collections::HashMap, hash::Hash, time};
 
@@ -157,12 +157,7 @@ impl<T: Transport> Contract<T> {
         options: Options,
         confirmations: usize,
         key: &'a SecretKey,
-    ) -> impl futures::Future<Output = crate::Result<TransactionReceipt>> + 'a
-    where
-        T::Out: Unpin,
-    {
-        use futures::TryFutureExt;
-
+    ) -> impl Future<Output = crate::Result<TransactionReceipt>> + 'a {
         let poll_interval = time::Duration::from_secs(1);
 
         self.abi
@@ -198,7 +193,7 @@ impl<T: Transport> Contract<T> {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
                 let err = crate::error::Error::Decoder(format!("{:?}", e));
-                Either::Right(futures::future::ready(Err(err)))
+                Either::Right(future::ready(Err(err)))
             })
     }
 
@@ -317,8 +312,7 @@ impl<T: Transport> Contract<T> {
       topic0: A,
       topic1: B,
       topic2: C,
-    ) -> impl Future<Item = Vec<R>, Error = Error>
-    where
+    ) -> impl Future<Output = Result<Vec<R>>> where
         A: Tokenize,
         B: Tokenize,
         C: Tokenize,
@@ -344,13 +338,12 @@ impl<T: Transport> Contract<T> {
             });
         let (ev, filter) = match res {
             Ok(x) => x,
-            Err(e) => return Either::A(future::err(e.into())),
+            Err(e) => return Either::Left(future::ready(Err(e.into()))),
         };
 
-        Either::B(self.eth.logs(FilterBuilder::default().topic_filter(filter).build())
+        Either::Right(self.eth.logs(FilterBuilder::default().topic_filter(filter).build())
             .map_err(Into::into)
-            .and_then(move |logs| {
-                logs
+            .map(move |logs| logs.and_then(|logs| logs
                     .into_iter()
                     .map(move |l| {
                         let log = ev.parse_log(ethabi::RawLog {
@@ -360,8 +353,8 @@ impl<T: Transport> Contract<T> {
 
                         Ok(R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())?)
                     })
-                    .collect::<Result<Vec<R>, Error>>()
-            })
+                    .collect::<Result<Vec<R>>>()
+            ))
         )
     }
 }

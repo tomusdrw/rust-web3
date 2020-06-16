@@ -18,7 +18,7 @@ async fn main() -> web3::Result {
 
 fn bench<T: web3::Transport>(id: &str, transport: T, max: usize)
 where
-    T::Out: Send + Unpin + 'static,
+    T::Out: Send + 'static,
 {
     use futures::FutureExt;
 
