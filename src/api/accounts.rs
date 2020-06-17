@@ -177,7 +177,7 @@ type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T,
 /// immediately.
 pub struct SignTransactionFuture<T: Transport> {
     tx: TransactionParameters,
-    key: ZeroizeSecretKey,
+    key: Box<ZeroizeSecretKey>,
     inner: TxParams<T>,
 }
 
@@ -202,7 +202,7 @@ impl<T: Transport> SignTransactionFuture<T> {
 
         SignTransactionFuture {
             tx,
-            key: ZeroizeSecretKey(*key),
+            key: ZeroizeSecretKey::boxed(*key),
             inner,
         }
     }
@@ -349,6 +349,13 @@ impl Transaction {
 /// of the `SecretKey`.
 #[derive(Clone, Copy)]
 struct ZeroizeSecretKey(SecretKey);
+
+impl ZeroizeSecretKey {
+    /// Create new boxed instance to make sure we don't leak any copies around.
+    pub fn boxed(key: SecretKey) -> Box<Self> {
+        Box::new(Self(key))
+    }
+}
 
 impl Default for ZeroizeSecretKey {
     fn default() -> Self {
