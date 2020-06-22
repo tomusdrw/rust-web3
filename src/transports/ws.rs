@@ -399,10 +399,11 @@ mod tests {
             server.send_response(&accept).await.unwrap();
             let (mut sender, mut receiver) = server.into_builder().finish();
             loop {
-                match receiver.receive_data().await {
-                    Ok(data) if data.is_text() => {
+                let mut data = Vec::new();
+                match receiver.receive_data(&mut data).await {
+                    Ok(data_type) if data_type.is_text() => {
                         assert_eq!(
-                            std::str::from_utf8(data.as_ref()),
+                            std::str::from_utf8(&data),
                             Ok(r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#)
                         );
                         sender
