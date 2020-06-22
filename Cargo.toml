@@ -37,7 +37,7 @@ native-tls = { version = "0.2", optional = true }
 url = { version = "2.1.0", optional = true }
 ## WS
 async-std = { version = "1.5.0", optional = true }
-soketto = { version = "0.3.2", optional = true }
+soketto = { version = "0.4.1", optional = true }
 
 [dev-dependencies]
 # For examples
