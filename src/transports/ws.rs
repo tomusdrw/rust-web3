@@ -12,7 +12,7 @@ use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::{mpsc, oneshot};
 use futures::{
     task::{Context, Poll},
-    Future, FutureExt, StreamExt, Stream,
+    Future, FutureExt, Stream, StreamExt,
 };
 
 use async_std::net::TcpStream;
@@ -132,10 +132,7 @@ impl WsServerTask {
 
 fn as_data_stream<T: Unpin + futures::AsyncRead + futures::AsyncWrite>(
     receiver: soketto::connection::Receiver<T>,
-) -> impl Stream<Item = Result<
-    Vec<u8>,
-    soketto::connection::Error
->> {
+) -> impl Stream<Item = Result<Vec<u8>, soketto::connection::Error>> {
     futures::stream::unfold(receiver, |mut receiver| async move {
         let mut data = Vec::new();
         Some(match receiver.receive_data(&mut data).await {
