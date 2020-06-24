@@ -20,7 +20,7 @@ futures = "0.3.5"
 futures-timer = "3.0.2"
 jsonrpc-core = "14.0.0"
 log = "0.4.6"
-parking_lot = "0.10.0"
+parking_lot = "0.11.0"
 rlp = "0.4"
 rustc-hex = "2.1.0"
 secp256k1 = { version = "0.17", features = ["recovery"] }
