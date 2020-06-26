@@ -51,8 +51,8 @@ For more see [examples folder](./examples).
 
 ## Futures migration
 - [ ] Get rid of parking_lot (replace with async-aware locks if really needed).
-- [ ] Consider getting rid of `Unpin` requirements.
-- [ ] WebSockets: TLS support
+- [ ] Consider getting rid of `Unpin` requirements. (#361)
+- [x] WebSockets: TLS support (#360)
 - [ ] WebSockets: Reconnecting & Pings
 - [ ] Consider using `tokio` instead of `async-std` for `ws.rs` transport (issue with test).
 - [ ] Restore IPC Transport
