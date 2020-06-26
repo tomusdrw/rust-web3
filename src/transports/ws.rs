@@ -1,6 +1,7 @@
 //! WebSocket Transport
 
 use std::collections::BTreeMap;
+use std::marker::Unpin;
 use std::sync::{atomic, Arc};
 use std::{fmt, pin::Pin};
 
@@ -14,10 +15,13 @@ use futures::{
     task::{Context, Poll},
     Future, FutureExt, Stream, StreamExt,
 };
+use futures::{AsyncRead, AsyncWrite};
 
+use async_native_tls::TlsStream;
 use async_std::net::TcpStream;
 use soketto::connection;
 use soketto::handshake::{Client, ServerResponse};
+use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
     fn from(err: soketto::handshake::Error) -> Self {
@@ -36,20 +40,85 @@ type BatchResult = error::Result<Vec<SingleResult>>;
 type Pending = oneshot::Sender<BatchResult>;
 type Subscription = mpsc::UnboundedSender<rpc::Value>;
 
+/// Stream, either plain TCP or TLS.
+enum MaybeTlsStream<S> {
+    /// Unencrypted socket stream.
+    Plain(S),
+    /// Encrypted socket stream.
+    Tls(TlsStream<S>),
+}
+
+impl<S> AsyncRead for MaybeTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<Result<usize, std::io::Error>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_read(cx, buf),
+            MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl<S> AsyncWrite for MaybeTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_write(cx, buf),
+            MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_flush(cx),
+            MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_close(cx),
+            MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_close(cx),
+        }
+    }
+}
+
 struct WsServerTask {
     pending: BTreeMap<RequestId, Pending>,
     subscriptions: BTreeMap<SubscriptionId, Subscription>,
-    sender: connection::Sender<TcpStream>,
-    receiver: connection::Receiver<TcpStream>,
+    sender: connection::Sender<MaybeTlsStream<TcpStream>>,
+    receiver: connection::Receiver<MaybeTlsStream<TcpStream>>,
 }
 
 impl WsServerTask {
     /// Create new WebSocket transport.
     pub async fn new(url: &str) -> error::Result<Self> {
-        let url = url.trim_start_matches("ws://");
+        let url = Url::parse(url)?;
 
-        let socket = TcpStream::connect(url).await?;
-        let mut client = Client::new(socket, url, "/");
+        let scheme = match url.scheme() {
+            s if s == "ws" || s == "wss" => s,
+            s => return Err(error::Error::Transport(format!("Wrong scheme: {}", s))),
+        };
+        let host = match url.host_str() {
+            Some(s) => s,
+            None => return Err(error::Error::Transport("Wrong host name".to_string())),
+        };
+        let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
+        let addrs = format!("{}:{}", host, port);
+
+        let stream = TcpStream::connect(addrs).await?;
+
+        let socket = if scheme == "wss" {
+            let stream = async_native_tls::connect(host, stream).await?;
+            MaybeTlsStream::Tls(stream)
+        } else {
+            MaybeTlsStream::Plain(stream)
+        };
+
+        let mut client = Client::new(socket, host, url.path());
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
@@ -370,7 +439,8 @@ mod tests {
         let addr = "127.0.0.1:3000";
         async_std::task::spawn(server(addr));
 
-        let ws = WebSocket::new(addr).await.unwrap();
+        let endpoint = "ws://127.0.0.1:3000";
+        let ws = WebSocket::new(endpoint).await.unwrap();
 
         // when
         let res = ws.execute("eth_accounts", vec![rpc::Value::String("1".into())]);
