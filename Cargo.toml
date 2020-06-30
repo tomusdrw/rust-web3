@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.12.0"
+version = "0.13.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -31,14 +31,15 @@ zeroize = "1.1.0"
 # Optional deps
 ## HTTP
 base64 = { version = "0.12.0", optional = true }
-hyper = { version = "0.13", optional = true }
+hyper = { version = "0.13", optional = true, default-features = false, features = ["stream", "tcp"] }
 hyper-tls = { version = "0.4", optional = true }
-native-tls = { version = "0.2", optional = true }
-url = { version = "2.1.0", optional = true }
 ## WS
 async-native-tls = { version = "0.3", optional = true }
 async-std = { version = "1.5.0", optional = true }
 soketto = { version = "0.4.1", optional = true }
+## Shared (WS, HTTP)
+native-tls = { version = "0.2", optional = true }
+url = { version = "2.1.0", optional = true }
 
 [dev-dependencies]
 # For examples
@@ -48,9 +49,10 @@ tokio = { version = "0.2", features = ["full"] }
 async-std = { version = "1.5.0", features = ["attributes"] }
 
 [features]
-default = ["http", "ws", "tls"]
+default = ["http", "ws", "http-tls", "ws-tls"]
 http = ["hyper", "url", "base64"]
-tls = ["hyper-tls", "native-tls"]
-ws = ["soketto", "async-std", "async-native-tls"]
+http-tls = ["hyper-tls", "native-tls", "http"]
+ws = ["soketto", "async-std", "url"]
+ws-tls = ["async-native-tls", "native-tls", "ws"]
 
 [workspace]
