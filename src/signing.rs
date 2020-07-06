@@ -1,18 +1,34 @@
-/// Signing capabilities and utilities.
+//! Signing capabilities and utilities.
 
 use crate::types::{
     Address, H256
 };
-use secp256k1::{Message, Secp256k1, SecretKey, PublicKey};
+use secp256k1::{Message, Secp256k1, PublicKey};
+use secp256k1::recovery::{RecoveryId, RecoverableSignature};
 use std::ops::Deref;
 
+pub(crate) use secp256k1::SecretKey;
+
 /// Error during signing.
-#[derive(Debug, derive_more::Display)]
-pub enum SignError {
+#[derive(Debug, derive_more::Display, PartialEq, Clone)]
+pub enum SigningError {
     /// A message to sign is invalid. Has to be a non-zero 32-bytes slice.
     #[display(fmt = "Message has to be a non-zero 32-bytes slice.")]
     InvalidMessage,
 }
+impl std::error::Error for SigningError {}
+
+/// Error during sender recovery.
+#[derive(Debug, derive_more::Display, PartialEq, Clone)]
+pub enum RecoveryError {
+    /// A message to recover is invalid. Has to be a non-zero 32-bytes slice.
+    #[display(fmt = "Message has to be a non-zero 32-bytes slice.")]
+    InvalidMessage,
+    /// A signature is invalid and the sender could not be recovered.
+    #[display(fmt = "Signature is invalid (check recovery id).")]
+    InvalidSignature,
+}
+impl std::error::Error for RecoveryError {}
 
 /// A trait representing ethereum-compatible key with signing capabilities.
 ///
@@ -27,13 +43,13 @@ pub enum SignError {
 ///
 /// If it's enough to pass a reference to `SecretKey` (lifetimes) than you can use `SecretKeyRef`
 /// wrapper.
-pub trait Key {
+pub trait Key: std::marker::Unpin {
     /// Sign given message and include chain-id replay protection.
     ///
     /// When a chain ID is provided, the `Signature`'s V-value will have chain relay
     /// protection added (as per EIP-155). Otherwise, the V-value will be in
     /// 'Electrum' notation.
-    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SignError>;
+    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
 
     /// Get public address that this key represents.
     fn address(&self) -> Address;
@@ -68,9 +84,9 @@ impl<'a> Deref for SecretKeyRef<'a> {
     }
 }
 
-impl<T: Deref<Target=SecretKey>> Key for T {
-    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SignError> {
-        let message = Message::from_slice(&message).map_err(|_| SignError::InvalidMessage)?;
+impl<T: Deref<Target=SecretKey> + std::marker::Unpin> Key for T {
+    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
+        let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
         let (recovery_id, signature) = Secp256k1::signing_only()
             .sign_recoverable(&message, self)
             .serialize_compact();
@@ -102,6 +118,23 @@ pub struct Signature {
     pub r: H256,
     /// S component of the signature.
     pub s: H256,
+}
+
+/// Recover a sender, given message and the signature.
+///
+/// Signature and `recovery_id` can be obtained from `types::Recovery` type.
+pub fn recover(message: &[u8], signature: &[u8], recovery_id: i32) -> Result<Address, RecoveryError> {
+    let message = Message::from_slice(message)
+        .map_err(|_| RecoveryError::InvalidMessage)?;
+    let recovery_id = RecoveryId::from_i32(recovery_id)
+        .map_err(|_| RecoveryError::InvalidSignature)?;
+    let signature = RecoverableSignature::from_compact(&signature, recovery_id)
+        .map_err(|_| RecoveryError::InvalidSignature)?;
+    let public_key = Secp256k1::verification_only()
+        .recover(&message, &signature)
+        .map_err(|_| RecoveryError::InvalidSignature)?;
+
+    Ok(public_key_address(&public_key))
 }
 
 /// Gets the address of a public key.

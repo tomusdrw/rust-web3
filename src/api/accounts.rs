@@ -14,7 +14,6 @@ use futures::{
     Future, FutureExt,
 };
 use rlp::RlpStream;
-use secp256k1::{Message, Secp256k1};
 use std::convert::TryInto;
 use std::mem;
 use std::pin::Pin;
@@ -125,12 +124,10 @@ impl<T: Transport> Accounts<T> {
             RecoveryMessage::Data(ref message) => self.hash_message(message),
             RecoveryMessage::Hash(hash) => hash,
         };
-        let signature = recovery.as_signature()?;
-
-        let message = Message::from_slice(message_hash.as_bytes())?;
-        let public_key = Secp256k1::verification_only().recover(&message, &signature)?;
-
-        Ok(signing::public_key_address(&public_key))
+        let (signature, recovery_id) = recovery.as_signature()
+            .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
+        let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
+        Ok(address)
     }
 }
 
@@ -181,7 +178,7 @@ impl<T: Transport, K: signing::Key> SignTransactionFuture<T, K> {
     }
 }
 
-impl<T: Transport, K: signing::Key + Unpin> Future for SignTransactionFuture<T, K> {
+impl<T: Transport, K: signing::Key> Future for SignTransactionFuture<T, K> {
     type Output = error::Result<SignedTransaction>;
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
@@ -281,10 +278,9 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use crate::helpers::tests::TestTransport;
-    use crate::signing::SecretKeyRef;
+    use crate::signing::{SecretKeyRef, SecretKey};
     use crate::types::Bytes;
     use rustc_hex::FromHex;
-    use secp256k1::SecretKey;
     use serde_json::json;
     use super::*;
 
