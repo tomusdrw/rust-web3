@@ -17,6 +17,7 @@ use futures::{
 };
 use futures::{AsyncRead, AsyncWrite};
 
+#[cfg(feature = "ws-tls")]
 use async_native_tls::TlsStream;
 use async_std::net::TcpStream;
 use soketto::connection;
@@ -45,6 +46,7 @@ enum MaybeTlsStream<S> {
     /// Unencrypted socket stream.
     Plain(S),
     /// Encrypted socket stream.
+    #[cfg(feature = "ws-tls")]
     Tls(TlsStream<S>),
 }
 
@@ -55,6 +57,7 @@ where
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_read(cx, buf),
+            #[cfg(feature = "ws-tls")]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_read(cx, buf),
         }
     }
@@ -67,6 +70,7 @@ where
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_write(cx, buf),
+            #[cfg(feature = "ws-tls")]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_write(cx, buf),
         }
     }
@@ -74,6 +78,7 @@ where
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_flush(cx),
+            #[cfg(feature = "ws-tls")]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_flush(cx),
         }
     }
@@ -81,6 +86,7 @@ where
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_close(cx),
+            #[cfg(feature = "ws-tls")]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_close(cx),
         }
     }
@@ -112,8 +118,13 @@ impl WsServerTask {
         let stream = TcpStream::connect(addrs).await?;
 
         let socket = if scheme == "wss" {
-            let stream = async_native_tls::connect(host, stream).await?;
-            MaybeTlsStream::Tls(stream)
+            #[cfg(feature = "ws-tls")]
+            {
+                let stream = async_native_tls::connect(host, stream).await?;
+                MaybeTlsStream::Tls(stream)
+            }
+            #[cfg(not(feature = "ws-tls"))]
+            panic!("The library was compiled without TLS support. Enable ws-tls feature.");
         } else {
             MaybeTlsStream::Plain(stream)
         };

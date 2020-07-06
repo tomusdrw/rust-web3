@@ -49,6 +49,12 @@ The solidity compiler is generating the binary and abi code for the smart contra
 
 For more see [examples folder](./examples).
 
+# Opt-out Features
+- `http` - Enables HTTP transport (requires `tokio` runtime, because of `hyper`).
+- `http-tls` - Enables TLS support for HTTP transport (implies `http`).
+- `ws` - Enables WS transport.
+- `ws-tls` - Enables TLS support for WS transport (implies `ws`).
+
 ## Futures migration
 - [ ] Get rid of parking_lot (replace with async-aware locks if really needed).
 - [ ] Consider getting rid of `Unpin` requirements. (#361)

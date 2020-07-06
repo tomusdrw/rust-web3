@@ -34,19 +34,6 @@ impl From<hyper::header::InvalidHeaderValue> for Error {
     }
 }
 
-impl From<url::ParseError> for Error {
-    fn from(err: url::ParseError) -> Self {
-        Error::Transport(format!("{:?}", err))
-    }
-}
-
-#[cfg(feature = "tls")]
-impl From<native_tls::Error> for Error {
-    fn from(err: native_tls::Error) -> Self {
-        Error::Transport(format!("{:?}", err))
-    }
-}
-
 // The max string length of a request without transfer-encoding: chunked.
 const MAX_SINGLE_CHUNK: usize = 256;
 
@@ -56,18 +43,18 @@ pub struct Http {
     id: Arc<AtomicUsize>,
     url: hyper::Uri,
     basic_auth: Option<HeaderValue>,
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "http-tls")]
     client: hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>,
-    #[cfg(not(feature = "tls"))]
+    #[cfg(not(feature = "http-tls"))]
     client: hyper::Client<hyper::client::HttpConnector>,
 }
 
 impl Http {
     /// Create new HTTP transport connecting to given URL.
     pub fn new(url: &str) -> error::Result<Self> {
-        #[cfg(feature = "tls")]
+        #[cfg(feature = "http-tls")]
         let client = hyper::Client::builder().build::<_, hyper::Body>(hyper_tls::HttpsConnector::new());
-        #[cfg(not(feature = "tls"))]
+        #[cfg(not(feature = "http-tls"))]
         let client = hyper::Client::new();
 
         let basic_auth = {
