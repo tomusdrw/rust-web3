@@ -1,10 +1,8 @@
 //! Signing capabilities and utilities.
 
-use crate::types::{
-    Address, H256
-};
-use secp256k1::{Message, Secp256k1, PublicKey};
-use secp256k1::recovery::{RecoveryId, RecoverableSignature};
+use crate::types::{Address, H256};
+use secp256k1::recovery::{RecoverableSignature, RecoveryId};
+use secp256k1::{Message, PublicKey, Secp256k1};
 use std::ops::Deref;
 
 pub(crate) use secp256k1::SecretKey;
@@ -84,7 +82,7 @@ impl<'a> Deref for SecretKeyRef<'a> {
     }
 }
 
-impl<T: Deref<Target=SecretKey> + std::marker::Unpin> Key for T {
+impl<T: Deref<Target = SecretKey> + std::marker::Unpin> Key for T {
     fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
         let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
         let (recovery_id, signature) = Secp256k1::signing_only()
@@ -124,12 +122,10 @@ pub struct Signature {
 ///
 /// Signature and `recovery_id` can be obtained from `types::Recovery` type.
 pub fn recover(message: &[u8], signature: &[u8], recovery_id: i32) -> Result<Address, RecoveryError> {
-    let message = Message::from_slice(message)
-        .map_err(|_| RecoveryError::InvalidMessage)?;
-    let recovery_id = RecoveryId::from_i32(recovery_id)
-        .map_err(|_| RecoveryError::InvalidSignature)?;
-    let signature = RecoverableSignature::from_compact(&signature, recovery_id)
-        .map_err(|_| RecoveryError::InvalidSignature)?;
+    let message = Message::from_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
+    let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
+    let signature =
+        RecoverableSignature::from_compact(&signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
     let public_key = Secp256k1::verification_only()
         .recover(&message, &signature)
         .map_err(|_| RecoveryError::InvalidSignature)?;
@@ -169,4 +165,3 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     hasher.finalize(&mut output);
     output
 }
-

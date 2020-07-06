@@ -198,12 +198,9 @@ mod tests {
         let (sig, id) = Recovery::new(message, v as _, r, s).as_signature().unwrap();
         assert_eq!((sig.to_vec(), id), expected_signature);
         let (sig, id) = Recovery::from_raw_signature(message, &signed.signature.0)
-                .unwrap()
-                .as_signature()
-                .unwrap();
-        assert_eq!(
-            (sig.to_vec(), id),
-            expected_signature
-        );
+            .unwrap()
+            .as_signature()
+            .unwrap();
+        assert_eq!((sig.to_vec(), id), expected_signature);
     }
 }

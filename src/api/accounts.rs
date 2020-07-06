@@ -44,11 +44,7 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Signs an Ethereum transaction with a given private key.
-    pub fn sign_transaction<K: signing::Key>(
-        &self,
-        tx: TransactionParameters,
-        key: K,
-    ) -> SignTransactionFuture<T, K> {
+    pub fn sign_transaction<K: signing::Key>(&self, tx: TransactionParameters, key: K) -> SignTransactionFuture<T, K> {
         SignTransactionFuture::new(self, tx, key)
     }
 
@@ -83,7 +79,8 @@ impl<T: Transport> Accounts<T> {
         let message = message.as_ref();
         let message_hash = self.hash_message(message);
 
-        let signature = key.sign(&message_hash.as_bytes(), None)
+        let signature = key
+            .sign(&message_hash.as_bytes(), None)
             .expect("hash is non-zero 32-bytes; qed");
         let v = signature
             .v
@@ -124,7 +121,8 @@ impl<T: Transport> Accounts<T> {
             RecoveryMessage::Data(ref message) => self.hash_message(message),
             RecoveryMessage::Hash(hash) => hash,
         };
-        let (signature, recovery_id) = recovery.as_signature()
+        let (signature, recovery_id) = recovery
+            .as_signature()
             .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
         let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
         Ok(address)
@@ -149,11 +147,7 @@ pub struct SignTransactionFuture<T: Transport, K> {
 
 impl<T: Transport, K: signing::Key> SignTransactionFuture<T, K> {
     /// Creates a new SignTransactionFuture with accounts and transaction data.
-    pub fn new(
-        accounts: &Accounts<T>,
-        tx: TransactionParameters,
-        key: K,
-    ) -> SignTransactionFuture<T, K> {
+    pub fn new(accounts: &Accounts<T>, tx: TransactionParameters, key: K) -> SignTransactionFuture<T, K> {
         macro_rules! maybe {
             ($o: expr, $f: expr) => {
                 match $o {
@@ -195,8 +189,10 @@ impl<T: Transport, K: signing::Key> Future for SignTransactionFuture<T, K> {
             data: data.0,
         };
         let signed = tx.sign(
-            self.key.take().expect("SignTransactionFuture can't be polled after Ready; qed"),
-            chain_id
+            self.key
+                .take()
+                .expect("SignTransactionFuture can't be polled after Ready; qed"),
+            chain_id,
         );
 
         Poll::Ready(Ok(signed))
@@ -256,7 +252,9 @@ impl Transaction {
         self.rlp_append_unsigned(&mut rlp, chain_id);
 
         let hash = signing::keccak256(rlp.as_raw());
-        let signature = sign.sign(&hash, Some(chain_id)).expect("hash is non-zero 32-bytes; qed");
+        let signature = sign
+            .sign(&hash, Some(chain_id))
+            .expect("hash is non-zero 32-bytes; qed");
 
         rlp.clear();
         self.rlp_append_signed(&mut rlp, &signature);
@@ -277,12 +275,12 @@ impl Transaction {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::helpers::tests::TestTransport;
-    use crate::signing::{SecretKeyRef, SecretKey};
+    use crate::signing::{SecretKey, SecretKeyRef};
     use crate::types::Bytes;
     use rustc_hex::FromHex;
     use serde_json::json;
-    use super::*;
 
     #[test]
     fn accounts_sign_transaction() {
