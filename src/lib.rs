@@ -27,6 +27,7 @@ pub mod api;
 pub mod confirm;
 pub mod contract;
 pub mod error;
+pub mod signing;
 pub mod transports;
 pub mod types;
 

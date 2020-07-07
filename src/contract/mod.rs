@@ -3,6 +3,7 @@
 use crate::api::{Accounts, Eth, Namespace};
 use crate::confirm;
 use crate::contract::tokens::{Detokenize, Tokenize};
+use crate::signing;
 use crate::types::{
     Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionParameters,
     TransactionReceipt, TransactionRequest, H256, U256,
@@ -12,7 +13,6 @@ use futures::{
     future::{self, Either},
     Future, FutureExt, TryFutureExt,
 };
-use secp256k1::key::SecretKey;
 use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
@@ -159,7 +159,7 @@ impl<T: Transport> Contract<T> {
         params: impl Tokenize,
         options: Options,
         confirmations: usize,
-        key: &'a SecretKey,
+        key: impl signing::Key + 'a,
     ) -> impl Future<Output = crate::Result<TransactionReceipt>> + 'a {
         let poll_interval = time::Duration::from_secs(1);
 

@@ -1,6 +1,4 @@
 use crate::types::{SignedData, SignedTransaction, H256};
-use secp256k1::recovery::{RecoverableSignature, RecoveryId};
-use secp256k1::Error as Secp256k1Error;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -58,20 +56,21 @@ impl Recovery {
         Ok(Recovery::new(message, v as _, r, s))
     }
 
-    /// Retrieve the recovery ID.
-    pub fn recovery_id(&self) -> Result<RecoveryId, Secp256k1Error> {
-        let standard_v = match self.v {
-            27 => 0,
-            28 => 1,
-            v if v >= 35 => ((v - 1) % 2) as _,
-            _ => 4,
-        };
-
-        RecoveryId::from_i32(standard_v)
+    /// Retrieve the Recovery Id ("Standard V")
+    ///
+    /// Returns `None` if `v` value is invalid
+    /// (equivalent of returning `4` in some implementaions).
+    pub fn recovery_id(&self) -> Option<i32> {
+        match self.v {
+            27 => Some(0),
+            28 => Some(1),
+            v if v >= 35 => Some(((v - 1) % 2) as _),
+            _ => None,
+        }
     }
 
-    /// Retrieves the recovery signature.
-    pub fn as_signature(&self) -> Result<RecoverableSignature, Secp256k1Error> {
+    /// Retrieves the recovery id & compact signature in it's raw form.
+    pub fn as_signature(&self) -> Option<([u8; 64], i32)> {
         let recovery_id = self.recovery_id()?;
         let signature = {
             let mut sig = [0u8; 64];
@@ -80,7 +79,7 @@ impl Recovery {
             sig
         };
 
-        RecoverableSignature::from_compact(&signature, recovery_id)
+        Some((signature, recovery_id))
     }
 }
 
@@ -188,20 +187,20 @@ mod tests {
                     .unwrap()
             ),
         };
-        let expected_signature = RecoverableSignature::from_compact(
-            &"b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
+        let expected_signature = (
+            "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
                 .from_hex::<Vec<u8>>()
                 .unwrap(),
-            RecoveryId::from_i32(1).unwrap(),
+            1
         );
-
-        assert_eq!(Recovery::from(&signed).as_signature(), expected_signature);
-        assert_eq!(Recovery::new(message, v as _, r, s).as_signature(), expected_signature);
-        assert_eq!(
-            Recovery::from_raw_signature(message, &signed.signature.0)
-                .unwrap()
-                .as_signature(),
-            expected_signature
-        );
+        let (sig, id) = Recovery::from(&signed).as_signature().unwrap();
+        assert_eq!((sig.to_vec(), id), expected_signature);
+        let (sig, id) = Recovery::new(message, v as _, r, s).as_signature().unwrap();
+        assert_eq!((sig.to_vec(), id), expected_signature);
+        let (sig, id) = Recovery::from_raw_signature(message, &signed.signature.0)
+            .unwrap()
+            .as_signature()
+            .unwrap();
+        assert_eq!((sig.to_vec(), id), expected_signature);
     }
 }
