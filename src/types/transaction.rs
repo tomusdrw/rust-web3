@@ -30,6 +30,9 @@ pub struct Transaction {
     pub gas: U256,
     /// Input data
     pub input: Bytes,
+    /// Raw transaction data
+    #[serde(default)]
+    pub raw: Option<Bytes>,
 }
 
 /// "Receipt" of an executed transaction: details of its execution.
