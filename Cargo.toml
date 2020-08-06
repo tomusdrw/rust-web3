@@ -48,7 +48,7 @@ env_logger = "0.7"
 tokio = { version = "0.2", features = ["full"] }
 
 [features]
-default = ["http", "ws-tokio", "http-tls", "ws-tls-tokio"]
+default = ["http-tls", "ws-tls-tokio"]
 http = ["hyper", "url", "base64"]
 http-tls = ["hyper-tls", "native-tls", "http"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
