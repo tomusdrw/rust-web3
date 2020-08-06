@@ -17,9 +17,8 @@ use futures::{
 };
 use futures::{AsyncRead, AsyncWrite};
 
-#[cfg(feature = "ws-tls")]
+#[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
 use async_native_tls::TlsStream;
-use async_std::net::TcpStream;
 use soketto::connection;
 use soketto::handshake::{Client, ServerResponse};
 use url::Url;
@@ -46,7 +45,7 @@ enum MaybeTlsStream<S> {
     /// Unencrypted socket stream.
     Plain(S),
     /// Encrypted socket stream.
-    #[cfg(feature = "ws-tls")]
+    #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
     Tls(TlsStream<S>),
 }
 
@@ -57,7 +56,7 @@ where
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_read(cx, buf),
-            #[cfg(feature = "ws-tls")]
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_read(cx, buf),
         }
     }
@@ -70,7 +69,7 @@ where
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_write(cx, buf),
-            #[cfg(feature = "ws-tls")]
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_write(cx, buf),
         }
     }
@@ -78,7 +77,7 @@ where
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_flush(cx),
-            #[cfg(feature = "ws-tls")]
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_flush(cx),
         }
     }
@@ -86,7 +85,7 @@ where
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_close(cx),
-            #[cfg(feature = "ws-tls")]
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             MaybeTlsStream::Tls(ref mut s) => Pin::new(s).poll_close(cx),
         }
     }
@@ -115,16 +114,16 @@ impl WsServerTask {
         let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
         let addrs = format!("{}:{}", host, port);
 
-        let stream = TcpStream::connect(addrs).await?;
+        let stream = compat::tcp_stream(addrs).await?;
 
         let socket = if scheme == "wss" {
-            #[cfg(feature = "ws-tls")]
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             {
                 let stream = async_native_tls::connect(host, stream).await?;
                 MaybeTlsStream::Tls(stream)
             }
-            #[cfg(not(feature = "ws-tls"))]
-            panic!("The library was compiled without TLS support. Enable ws-tls feature.");
+            #[cfg(not(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std")))]
+            panic!("The library was compiled without TLS support. Enable ws-tls-tokio or ws-tls-async-std feature.");
         } else {
             MaybeTlsStream::Plain(stream)
         };
@@ -311,6 +310,9 @@ impl WebSocket {
         // TODO [ToDr] Not unbounded?
         let (sink, stream) = mpsc::unbounded();
         // Spawn background task for the transport.
+        #[cfg(feature = "ws-tokio")]
+        tokio::spawn(task.into_task(stream));
+        #[cfg(feature = "ws-async-std")]
         async_std::task::spawn(task.into_task(stream));
 
         Ok(Self { id, requests: sink })
@@ -436,19 +438,22 @@ impl DuplexTransport for WebSocket {
 
 #[cfg(test)]
 mod tests {
-    use super::WebSocket;
+    use super::{WebSocket, compat};
     use crate::{rpc, Transport};
-    use async_std::net::TcpListener;
     use futures::io::{BufReader, BufWriter};
     use futures::StreamExt;
     use soketto::handshake;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn should_send_a_request() {
         let _ = env_logger::try_init();
         // given
         let addr = "127.0.0.1:3000";
-        async_std::task::spawn(server(addr));
+        let listener = futures::executor::block_on(
+            compat::TcpListener::bind(addr)
+        ).expect("Failed to bind");
+        println!("Starting the server.");
+        tokio::spawn(server(listener, addr));
 
         let endpoint = "ws://127.0.0.1:3000";
         let ws = WebSocket::new(endpoint).await.unwrap();
@@ -460,11 +465,11 @@ mod tests {
         assert_eq!(res.await, Ok(rpc::Value::String("x".into())));
     }
 
-    async fn server(addr: &str) {
-        let listener = futures::executor::block_on(TcpListener::bind(addr)).expect("Failed to bind");
+    async fn server(mut listener: compat::TcpListener, addr: &str) {
         let mut incoming = listener.incoming();
         println!("Listening on: {}", addr);
         while let Some(Ok(socket)) = incoming.next().await {
+            let socket = compat::compat(socket);
             let mut server = handshake::Server::new(BufReader::new(BufWriter::new(socket)));
             let key = {
                 let req = server.receive_request().await.unwrap();
@@ -497,3 +502,92 @@ mod tests {
         }
     }
 }
+
+/// Compatibility layer between async-std and tokio
+#[cfg(feature = "ws-async-std")]
+#[doc(hidden)]
+pub mod compat {
+    pub use async_std::net::TcpListener;
+    pub use async_std::net::TcpStream;
+
+    /// Create new TcpStream object.
+    pub async fn tcp_stream(addrs: String) -> std::io::Result<TcpStream> {
+        TcpStream::connect(addrs).await
+    }
+
+    /// Wrap given argument into compatibility layer.
+    #[inline(always)]
+    pub fn compat<T>(t: T) -> T { t }
+}
+
+/// Compatibility layer between async-std and tokio
+#[cfg(feature = "ws-tokio")]
+pub mod compat {
+    /// async-std compatible TcpStream.
+    pub type TcpStream = MyCompat<tokio::net::TcpStream>;
+    /// async-std compatible TcpListener.
+    pub type TcpListener = tokio::net::TcpListener;
+
+    use std::io;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    /// Create new TcpStream object.
+    pub async fn tcp_stream(addrs: String) -> io::Result<TcpStream> {
+        Ok(MyCompat(tokio::net::TcpStream::connect(addrs).await?))
+    }
+
+    /// Wrap given argument into compatibility layer.
+    pub fn compat<T>(t: T) -> MyCompat<T> { MyCompat(t) }
+
+    /// Compatibility layer.
+    pub struct MyCompat<T>(T);
+    impl<T: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for MyCompat<T> {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<Result<usize, io::Error>> {
+            tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+            tokio::io::AsyncWrite::poll_flush(Pin::new(&mut self.0), cx)
+        }
+
+        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+            tokio::io::AsyncWrite::poll_shutdown(Pin::new(&mut self.0), cx)
+        }
+    }
+
+    impl<T: tokio::io::AsyncWrite + Unpin> futures::AsyncWrite for MyCompat<T> {
+        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8])
+            -> Poll<io::Result<usize>> {
+                tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            tokio::io::AsyncWrite::poll_flush(Pin::new(&mut self.0), cx)
+        }
+
+        fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            tokio::io::AsyncWrite::poll_shutdown(Pin::new(&mut self.0), cx)
+        }
+    }
+
+    impl<T: tokio::io::AsyncRead + Unpin> futures::AsyncRead for MyCompat<T> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8])
+            -> Poll<io::Result<usize>> {
+                tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        }
+    }
+
+    impl<T: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for MyCompat<T> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8])
+            -> Poll<io::Result<usize>> {
+                tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        }
+    }
+}
+
+use self::compat::TcpStream;

@@ -27,9 +27,9 @@ pub mod api;
 pub mod confirm;
 pub mod contract;
 pub mod error;
-pub mod signing;
 pub mod transports;
 pub mod types;
+pub mod signing;
 
 pub use crate::api::Web3;
 pub use crate::error::{Error, Result};

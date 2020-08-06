@@ -44,8 +44,10 @@ script:
   - cargo check --no-default-features
   - cargo check --no-default-features --features http
   - cargo check --no-default-features --features http-tls
-  - cargo check --no-default-features --features ws
-  - cargo check --no-default-features --features ws-tls
+  - cargo check --no-default-features --features ws-tokio
+  - cargo check --no-default-features --features ws-tls-tokio
+  - cargo check --no-default-features --features ws-async-std
+  - cargo check --no-default-features --features ws-tls-async-std
 
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
