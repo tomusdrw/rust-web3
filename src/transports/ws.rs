@@ -5,6 +5,7 @@ use std::marker::Unpin;
 use std::sync::{atomic, Arc};
 use std::{fmt, pin::Pin};
 
+use self::compat::{TcpStream, TlsStream};
 use crate::api::SubscriptionId;
 use crate::error;
 use crate::helpers;
@@ -16,7 +17,6 @@ use futures::{
     Future, FutureExt, Stream, StreamExt,
 };
 use futures::{AsyncRead, AsyncWrite};
-use self::compat::{TcpStream, TlsStream};
 
 use soketto::connection;
 use soketto::handshake::{Client, ServerResponse};
@@ -453,7 +453,9 @@ pub mod compat {
 
     /// Wrap given argument into compatibility layer.
     #[inline(always)]
-    pub fn compat<T>(t: T) -> T { t }
+    pub fn compat<T>(t: T) -> T {
+        t
+    }
 }
 
 /// Compatibility layer between async-std and tokio
@@ -470,7 +472,6 @@ pub mod compat {
     #[cfg(not(feature = "ws-tls-tokio"))]
     pub type TlsStream = TcpStream;
 
-
     use std::io;
     use std::pin::Pin;
     use std::task::{Context, Poll};
@@ -481,16 +482,14 @@ pub mod compat {
     }
 
     /// Wrap given argument into compatibility layer.
-    pub fn compat<T>(t: T) -> Compat<T> { Compat(t) }
+    pub fn compat<T>(t: T) -> Compat<T> {
+        Compat(t)
+    }
 
     /// Compatibility layer.
     pub struct Compat<T>(T);
     impl<T: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for Compat<T> {
-        fn poll_write(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &[u8],
-        ) -> Poll<Result<usize, io::Error>> {
+        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
             tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
         }
 
@@ -504,9 +503,8 @@ pub mod compat {
     }
 
     impl<T: tokio::io::AsyncWrite + Unpin> futures::AsyncWrite for Compat<T> {
-        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8])
-            -> Poll<io::Result<usize>> {
-                tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
+        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
         }
 
         fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -519,16 +517,14 @@ pub mod compat {
     }
 
     impl<T: tokio::io::AsyncRead + Unpin> futures::AsyncRead for Compat<T> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8])
-            -> Poll<io::Result<usize>> {
-                tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+            tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
         }
     }
 
     impl<T: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for Compat<T> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8])
-            -> Poll<io::Result<usize>> {
-                tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+            tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
         }
     }
 }
@@ -554,9 +550,7 @@ mod tests {
         let _ = env_logger::try_init();
         // given
         let addr = "127.0.0.1:3000";
-        let listener = futures::executor::block_on(
-            compat::TcpListener::bind(addr)
-        ).expect("Failed to bind");
+        let listener = futures::executor::block_on(compat::TcpListener::bind(addr)).expect("Failed to bind");
         println!("Starting the server.");
         tokio::spawn(server(listener, addr));
 
@@ -607,4 +601,3 @@ mod tests {
         }
     }
 }
-
