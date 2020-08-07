@@ -10,9 +10,9 @@ pub mod http;
 #[cfg(feature = "http")]
 pub use self::http::Http;
 
-#[cfg(feature = "ws")]
+#[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
 pub mod ws;
-#[cfg(feature = "ws")]
+#[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
 pub use self::ws::WebSocket;
 
 #[cfg(feature = "url")]
