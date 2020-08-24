@@ -48,7 +48,7 @@ enum Client {
 #[cfg(not(feature = "http-tls"))]
 #[derive(Debug, Clone)]
 enum Client {
-    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper::clinet::HttpConnector>>),
+    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper::client::HttpConnector>>),
     NoProxy(hyper::Client<hyper::client::HttpConnector>),
 }
 
@@ -80,9 +80,22 @@ impl Http {
 
         let client = match proxy_env {
             Ok(proxy) => {
-                let uri = proxy.parse()?;
+                let mut url = url::Url::parse(&proxy)?;
+                let username = String::from(url.username()).clone();
+                let password = String::from(url.password().unwrap_or_default()).clone();
 
-                let proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
+                url.set_username("").map_err(|_| Error::Internal)?;
+                url.set_password(None).map_err(|_| Error::Internal)?;
+
+                let uri = url.to_string().parse()?;
+
+                let mut proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
+
+                if username != "" {
+                    let credentials = typed_headers::Credentials::basic(&username, &password).unwrap();
+
+                    proxy.set_authorization(credentials);
+                }
 
                 let proxy_connector = hyper_proxy::ProxyConnector::from_proxy(connector, proxy)?;
 
