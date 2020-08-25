@@ -32,6 +32,8 @@ tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 base64 = { version = "0.12", optional = true }
 hyper = { version = "0.13", optional = true, default-features = false, features = ["stream", "tcp"] }
 hyper-tls = { version = "0.4", optional = true }
+hyper-proxy = {version = "0.7.0", optional = true }
+typed-headers = { version = "0.2.0", optional = true }
 ## WS
 async-native-tls = { version = "0.3", optional = true, default-features = false }
 async-std = { version = "1.6", optional = true }
@@ -49,7 +51,7 @@ tokio = { version = "0.2", features = ["full"] }
 
 [features]
 default = ["http-tls", "ws-tls-tokio"]
-http = ["hyper", "url", "base64"]
+http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
 http-tls = ["hyper-tls", "native-tls", "http"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]

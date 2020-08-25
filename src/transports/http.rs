@@ -1,5 +1,6 @@
 //! HTTP Transport
 
+use std::env;
 use std::fmt;
 use std::ops::Deref;
 use std::pin::Pin;
@@ -37,25 +38,72 @@ impl From<hyper::header::InvalidHeaderValue> for Error {
 // The max string length of a request without transfer-encoding: chunked.
 const MAX_SINGLE_CHUNK: usize = 256;
 
+#[cfg(feature = "http-tls")]
+#[derive(Debug, Clone)]
+enum Client {
+    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>>),
+    NoProxy(hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>),
+}
+
+#[cfg(not(feature = "http-tls"))]
+#[derive(Debug, Clone)]
+enum Client {
+    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper::client::HttpConnector>>),
+    NoProxy(hyper::Client<hyper::client::HttpConnector>),
+}
+
+impl Client {
+    pub fn request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture {
+        match self {
+            Client::Proxy(client) => client.request(req),
+            Client::NoProxy(client) => client.request(req),
+        }
+    }
+}
+
 /// HTTP Transport (synchronous)
 #[derive(Debug, Clone)]
 pub struct Http {
     id: Arc<AtomicUsize>,
     url: hyper::Uri,
     basic_auth: Option<HeaderValue>,
-    #[cfg(feature = "http-tls")]
-    client: hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>,
-    #[cfg(not(feature = "http-tls"))]
-    client: hyper::Client<hyper::client::HttpConnector>,
+    client: Client,
 }
 
 impl Http {
     /// Create new HTTP transport connecting to given URL.
     pub fn new(url: &str) -> error::Result<Self> {
         #[cfg(feature = "http-tls")]
-        let client = hyper::Client::builder().build::<_, hyper::Body>(hyper_tls::HttpsConnector::new());
+        let (proxy_env, connector) = { (env::var("HTTPS_PROXY"), hyper_tls::HttpsConnector::new()) };
         #[cfg(not(feature = "http-tls"))]
-        let client = hyper::Client::new();
+        let (proxy_env, connector) = { (env::var("HTTP_PROXY"), hyper::client::HttpConnector::new()) };
+
+        let client = match proxy_env {
+            Ok(proxy) => {
+                let mut url = url::Url::parse(&proxy)?;
+                let username = String::from(url.username()).clone();
+                let password = String::from(url.password().unwrap_or_default()).clone();
+
+                url.set_username("").map_err(|_| Error::Internal)?;
+                url.set_password(None).map_err(|_| Error::Internal)?;
+
+                let uri = url.to_string().parse()?;
+
+                let mut proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
+
+                if username != "" {
+                    let credentials =
+                        typed_headers::Credentials::basic(&username, &password).map_err(|_| Error::Internal)?;
+
+                    proxy.set_authorization(credentials);
+                }
+
+                let proxy_connector = hyper_proxy::ProxyConnector::from_proxy(connector, proxy)?;
+
+                Client::Proxy(hyper::Client::builder().build(proxy_connector))
+            }
+            Err(_) => Client::NoProxy(hyper::Client::builder().build(connector)),
+        };
 
         let basic_auth = {
             let url = Url::parse(url)?;
