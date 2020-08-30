@@ -201,7 +201,7 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function and wait for confirmations
-    pub fn call_with_confirmations<P>(
+    pub fn call_with_confirmations(
         &self,
         func: &str,
         params: impl Tokenize,
