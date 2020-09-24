@@ -439,8 +439,8 @@ impl_fixed_types!(1024);
 #[cfg(test)]
 mod tests {
     use super::{Detokenize, Tokenizable};
-    use crate::types::{Address, U256};
-    use ethabi::Token;
+    use crate::types::{Address, BytesArray, U256};
+    use ethabi::{Token, Uint};
 
     fn output<R: Detokenize>() -> R {
         unimplemented!()
@@ -455,6 +455,7 @@ mod tests {
         let _string: String = output();
         let _bool: bool = output();
         let _bytes: Vec<u8> = output();
+        let _bytes_array: BytesArray = output();
 
         let _pair: (U256, bool) = output();
         let _vec: Vec<U256> = output();
@@ -485,6 +486,14 @@ mod tests {
         assert_eq!(data[1][0], 2);
         assert_eq!(data[2][0], 3);
         assert_eq!(data[7][0], 8);
+    }
+
+    #[test]
+    fn should_decode_array_of_bytes() {
+        let token = Token::Array(vec![Token::Uint(Uint::from(0)), Token::Uint(Uint::from(1))]);
+        let data: BytesArray = Tokenizable::from_token(token).unwrap();
+        assert_eq!(data.0[0], 0);
+        assert_eq!(data.0[1], 1);
     }
 
     #[test]
