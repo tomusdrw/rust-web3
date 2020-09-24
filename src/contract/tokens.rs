@@ -1,7 +1,7 @@
 //! Contract Functions Output types.
 
 use crate::contract::error::Error;
-use crate::types::{Address, Bytes, H256, U128, U256};
+use crate::types::{Address, Bytes, BytesArray, H256, U128, U256};
 use arrayvec::ArrayVec;
 use ethabi::Token;
 
@@ -291,8 +291,27 @@ macro_rules! tokenizable_item {
 }
 
 tokenizable_item! {
-    Token, String, Address, H256, U256, U128, bool, Vec<u8>,
+    Token, String, Address, H256, U256, U128, bool, BytesArray, Vec<u8>,
     i8, i16, i32, i64, i128, u16, u32, u64, u128,
+}
+
+impl Tokenizable for BytesArray {
+    fn from_token(token: Token) -> Result<Self, Error> {
+        match token {
+            Token::FixedArray(tokens) | Token::Array(tokens) => {
+                let bytes = tokens
+                    .into_iter()
+                    .map(Tokenizable::from_token)
+                    .collect::<Result<Vec<u8>, Error>>()?;
+                Ok(Self(bytes))
+            }
+            other => Err(Error::InvalidOutputType(format!("Expected `Array`, got {:?}", other))),
+        }
+    }
+
+    fn into_token(self) -> Token {
+        Token::Array(self.0.into_iter().map(Tokenizable::into_token).collect())
+    }
 }
 
 impl Tokenizable for Vec<u8> {
@@ -420,8 +439,8 @@ impl_fixed_types!(1024);
 #[cfg(test)]
 mod tests {
     use super::{Detokenize, Tokenizable};
-    use crate::types::{Address, U256};
-    use ethabi::Token;
+    use crate::types::{Address, BytesArray, U256};
+    use ethabi::{Token, Uint};
 
     fn output<R: Detokenize>() -> R {
         unimplemented!()
@@ -436,6 +455,7 @@ mod tests {
         let _string: String = output();
         let _bool: bool = output();
         let _bytes: Vec<u8> = output();
+        let _bytes_array: BytesArray = output();
 
         let _pair: (U256, bool) = output();
         let _vec: Vec<U256> = output();
@@ -466,6 +486,14 @@ mod tests {
         assert_eq!(data[1][0], 2);
         assert_eq!(data[2][0], 3);
         assert_eq!(data[7][0], 8);
+    }
+
+    #[test]
+    fn should_decode_array_of_bytes() {
+        let token = Token::Array(vec![Token::Uint(Uint::from(0)), Token::Uint(Uint::from(1))]);
+        let data: BytesArray = Tokenizable::from_token(token).unwrap();
+        assert_eq!(data.0[0], 0);
+        assert_eq!(data.0[1], 1);
     }
 
     #[test]

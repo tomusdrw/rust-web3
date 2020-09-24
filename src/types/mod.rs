@@ -2,6 +2,7 @@
 
 mod block;
 mod bytes;
+mod bytes_array;
 mod log;
 mod parity_peers;
 mod recovery;
@@ -17,6 +18,7 @@ mod work;
 
 pub use self::block::{Block, BlockHeader, BlockId, BlockNumber};
 pub use self::bytes::Bytes;
+pub use self::bytes_array::BytesArray;
 pub use self::log::{Filter, FilterBuilder, Log};
 pub use self::parity_peers::{
     EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
