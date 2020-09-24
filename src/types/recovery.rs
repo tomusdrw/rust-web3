@@ -49,7 +49,12 @@ impl Recovery {
             return Err(ParseSignatureError);
         }
 
-        let v = bytes[64];
+        let mut v = bytes[64];
+
+        if v < 27 {
+            v += 27;
+        }
+
         let r = H256::from_slice(&bytes[0..32]);
         let s = H256::from_slice(&bytes[32..64]);
 
