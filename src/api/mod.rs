@@ -10,6 +10,7 @@ mod parity_accounts;
 mod parity_set;
 mod personal;
 mod traces;
+mod txpool;
 mod web3;
 
 pub use self::accounts::{Accounts, SignTransactionFuture};
@@ -22,6 +23,7 @@ pub use self::parity_accounts::ParityAccounts;
 pub use self::parity_set::ParitySet;
 pub use self::personal::Personal;
 pub use self::traces::Traces;
+pub use self::txpool::Txpool;
 pub use self::web3::Web3 as Web3Api;
 
 use crate::types::{Bytes, TransactionRequest, U64};
@@ -107,6 +109,11 @@ impl<T: Transport> Web3<T> {
 
     /// Access methods from `trace` namespace
     pub fn trace(&self) -> traces::Traces<T> {
+        self.api()
+    }
+
+    /// Access methods from `txpool` namespace
+    pub fn txpool(&self) -> txpool::Txpool<T> {
         self.api()
     }
 
