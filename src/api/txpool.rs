@@ -190,14 +190,14 @@ mod tests {
     );
 
     rpc_test! (
-        Txpool:inspect => "txpool_inspect";
-        ::serde_json::from_str(EXAMPLE_INSPECT_INFO).unwrap()
-        => ::serde_json::from_str::<TxpoolInspectInfo>(EXAMPLE_INSPECT_INFO).unwrap()
-      );
+      Txpool:inspect => "txpool_inspect";
+      ::serde_json::from_str(EXAMPLE_INSPECT_INFO).unwrap()
+      => ::serde_json::from_str::<TxpoolInspectInfo>(EXAMPLE_INSPECT_INFO).unwrap()
+    );
 
     rpc_test! (
-        Txpool:status => "txpool_status";
-        ::serde_json::from_str(EXAMPLE_STATUS).unwrap()
-        => ::serde_json::from_str::<TxpoolStatus>(EXAMPLE_STATUS).unwrap()
-      );
-  }
+      Txpool:status => "txpool_status";
+      ::serde_json::from_str(EXAMPLE_STATUS).unwrap()
+      => ::serde_json::from_str::<TxpoolStatus>(EXAMPLE_STATUS).unwrap()
+    );
+}

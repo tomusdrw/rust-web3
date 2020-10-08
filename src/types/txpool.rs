@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
-use crate::types::{Transaction, Address};
-use serde::{Deserialize, Serialize};
 use crate::types::U64;
+use crate::types::{Address, Transaction};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Transaction Pool Content Info
 ///
@@ -55,7 +55,7 @@ pub struct TxpoolStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{TxpoolStatus, TxpoolContentInfo, TxpoolInspectInfo};
+    use super::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus};
     use serde_json;
 
     #[test]
