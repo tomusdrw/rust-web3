@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use crate::helpers::CallFuture;
 use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
-use crate::{error, Error, Transport};
+use crate::{error, Transport};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -205,7 +205,6 @@ impl<T: Transport> ConfirmationCheck for TransactionReceiptBlockNumberCheck<T> {
 }
 
 enum SendTransactionWithConfirmationState<T: Transport> {
-    Error(Option<Error>),
     SendTransaction(CallFuture<H256, T::Out>),
     WaitForConfirmations(
         H256,
@@ -240,15 +239,6 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
             confirmations,
         }
     }
-
-    pub(crate) fn from_err<E: Into<Error>>(transport: T, err: E) -> Self {
-        SendTransactionWithConfirmation {
-            state: SendTransactionWithConfirmationState::Error(Some(err.into())),
-            transport,
-            poll_interval: Duration::from_secs(1),
-            confirmations: 1,
-        }
-    }
 }
 
 impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
@@ -257,11 +247,6 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next_state = match self.state {
-                SendTransactionWithConfirmationState::Error(ref mut error) => {
-                    return Poll::Ready(Err(error
-                        .take()
-                        .expect("Error is initialized initially; future polled only once; qed")));
-                }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
                     let hash = ready!(future.poll_unpin(ctx))?;
                     if self.confirmations > 0 {
