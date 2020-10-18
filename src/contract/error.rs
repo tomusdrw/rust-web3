@@ -41,6 +41,9 @@ pub mod deploy {
     /// Contract deployment error.
     #[derive(Debug, Display, From)]
     pub enum Error {
+        /// eth abi error
+        #[display(fmt = "Abi error: {}", _0)]
+        Abi(ethabi::Error),
         /// Rpc error
         #[display(fmt = "Api error: {}", _0)]
         Api(ApiError),
@@ -52,6 +55,7 @@ pub mod deploy {
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match *self {
+                Error::Abi(ref e) => Some(e),
                 Error::Api(ref e) => Some(e),
                 Error::ContractDeploymentFailure(_) => None,
             }

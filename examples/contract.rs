@@ -23,7 +23,6 @@ async fn main() -> web3::contract::Result<()> {
             (U256::from(1_000_000_u64), "My Token".to_owned(), 3u64, "MT".to_owned()),
             my_account,
         )
-        .expect("Correct parameters are passed to the constructor.")
         .await?;
 
     let result = contract.query("balanceOf", (my_account,), None, Options::default(), None);
