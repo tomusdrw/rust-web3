@@ -2,21 +2,13 @@
 
 use crate::api::{Namespace, Web3};
 use crate::error;
-use crate::helpers::CallFuture;
 use crate::signing::{self, Signature};
 use crate::types::{
     Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
 };
 use crate::Transport;
-use futures::future::{self, Either, Join3};
-use futures::{
-    task::{Context, Poll},
-    Future, FutureExt,
-};
 use rlp::RlpStream;
 use std::convert::TryInto;
-use std::mem;
-use std::pin::Pin;
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -44,8 +36,44 @@ impl<T: Transport> Accounts<T> {
     }
 
     /// Signs an Ethereum transaction with a given private key.
-    pub fn sign_transaction<K: signing::Key>(&self, tx: TransactionParameters, key: K) -> SignTransactionFuture<T, K> {
-        SignTransactionFuture::new(self, tx, key)
+    ///
+    /// Transaction signing can perform RPC requests in order to fill missing
+    /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
+    /// that if all transaction parameters were provided, this future will resolve
+    /// immediately.
+    pub async fn sign_transaction<K: signing::Key>(
+        &self,
+        tx: TransactionParameters,
+        key: K,
+    ) -> error::Result<SignedTransaction> {
+        macro_rules! maybe {
+            ($o: expr, $f: expr) => {
+                async {
+                    match $o {
+                        Some(value) => Ok(value),
+                        None => $f.await,
+                    }
+                }
+            };
+        }
+        let from = key.address();
+        let (nonce, gas_price, chain_id) = futures::future::try_join3(
+            maybe!(tx.nonce, self.web3().eth().transaction_count(from, None)),
+            maybe!(tx.gas_price, self.web3().eth().gas_price()),
+            maybe!(tx.chain_id.map(U256::from), self.web3().eth().chain_id()),
+        )
+        .await?;
+        let chain_id = chain_id.as_u64();
+        let tx = Transaction {
+            to: tx.to,
+            nonce,
+            gas: tx.gas,
+            gas_price,
+            value: tx.value,
+            data: tx.data.0,
+        };
+        let signed = tx.sign(key, chain_id);
+        Ok(signed)
     }
 
     /// Hash a message according to EIP-191.
@@ -126,76 +154,6 @@ impl<T: Transport> Accounts<T> {
             .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
         let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
         Ok(address)
-    }
-}
-
-type MaybeReady<T, R> = Either<future::Ready<error::Result<R>>, CallFuture<R, <T as Transport>::Out>>;
-
-type TxParams<T> = Join3<MaybeReady<T, U256>, MaybeReady<T, U256>, MaybeReady<T, U256>>;
-
-/// Future resolving when transaction signing is complete.
-///
-/// Transaction signing can perform RPC requests in order to fill missing
-/// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
-/// that if all transaction parameters were provided, this future will resolve
-/// immediately.
-pub struct SignTransactionFuture<T: Transport, K> {
-    tx: TransactionParameters,
-    key: Option<K>,
-    inner: TxParams<T>,
-}
-
-impl<T: Transport, K: signing::Key> SignTransactionFuture<T, K> {
-    /// Creates a new SignTransactionFuture with accounts and transaction data.
-    pub fn new(accounts: &Accounts<T>, tx: TransactionParameters, key: K) -> SignTransactionFuture<T, K> {
-        macro_rules! maybe {
-            ($o: expr, $f: expr) => {
-                match $o {
-                    Some(ref value) => Either::Left(future::ok(value.clone())),
-                    None => Either::Right($f),
-                }
-            };
-        }
-
-        let from = key.address();
-        let inner = future::join3(
-            maybe!(tx.nonce, accounts.web3().eth().transaction_count(from, None)),
-            maybe!(tx.gas_price, accounts.web3().eth().gas_price()),
-            maybe!(tx.chain_id.map(U256::from), accounts.web3().eth().chain_id()),
-        );
-
-        SignTransactionFuture {
-            tx,
-            key: Some(key),
-            inner,
-        }
-    }
-}
-
-impl<T: Transport, K: signing::Key> Future for SignTransactionFuture<T, K> {
-    type Output = error::Result<SignedTransaction>;
-
-    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let (nonce, gas_price, chain_id) = ready!(self.inner.poll_unpin(ctx));
-        let chain_id = chain_id?.as_u64();
-
-        let data = mem::replace(&mut self.tx.data, Bytes::default());
-        let tx = Transaction {
-            to: self.tx.to,
-            nonce: nonce?,
-            gas: self.tx.gas,
-            gas_price: gas_price?,
-            value: self.tx.value,
-            data: data.0,
-        };
-        let signed = tx.sign(
-            self.key
-                .take()
-                .expect("SignTransactionFuture can't be polled after Ready; qed"),
-            chain_id,
-        );
-
-        Poll::Ready(Ok(signed))
     }
 }
 
