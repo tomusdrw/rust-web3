@@ -9,19 +9,13 @@ use crate::types::{
     TransactionReceipt, TransactionRequest, H256, U256,
 };
 use crate::Transport;
-use futures::{
-    future::{self, Either},
-    Future, FutureExt, TryFutureExt,
-};
 use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
 mod error;
-mod result;
 pub mod tokens;
 
 pub use crate::contract::error::Error;
-pub use crate::contract::result::{CallFuture, QueryResult};
 
 /// Contract `Result` type.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -120,36 +114,31 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function
-    pub fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<H256, T::Out>
+    pub async fn call<P>(&self, func: &str, params: P, from: Address, options: Options) -> Result<H256>
     where
         P: Tokenize,
     {
-        self.abi
-            .function(func)
-            .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(move |data| {
-                let Options {
-                    gas,
-                    gas_price,
-                    value,
-                    nonce,
-                    condition,
-                } = options;
-
-                self.eth
-                    .send_transaction(TransactionRequest {
-                        from,
-                        to: Some(self.address),
-                        gas,
-                        gas_price,
-                        value,
-                        nonce,
-                        data: Some(Bytes(data)),
-                        condition,
-                    })
-                    .into()
+        let data = self.abi.function(func)?.encode_input(&params.into_tokens())?;
+        let Options {
+            gas,
+            gas_price,
+            value,
+            nonce,
+            condition,
+        } = options;
+        self.eth
+            .send_transaction(TransactionRequest {
+                from,
+                to: Some(self.address),
+                gas,
+                gas_price,
+                value,
+                nonce,
+                data: Some(Bytes(data)),
+                condition,
             })
-            .unwrap_or_else(Into::into)
+            .await
+            .map_err(Error::from)
     }
 
     /// Execute a signed contract function and wait for confirmations
@@ -195,121 +184,94 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function and wait for confirmations
-    pub fn call_with_confirmations(
+    pub async fn call_with_confirmations(
         &self,
         func: &str,
         params: impl Tokenize,
         from: Address,
         options: Options,
         confirmations: usize,
-    ) -> confirm::SendTransactionWithConfirmation<T> {
+    ) -> crate::error::Result<TransactionReceipt> {
         let poll_interval = time::Duration::from_secs(1);
 
-        self.abi
+        let fn_data = self
+            .abi
             .function(func)
             .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(|fn_data| {
-                let transaction_request = TransactionRequest {
-                    from,
+            // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
+            // `contract::Error` instead of more generic `Error`.
+            .map_err(|err| crate::error::Error::Decoder(format!("{:?}", err)))?;
+        let transaction_request = TransactionRequest {
+            from,
+            to: Some(self.address),
+            gas: options.gas,
+            gas_price: options.gas_price,
+            value: options.value,
+            nonce: options.nonce,
+            data: Some(Bytes(fn_data)),
+            condition: options.condition,
+        };
+        confirm::send_transaction_with_confirmation(
+            self.eth.transport().clone(),
+            transaction_request,
+            poll_interval,
+            confirmations,
+        )
+        .await
+    }
+
+    /// Estimate gas required for this function call.
+    pub async fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> Result<U256>
+    where
+        P: Tokenize,
+    {
+        let data = self.abi.function(func)?.encode_input(&params.into_tokens())?;
+        self.eth
+            .estimate_gas(
+                CallRequest {
+                    from: Some(from),
                     to: Some(self.address),
                     gas: options.gas,
                     gas_price: options.gas_price,
                     value: options.value,
-                    nonce: options.nonce,
-                    data: Some(Bytes(fn_data)),
-                    condition: options.condition,
-                };
-
-                confirm::send_transaction_with_confirmation(
-                    self.eth.transport().clone(),
-                    transaction_request,
-                    poll_interval,
-                    confirmations,
-                )
-            })
-            .unwrap_or_else(|e| {
-                // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
-                // `contract::Error` instead of more generic `Error`.
-                confirm::SendTransactionWithConfirmation::from_err(
-                    self.eth.transport().clone(),
-                    crate::error::Error::Decoder(format!("{:?}", e)),
-                )
-            })
-    }
-
-    /// Estimate gas required for this function call.
-    pub fn estimate_gas<P>(&self, func: &str, params: P, from: Address, options: Options) -> CallFuture<U256, T::Out>
-    where
-        P: Tokenize,
-    {
-        self.abi
-            .function(func)
-            .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(|data| {
-                self.eth
-                    .estimate_gas(
-                        CallRequest {
-                            from: Some(from),
-                            to: Some(self.address),
-                            gas: options.gas,
-                            gas_price: options.gas_price,
-                            value: options.value,
-                            data: Some(Bytes(data)),
-                        },
-                        None,
-                    )
-                    .into()
-            })
-            .unwrap_or_else(Into::into)
+                    data: Some(Bytes(data)),
+                },
+                None,
+            )
+            .await
+            .map_err(Into::into)
     }
 
     /// Call constant function
-    pub fn query<R, A, B, P>(
-        &self,
-        func: &str,
-        params: P,
-        from: A,
-        options: Options,
-        block: B,
-    ) -> QueryResult<R, T::Out>
+    pub async fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> Result<R>
     where
         R: Detokenize,
         A: Into<Option<Address>>,
         B: Into<Option<BlockId>>,
         P: Tokenize,
     {
-        self.abi
-            .function(func)
-            .and_then(|function| {
-                function
-                    .encode_input(&params.into_tokens())
-                    .map(|call| (call, function))
-            })
-            .map(|(call, function)| {
-                let result = self.eth.call(
-                    CallRequest {
-                        from: from.into(),
-                        to: Some(self.address),
-                        gas: options.gas,
-                        gas_price: options.gas_price,
-                        value: options.value,
-                        data: Some(Bytes(call)),
-                    },
-                    block.into(),
-                );
-                QueryResult::new(result, function.clone())
-            })
-            .unwrap_or_else(Into::into)
+        let function = self.abi.function(func)?;
+        let call = function.encode_input(&params.into_tokens())?;
+        let bytes = self
+            .eth
+            .call(
+                CallRequest {
+                    from: from.into(),
+                    to: Some(self.address),
+                    gas: options.gas,
+                    gas_price: options.gas_price,
+                    value: options.value,
+                    data: Some(Bytes(call)),
+                },
+                block.into(),
+            )
+            .await?;
+        let output = function.decode_output(&bytes.0)?;
+        R::from_tokens(output)
     }
 
     /// Find events matching the topics.
-    pub fn events<A, B, C, R>(
-        &self,
-        event: &str,
-        topic0: A,
-        topic1: B,
-        topic2: C,
-    ) -> impl Future<Output = Result<Vec<R>>>
+    pub async fn events<A, B, C, R>(&self, event: &str, topic0: A, topic1: B, topic2: C) -> Result<Vec<R>>
     where
         A: Tokenize,
         B: Tokenize,
@@ -335,30 +297,25 @@ impl<T: Transport> Contract<T> {
         });
         let (ev, filter) = match res {
             Ok(x) => x,
-            Err(e) => return Either::Left(future::ready(Err(e.into()))),
+            Err(e) => return Err(e.into()),
         };
 
-        Either::Right(
-            self.eth
-                .logs(FilterBuilder::default().topic_filter(filter).build())
-                .map_err(Into::into)
-                .map(move |logs| {
-                    logs.and_then(|logs| {
-                        logs.into_iter()
-                            .map(move |l| {
-                                let log = ev.parse_log(ethabi::RawLog {
-                                    topics: l.topics,
-                                    data: l.data.0,
-                                })?;
+        let logs = self
+            .eth
+            .logs(FilterBuilder::default().topic_filter(filter).build())
+            .await?;
+        logs.into_iter()
+            .map(move |l| {
+                let log = ev.parse_log(ethabi::RawLog {
+                    topics: l.topics,
+                    data: l.data.0,
+                })?;
 
-                                Ok(R::from_tokens(
-                                    log.params.into_iter().map(|x| x.value).collect::<Vec<_>>(),
-                                )?)
-                            })
-                            .collect::<Result<Vec<R>>>()
-                    })
-                }),
-        )
+                Ok(R::from_tokens(
+                    log.params.into_iter().map(|x| x.value).collect::<Vec<_>>(),
+                )?)
+            })
+            .collect::<Result<Vec<R>>>()
     }
 }
 
