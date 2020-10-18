@@ -38,7 +38,7 @@ typed-headers = { version = "0.2.0", optional = true }
 async-native-tls = { version = "0.3", optional = true, default-features = false }
 async-std = { version = "1.6", optional = true }
 tokio = { version = "0.2", optional = true, features = ["full"] }
-tokio-util = { version = "0.3", optional = true, features = ["compat"] }
+tokio-util = { version = "0.4", optional = true, features = ["compat"] }
 soketto = { version = "0.4.1", optional = true }
 ## Shared (WS, HTTP)
 native-tls = { version = "0.2", optional = true }
