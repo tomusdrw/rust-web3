@@ -23,7 +23,7 @@ async fn main() -> web3::contract::Result<()> {
         .confirmations(1)
         .poll_interval(time::Duration::from_secs(10))
         .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
-        .execute(bytecode, (), accounts[0])?
+        .execute(bytecode, (), accounts[0])
         .await?;
 
     println!("Deployed at: {}", contract.address());
