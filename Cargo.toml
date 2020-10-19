@@ -46,7 +46,7 @@ url = { version = "2.1", optional = true }
 
 [dev-dependencies]
 # For examples
-env_logger = "0.7"
+env_logger = "0.8"
 tokio = { version = "0.2", features = ["full"] }
 
 [features]
