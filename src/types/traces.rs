@@ -161,17 +161,16 @@ pub struct StorageDiff {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
 
     // tx: https://etherscan.io/tx/0x4a91b11dbd2b11c308cfe7775eac2036f20c501691e3f8005d83b2dcce62d6b5
     // using the 'trace_replayTransaction' API function
     // with 'trace', 'vmTrace', 'stateDiff'
-    const EXAMPLE_TRACE: &'static str = include!("./example-trace-str.rs");
+    const EXAMPLE_TRACE: &str = include!("./example-trace-str.rs");
 
     // block: https://etherscan.io/block/46147
     // using the 'trace_replayBlockTransactions' API function
     // with 'trace', 'vmTrace', 'stateDiff'
-    const EXAMPLE_TRACES: &'static str = include!("./example-traces-str.rs");
+    const EXAMPLE_TRACES: &str = include!("./example-traces-str.rs");
 
     #[test]
     fn test_serialize_trace_type() {

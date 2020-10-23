@@ -48,7 +48,7 @@ mod tests {
 
     use super::Txpool;
 
-    const EXAMPLE_CONTENT_INFO: &'static str = r#"{
+    const EXAMPLE_CONTENT_INFO: &str = r#"{
         "pending": {
             "0x0216d5032f356960cd3749c31ab34eeff21b3395": {
               "806": {
@@ -128,7 +128,7 @@ mod tests {
           }
         }"#;
 
-    const EXAMPLE_INSPECT_INFO: &'static str = r#"{
+    const EXAMPLE_INSPECT_INFO: &str = r#"{
         "pending": {
           "0x26588a9301b0428d95e6fc3a5024fce8bec12d51": {
             "31813": "0x3375ee30428b2a71c428afa5e89e427905f95f7e: 0 wei + 500000 × 20000000000 gas"
@@ -178,7 +178,7 @@ mod tests {
         }
       }"#;
 
-    const EXAMPLE_STATUS: &'static str = r#"{
+    const EXAMPLE_STATUS: &str = r#"{
         "pending": "0xa",
         "queued": "0x7"
     }"#;

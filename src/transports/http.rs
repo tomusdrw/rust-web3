@@ -1,12 +1,5 @@
 //! HTTP Transport
 
-use std::env;
-use std::fmt;
-use std::ops::Deref;
-use std::pin::Pin;
-use std::sync::atomic::{self, AtomicUsize};
-use std::sync::Arc;
-
 use crate::error;
 use crate::helpers;
 use crate::rpc;
@@ -14,7 +7,12 @@ use crate::{BatchTransport, Error, RequestId, Transport};
 use futures::task::{Context, Poll};
 use futures::{self, Future, FutureExt, StreamExt};
 use hyper::header::HeaderValue;
-use serde_json;
+use std::env;
+use std::fmt;
+use std::ops::Deref;
+use std::pin::Pin;
+use std::sync::atomic::{self, AtomicUsize};
+use std::sync::Arc;
 use url::Url;
 
 impl From<hyper::Error> for Error {
@@ -81,8 +79,8 @@ impl Http {
         let client = match proxy_env {
             Ok(proxy) => {
                 let mut url = url::Url::parse(&proxy)?;
-                let username = String::from(url.username()).clone();
-                let password = String::from(url.password().unwrap_or_default()).clone();
+                let username = String::from(url.username());
+                let password = String::from(url.password().unwrap_or_default());
 
                 url.set_username("").map_err(|_| Error::Internal)?;
                 url.set_password(None).map_err(|_| Error::Internal)?;
@@ -260,7 +258,7 @@ where
                             content.extend(&*chunk?);
                         }
                         None => {
-                            let response = std::mem::replace(content, Default::default());
+                            let response = std::mem::take(content);
                             log::trace!(
                                 "[{}] Extracting result from:\n{}",
                                 self.id,
@@ -281,50 +279,26 @@ mod tests {
 
     #[test]
     fn http_supports_basic_auth_with_user_and_password() {
-        let http = Http::new("https://user:password@127.0.0.1:8545");
-        assert!(http.is_ok());
-        match http {
-            Ok(transport) => {
-                assert!(transport.basic_auth.is_some());
-                assert_eq!(
-                    transport.basic_auth,
-                    Some(HeaderValue::from_static("Basic dXNlcjpwYXNzd29yZA=="))
-                )
-            }
-            Err(_) => assert!(false, ""),
-        }
+        let http = Http::new("https://user:password@127.0.0.1:8545").unwrap();
+        assert!(http.basic_auth.is_some());
+        assert_eq!(
+            http.basic_auth,
+            Some(HeaderValue::from_static("Basic dXNlcjpwYXNzd29yZA=="))
+        )
     }
 
     #[test]
     fn http_supports_basic_auth_with_user_no_password() {
-        let http = Http::new("https://username:@127.0.0.1:8545");
-        assert!(http.is_ok());
-        match http {
-            Ok(transport) => {
-                assert!(transport.basic_auth.is_some());
-                assert_eq!(
-                    transport.basic_auth,
-                    Some(HeaderValue::from_static("Basic dXNlcm5hbWU6"))
-                )
-            }
-            Err(_) => assert!(false, ""),
-        }
+        let http = Http::new("https://username:@127.0.0.1:8545").unwrap();
+        assert!(http.basic_auth.is_some());
+        assert_eq!(http.basic_auth, Some(HeaderValue::from_static("Basic dXNlcm5hbWU6")))
     }
 
     #[test]
     fn http_supports_basic_auth_with_only_password() {
-        let http = Http::new("https://:password@127.0.0.1:8545");
-        assert!(http.is_ok());
-        match http {
-            Ok(transport) => {
-                assert!(transport.basic_auth.is_some());
-                assert_eq!(
-                    transport.basic_auth,
-                    Some(HeaderValue::from_static("Basic OnBhc3N3b3Jk"))
-                )
-            }
-            Err(_) => assert!(false, ""),
-        }
+        let http = Http::new("https://:password@127.0.0.1:8545").unwrap();
+        assert!(http.basic_auth.is_some());
+        assert_eq!(http.basic_auth, Some(HeaderValue::from_static("Basic OnBhc3N3b3Jk")))
     }
 
     async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {

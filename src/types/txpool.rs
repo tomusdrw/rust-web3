@@ -56,7 +56,6 @@ pub struct TxpoolStatus {
 #[cfg(test)]
 mod tests {
     use super::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus};
-    use serde_json;
 
     #[test]
     fn should_deserialize_txpool_content() {

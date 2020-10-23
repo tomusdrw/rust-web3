@@ -48,7 +48,7 @@ impl<T: Transport, I> FilterStream<T, I> {
     fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
         FilterStream {
             base,
-            poll_interval: poll_interval.clone(),
+            poll_interval,
             interval: Box::new(interval(poll_interval)),
             state: FilterStreamState::WaitForInterval,
         }
@@ -283,15 +283,12 @@ impl<T: Transport> EthFilter<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::rpc::Value;
-    use serde_json;
-    use std::time::Duration;
-
+    use super::EthFilter;
     use crate::api::Namespace;
     use crate::helpers::tests::TestTransport;
+    use crate::rpc::Value;
     use crate::types::{Address, Bytes, FilterBuilder, Log, H256};
-
-    use super::EthFilter;
+    use std::time::Duration;
 
     #[test]
     fn logs_filter() {

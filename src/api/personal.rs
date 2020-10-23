@@ -87,7 +87,7 @@ mod tests {
 
     use super::Personal;
 
-    const EXAMPLE_TX: &'static str = r#"{
+    const EXAMPLE_TX: &str = r#"{
     "raw": "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
     "tx": {
       "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
