@@ -1,8 +1,5 @@
 //! `Eth` namespace, subscriptions
 
-use std::marker::PhantomData;
-use std::pin::Pin;
-
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
@@ -11,8 +8,8 @@ use futures::{
     task::{Context, Poll},
     Future, FutureExt, Stream, StreamExt,
 };
-use serde;
-use serde_json;
+use std::marker::PhantomData;
+use std::pin::Pin;
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]

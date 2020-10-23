@@ -41,7 +41,7 @@ impl<T: Transport> Eth<T> {
     /// Call a constant method of contract without changing the state of the blockchain.
     pub fn call(&self, req: CallRequest, block: Option<BlockId>) -> CallFuture<Bytes, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest.into()));
+        let block = helpers::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
 
         CallFuture::new(self.transport.execute("eth_call", vec![req, block]))
     }
@@ -342,7 +342,7 @@ mod tests {
     use super::Eth;
 
     // taken from RPC docs.
-    const EXAMPLE_BLOCK: &'static str = r#"{
+    const EXAMPLE_BLOCK: &str = r#"{
     "number": "0x1b4",
     "hash": "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
     "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
@@ -371,7 +371,7 @@ mod tests {
   }"#;
 
     // response from RPC request {"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["pending", false],"id":1}.
-    const EXAMPLE_PENDING_BLOCK: &'static str = r#"{
+    const EXAMPLE_PENDING_BLOCK: &str = r#"{
         "author": "0x0000000000000000000000000000000000000000",
         "difficulty": "0x7eac2e8c440b2",
         "extraData": "0xde830207028f5061726974792d457468657265756d86312e34312e30826c69",
@@ -408,7 +408,7 @@ mod tests {
     // taken from RPC docs, but with leading `00` added to `blockHash`
     // and `transactionHash` fields because RPC docs currently show
     // 31-byte values in both positions (must be 32 bytes).
-    const EXAMPLE_LOG: &'static str = r#"{
+    const EXAMPLE_LOG: &str = r#"{
     "logIndex": "0x1",
     "blockNumber":"0x1b4",
     "blockHash": "0x008216c5785ac562ff41e2dcfdf5785ac562ff41e2dcfdf829c5a142f1fccd7d",
@@ -420,7 +420,7 @@ mod tests {
   }"#;
 
     // taken from RPC docs.
-    const EXAMPLE_TX: &'static str = r#"{
+    const EXAMPLE_TX: &str = r#"{
     "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
     "nonce": "0x0",
     "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
@@ -435,7 +435,7 @@ mod tests {
   }"#;
 
     // taken from RPC docs.
-    const EXAMPLE_RECEIPT: &'static str = r#"{
+    const EXAMPLE_RECEIPT: &str = r#"{
     "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
     "index": "0x1",
     "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",

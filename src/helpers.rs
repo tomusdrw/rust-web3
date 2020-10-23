@@ -9,8 +9,6 @@ use futures::{
     task::{Context, Poll},
     Future, FutureExt,
 };
-use serde;
-use serde_json;
 
 /// Value-decoder future.
 /// Takes any type which is deserializable from rpc::Value and a future which yields that

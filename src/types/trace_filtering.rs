@@ -277,7 +277,7 @@ pub enum RewardType {
 mod tests {
     use super::*;
 
-    const EXAMPLE_TRACE_CALL: &'static str = r#"{
+    const EXAMPLE_TRACE_CALL: &str = r#"{
         "action": {
             "callType": "call",
             "from": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
@@ -299,7 +299,7 @@ mod tests {
         "type": "call"
     }"#;
 
-    const EXAMPLE_TRACE_CREATE: &'static str = r#"{
+    const EXAMPLE_TRACE_CREATE: &str = r#"{
         "action": {
             "from": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "gas": "0x63ab9",
@@ -319,7 +319,7 @@ mod tests {
         "type": "create"
     }"#;
 
-    const EXAMPLE_TRACE_SUICIDE: &'static str = r#"{
+    const EXAMPLE_TRACE_SUICIDE: &str = r#"{
         "action": {
             "address": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "refundAddress": "0xfb6916095ca1df60bb79ce92ce3ea74c37c5d359",
@@ -338,7 +338,7 @@ mod tests {
         "type": "suicide"
     }"#;
 
-    const EXAMPLE_TRACE_REWARD: &'static str = r#"{
+    const EXAMPLE_TRACE_REWARD: &str = r#"{
         "action": {
             "author": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
             "value": "0x0",
