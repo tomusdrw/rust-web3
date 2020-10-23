@@ -15,7 +15,7 @@ mod web3;
 
 pub use self::accounts::Accounts;
 pub use self::eth::Eth;
-pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
+pub use self::eth_filter::{BaseFilter, EthFilter};
 pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
 pub use self::net::Net;
 pub use self::parity::Parity;

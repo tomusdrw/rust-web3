@@ -47,7 +47,8 @@ where
     //   erroring when it does complete.
     // * We do not handle the case where the stream returns an error which means we are wrongly counting it as a
     //   confirmation.
-    let mut filter_stream = filter.stream(poll_interval).skip(confirmations);
+    let filter_stream = filter.stream(poll_interval).skip(confirmations);
+    futures::pin_mut!(filter_stream);
     loop {
         let _ = filter_stream.next().await;
         if let Some(confirmation_block_number) = check.check().await? {

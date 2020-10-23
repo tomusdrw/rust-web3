@@ -38,7 +38,8 @@ async fn main() -> web3::contract::Result<()> {
 
     let filter = web3.eth_filter().create_logs_filter(filter).await?;
 
-    let mut logs_stream = filter.stream(time::Duration::from_secs(1));
+    let logs_stream = filter.stream(time::Duration::from_secs(1));
+    futures::pin_mut!(logs_stream);
 
     let tx = contract.call("hello", (), accounts[0], Options::default()).await?;
     println!("got tx: {:?}", tx);
