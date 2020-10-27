@@ -10,9 +10,13 @@ use futures::{
     Future, FutureExt,
 };
 
-/// Value-decoder future.
-/// Takes any type which is deserializable from rpc::Value and a future which yields that
-/// type, and yields the deserialized value
+/// Takes any type which is deserializable from rpc::Value and such a value and
+/// yields the deserialized value
+pub fn decode<T: serde::de::DeserializeOwned>(value: rpc::Value) -> error::Result<T> {
+    serde_json::from_value(value).map_err(Into::into)
+}
+
+/// Calls decode on the result of the wrapped future.
 #[derive(Debug)]
 pub struct CallFuture<T, F> {
     inner: F,
@@ -38,7 +42,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let x = ready!(self.inner.poll_unpin(ctx));
-        Poll::Ready(x.and_then(|x| serde_json::from_value(x).map_err(Into::into)))
+        Poll::Ready(x.and_then(decode))
     }
 }
 

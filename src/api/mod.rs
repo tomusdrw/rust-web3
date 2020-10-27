@@ -15,7 +15,7 @@ mod web3;
 
 pub use self::accounts::Accounts;
 pub use self::eth::Eth;
-pub use self::eth_filter::{BaseFilter, CreateFilter, EthFilter, FilterStream};
+pub use self::eth_filter::{BaseFilter, EthFilter};
 pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionResult, SubscriptionStream};
 pub use self::net::Net;
 pub use self::parity::Parity;
@@ -26,7 +26,7 @@ pub use self::traces::Traces;
 pub use self::txpool::Txpool;
 pub use self::web3::Web3 as Web3Api;
 
-use crate::types::{Bytes, TransactionRequest, U64};
+use crate::types::{Bytes, TransactionReceipt, TransactionRequest, U64};
 use crate::{confirm, error, DuplexTransport, Transport};
 use futures::Future;
 use std::time::Duration;
@@ -118,37 +118,37 @@ impl<T: Transport> Web3<T> {
     }
 
     /// Should be used to wait for confirmations
-    pub fn wait_for_confirmations<F, V>(
+    pub async fn wait_for_confirmations<F, V>(
         &self,
         poll_interval: Duration,
         confirmations: usize,
         check: V,
-    ) -> confirm::Confirmations<T, V, F>
+    ) -> error::Result<()>
     where
         F: Future<Output = error::Result<Option<U64>>>,
-        V: confirm::ConfirmationCheck<Check = F> + Unpin,
+        V: confirm::ConfirmationCheck<Check = F>,
     {
-        confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check)
+        confirm::wait_for_confirmations(self.eth(), self.eth_filter(), poll_interval, confirmations, check).await
     }
 
     /// Sends transaction and returns future resolved after transaction is confirmed
-    pub fn send_transaction_with_confirmation(
+    pub async fn send_transaction_with_confirmation(
         &self,
         tx: TransactionRequest,
         poll_interval: Duration,
         confirmations: usize,
-    ) -> confirm::SendTransactionWithConfirmation<T> {
-        confirm::send_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
+    ) -> error::Result<TransactionReceipt> {
+        confirm::send_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations).await
     }
 
     /// Sends raw transaction and returns future resolved after transaction is confirmed
-    pub fn send_raw_transaction_with_confirmation(
+    pub async fn send_raw_transaction_with_confirmation(
         &self,
         tx: Bytes,
         poll_interval: Duration,
         confirmations: usize,
-    ) -> confirm::SendTransactionWithConfirmation<T> {
-        confirm::send_raw_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations)
+    ) -> error::Result<TransactionReceipt> {
+        confirm::send_raw_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations).await
     }
 }
 

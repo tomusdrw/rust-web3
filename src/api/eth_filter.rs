@@ -1,96 +1,34 @@
 //! `Eth` namespace, filters.
 
-use futures::{
-    stream,
-    task::{Context, Poll},
-    Future, FutureExt, Stream, StreamExt,
-};
+use futures::{stream, Stream, TryStreamExt};
 use futures_timer::Delay;
 use serde::de::DeserializeOwned;
-use std::marker::{PhantomData, Unpin};
-use std::pin::Pin;
+use std::marker::PhantomData;
 use std::time::Duration;
 use std::{fmt, vec};
 
 use crate::api::Namespace;
-use crate::helpers::{self, CallFuture};
+use crate::helpers;
 use crate::types::{Filter, Log, H256};
 use crate::{error, rpc, Transport};
 
-fn interval(duration: Duration) -> impl Stream<Item = ()> + Send + Unpin {
-    stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
-}
-
-/// Stream of events
-pub struct FilterStream<T: Transport, I> {
+fn filter_stream<T: Transport, I: DeserializeOwned>(
     base: BaseFilter<T, I>,
     poll_interval: Duration,
-    interval: Box<dyn Stream<Item = ()> + Send + Unpin>,
-    state: FilterStreamState<I, T::Out>,
-}
-
-impl<T, I> fmt::Debug for FilterStream<T, I>
-where
-    T: Transport,
-    T::Out: fmt::Debug,
-    I: fmt::Debug + 'static,
-{
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("FilterStream")
-            .field("base", &self.base)
-            .field("interval", &self.poll_interval)
-            .field("state", &self.state)
-            .finish()
-    }
-}
-
-impl<T: Transport, I> FilterStream<T, I> {
-    fn new(base: BaseFilter<T, I>, poll_interval: Duration) -> Self {
-        FilterStream {
-            base,
-            poll_interval,
-            interval: Box::new(interval(poll_interval)),
-            state: FilterStreamState::WaitForInterval,
-        }
-    }
-
-    /// Borrow a transport from this filter.
-    pub fn transport(&self) -> &T {
-        self.base.transport()
-    }
-}
-
-#[derive(Debug)]
-enum FilterStreamState<I, O> {
-    WaitForInterval,
-    GetFilterChanges(CallFuture<Option<Vec<I>>, O>),
-    NextItem(vec::IntoIter<I>),
-}
-
-impl<T: Transport, I: DeserializeOwned + Unpin> Stream for FilterStream<T, I> {
-    type Item = error::Result<I>;
-
-    fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
-        loop {
-            let next_state = match self.state {
-                FilterStreamState::WaitForInterval => {
-                    let _ready = ready!(self.interval.poll_next_unpin(ctx));
-                    let id = helpers::serialize(&self.base.id);
-                    let future = CallFuture::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
-                    FilterStreamState::GetFilterChanges(future)
-                }
-                FilterStreamState::GetFilterChanges(ref mut future) => {
-                    let items = ready!(future.poll_unpin(ctx))?.unwrap_or_default();
-                    FilterStreamState::NextItem(items.into_iter())
-                }
-                FilterStreamState::NextItem(ref mut iter) => match iter.next() {
-                    Some(item) => return Poll::Ready(Some(Ok(item))),
-                    None => FilterStreamState::WaitForInterval,
-                },
-            };
-            self.state = next_state;
-        }
-    }
+) -> impl Stream<Item = error::Result<I>> {
+    let id = helpers::serialize(&base.id);
+    stream::unfold((base, id), move |state| async move {
+        let (base, id) = state;
+        Delay::new(poll_interval).await;
+        let response = base.transport.execute("eth_getFilterChanges", vec![id.clone()]).await;
+        let items: error::Result<Option<Vec<I>>> = response.and_then(helpers::decode);
+        let items = items.map(Option::unwrap_or_default);
+        Some((items, (base, id)))
+    })
+    // map I to Result<I> even though it is always Ok so that try_flatten works
+    .map_ok(|items| stream::iter(items.into_iter().map(Ok)))
+    .try_flatten()
+    .into_stream()
 }
 
 /// Specifies filter items and constructor method.
@@ -169,29 +107,14 @@ impl<T: Transport, I> Clone for BaseFilter<T, I> {
 }
 
 impl<T: Transport, I> BaseFilter<T, I> {
-    /// Polls this filter for changes.
-    /// Will return logs that happened after previous poll.
-    pub fn poll(&self) -> CallFuture<Option<Vec<I>>, T::Out> {
-        let id = helpers::serialize(&self.id);
-        CallFuture::new(self.transport.execute("eth_getFilterChanges", vec![id]))
-    }
-
-    /// Returns the stream of items which automatically polls the server
-    pub fn stream(self, poll_interval: Duration) -> FilterStream<T, I> {
-        FilterStream::new(self, poll_interval)
-    }
-
     /// Uninstalls the filter
-    pub fn uninstall(self) -> CallFuture<bool, T::Out>
+    pub async fn uninstall(self) -> error::Result<bool>
     where
         Self: Sized,
     {
-        self.uninstall_internal()
-    }
-
-    fn uninstall_internal(&self) -> CallFuture<bool, T::Out> {
         let id = helpers::serialize(&self.id);
-        CallFuture::new(self.transport.execute("eth_uninstallFilter", vec![id]))
+        let response = self.transport.execute("eth_uninstallFilter", vec![id]).await?;
+        helpers::decode(response)
     }
 
     /// Borrows the transport.
@@ -200,48 +123,42 @@ impl<T: Transport, I> BaseFilter<T, I> {
     }
 }
 
+impl<T: Transport, I: DeserializeOwned> BaseFilter<T, I> {
+    /// Polls this filter for changes.
+    /// Will return logs that happened after previous poll.
+    pub async fn poll(&self) -> error::Result<Option<Vec<I>>> {
+        let id = helpers::serialize(&self.id);
+        let response = self.transport.execute("eth_getFilterChanges", vec![id]).await?;
+        helpers::decode(response)
+    }
+
+    /// Returns the stream of items which automatically polls the server
+    pub fn stream(self, poll_interval: Duration) -> impl Stream<Item = error::Result<I>> {
+        filter_stream(self, poll_interval)
+    }
+}
+
 impl<T: Transport> BaseFilter<T, Log> {
     /// Returns future with all logs matching given filter
-    pub fn logs(&self) -> CallFuture<Vec<Log>, T::Out> {
+    pub async fn logs(&self) -> error::Result<Vec<Log>> {
         let id = helpers::serialize(&self.id);
-        CallFuture::new(self.transport.execute("eth_getFilterLogs", vec![id]))
+        let response = self.transport.execute("eth_getFilterLogs", vec![id]).await?;
+        helpers::decode(response)
     }
 }
 
 /// Should be used to create new filter future
-fn create_filter<T: Transport, F: FilterInterface>(t: T, arg: Vec<rpc::Value>) -> CreateFilter<T, F::Output> {
-    let future = CallFuture::new(t.execute(F::constructor(), arg));
-    CreateFilter {
-        transport: Some(t),
+async fn create_filter<T: Transport, F: FilterInterface>(
+    transport: T,
+    arg: Vec<rpc::Value>,
+) -> error::Result<BaseFilter<T, F::Output>> {
+    let response = transport.execute(F::constructor(), arg).await?;
+    let id = helpers::decode(response)?;
+    Ok(BaseFilter {
+        id,
+        transport,
         item: PhantomData,
-        future,
-    }
-}
-
-/// Future which resolves with new filter
-#[derive(Debug)]
-pub struct CreateFilter<T: Transport, I> {
-    transport: Option<T>,
-    item: PhantomData<I>,
-    future: CallFuture<String, T::Out>,
-}
-
-impl<T, I> Future for CreateFilter<T, I>
-where
-    T: Transport,
-    I: Unpin,
-{
-    type Output = error::Result<BaseFilter<T, I>>;
-
-    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let id = ready!(self.future.poll_unpin(ctx))?;
-        let result = BaseFilter {
-            id,
-            transport: self.transport.take().expect("future polled after ready; qed"),
-            item: PhantomData,
-        };
-        Poll::Ready(Ok(result))
-    }
+    })
 }
 
 /// `Eth` namespace, filters
@@ -265,19 +182,19 @@ impl<T: Transport> Namespace<T> for EthFilter<T> {
 
 impl<T: Transport> EthFilter<T> {
     /// Installs a new logs filter.
-    pub fn create_logs_filter(self, filter: Filter) -> CreateFilter<T, Log> {
+    pub async fn create_logs_filter(self, filter: Filter) -> error::Result<BaseFilter<T, Log>> {
         let f = helpers::serialize(&filter);
-        create_filter::<_, LogsFilter>(self.transport, vec![f])
+        create_filter::<_, LogsFilter>(self.transport, vec![f]).await
     }
 
     /// Installs a new block filter.
-    pub fn create_blocks_filter(self) -> CreateFilter<T, H256> {
-        create_filter::<_, BlocksFilter>(self.transport, vec![])
+    pub async fn create_blocks_filter(self) -> error::Result<BaseFilter<T, H256>> {
+        create_filter::<_, BlocksFilter>(self.transport, vec![]).await
     }
 
     /// Installs a new pending transactions filter.
-    pub fn create_pending_transactions_filter(self) -> CreateFilter<T, H256> {
-        create_filter::<_, PendingTransactionsFilter>(self.transport, vec![])
+    pub async fn create_pending_transactions_filter(self) -> error::Result<BaseFilter<T, H256>> {
+        create_filter::<_, PendingTransactionsFilter>(self.transport, vec![]).await
     }
 }
 
@@ -288,6 +205,7 @@ mod tests {
     use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
     use crate::types::{Address, Bytes, FilterBuilder, Log, H256};
+    use futures::stream::StreamExt;
     use std::time::Duration;
 
     #[test]
@@ -455,7 +373,7 @@ mod tests {
 
             // when
             let filter = futures::executor::block_on(eth.create_blocks_filter()).unwrap();
-            futures::executor::block_on_stream(filter.stream(Duration::from_secs(0)))
+            futures::executor::block_on_stream(filter.stream(Duration::from_secs(0)).boxed_local())
                 .take(4)
                 .collect()
         };
