@@ -41,7 +41,7 @@ where
     F: Future<Output = error::Result<Option<U64>>>,
 {
     let filter = eth_filter.create_blocks_filter().await?;
-    // TODO: The stream should have additional checks:
+    // TODO #396: The stream should have additional checks.
     // * We should not continue calling next on a stream that has completed (has returned None). We expect this to never
     //   happen for the blocks filter but to be safe we should handle this case for example by `fuse`ing the stream or
     //   erroring when it does complete.
@@ -78,9 +78,7 @@ async fn send_transaction_with_confirmation_<T: Transport>(
         let eth = eth.clone();
         wait_for_confirmations(eth, eth_filter, poll_interval, confirmations, confirmation_check).await?;
     }
-    // TODO: We should remove this `expect`. No matter what happens inside the node, this shouldn't be a panic.
-    // Should convert this into an some error. InternalError probably makes sense but then we cannot provide the error
-    // message. Maybe make new error for this? Or allow InternalError to carry a message.
+    // TODO #397: We should remove this `expect`. No matter what happens inside the node, this shouldn't be a panic.
     let receipt = eth
         .transaction_receipt(hash)
         .await?
