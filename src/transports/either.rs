@@ -1,6 +1,10 @@
 //! A strongly-typed transport alternative.
 
 use crate::{api, error, rpc, BatchTransport, DuplexTransport, RequestId, Transport};
+use futures::{
+    future::{BoxFuture, FutureExt},
+    stream::{BoxStream, StreamExt},
+};
 
 /// A wrapper over two possible transports.
 ///
@@ -20,10 +24,10 @@ impl<A, B, AOut, BOut> Transport for Either<A, B>
 where
     A: Transport<Out = AOut>,
     B: Transport<Out = BOut>,
-    AOut: futures::Future<Output = error::Result<rpc::Value>> + Unpin + 'static,
-    BOut: futures::Future<Output = error::Result<rpc::Value>> + Unpin + 'static,
+    AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static + Send,
+    BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static + Send,
 {
-    type Out = Box<dyn futures::Future<Output = error::Result<rpc::Value>> + Unpin>;
+    type Out = BoxFuture<'static, error::Result<rpc::Value>>;
 
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
         match *self {
@@ -34,8 +38,8 @@ where
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
         match *self {
-            Self::Left(ref a) => Box::new(a.send(id, request)),
-            Self::Right(ref b) => Box::new(b.send(id, request)),
+            Self::Left(ref a) => a.send(id, request).boxed(),
+            Self::Right(ref b) => b.send(id, request).boxed(),
         }
     }
 }
@@ -44,20 +48,20 @@ impl<A, B, ABatch, BBatch> BatchTransport for Either<A, B>
 where
     A: BatchTransport<Batch = ABatch>,
     B: BatchTransport<Batch = BBatch>,
-    A::Out: Unpin + 'static,
-    B::Out: Unpin + 'static,
-    ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
-    BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin + 'static,
+    A::Out: 'static + Send,
+    B::Out: 'static + Send,
+    ABatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static + Send,
+    BBatch: futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + 'static + Send,
 {
-    type Batch = Box<dyn futures::Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> + Unpin>;
+    type Batch = BoxFuture<'static, error::Result<Vec<error::Result<rpc::Value>>>>;
 
     fn send_batch<T>(&self, requests: T) -> Self::Batch
     where
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         match *self {
-            Self::Left(ref a) => Box::new(a.send_batch(requests)),
-            Self::Right(ref b) => Box::new(b.send_batch(requests)),
+            Self::Left(ref a) => a.send_batch(requests).boxed(),
+            Self::Right(ref b) => b.send_batch(requests).boxed(),
         }
     }
 }
@@ -66,17 +70,17 @@ impl<A, B, AStream, BStream> DuplexTransport for Either<A, B>
 where
     A: DuplexTransport<NotificationStream = AStream>,
     B: DuplexTransport<NotificationStream = BStream>,
-    A::Out: Unpin + 'static,
-    B::Out: Unpin + 'static,
-    AStream: futures::Stream<Item = rpc::Value> + Unpin + 'static,
-    BStream: futures::Stream<Item = rpc::Value> + Unpin + 'static,
+    A::Out: 'static + Send,
+    B::Out: 'static + Send,
+    AStream: futures::Stream<Item = rpc::Value> + 'static + Send,
+    BStream: futures::Stream<Item = rpc::Value> + 'static + Send,
 {
-    type NotificationStream = Box<dyn futures::Stream<Item = rpc::Value> + Unpin>;
+    type NotificationStream = BoxStream<'static, rpc::Value>;
 
     fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream> {
         Ok(match *self {
-            Self::Left(ref a) => Box::new(a.subscribe(id)?),
-            Self::Right(ref b) => Box::new(b.subscribe(id)?),
+            Self::Left(ref a) => a.subscribe(id)?.boxed(),
+            Self::Right(ref b) => b.subscribe(id)?.boxed(),
         })
     }
 
