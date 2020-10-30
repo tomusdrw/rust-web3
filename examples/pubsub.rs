@@ -16,7 +16,7 @@ async fn main() -> web3::Result {
         })
         .await;
 
-    sub.unsubscribe();
+    sub.unsubscribe().await?;
 
     Ok(())
 }
