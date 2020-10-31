@@ -3,7 +3,7 @@
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{
-    Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
+    Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
     TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
 };
 use crate::Transport;
@@ -220,7 +220,7 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get uncle by block ID and uncle index -- transactions only has hashes.
-    pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<Block<H256>>, T::Out> {
+    pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<BlockHeader>, T::Out> {
         let index = helpers::serialize(&index);
 
         let result = match block {
@@ -335,8 +335,8 @@ mod tests {
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::{
-        Address, Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction,
-        TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState,
+        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
     };
 
     use super::Eth;
@@ -656,7 +656,7 @@ mod tests {
       =>
       "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
       ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
-      => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
+      => Some(::serde_json::from_str::<BlockHeader>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
