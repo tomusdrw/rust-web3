@@ -1,14 +1,14 @@
 //! Web3 helpers.
 
 use std::marker::PhantomData;
-use std::marker::Unpin;
 use std::pin::Pin;
 
 use crate::{error, rpc};
 use futures::{
     task::{Context, Poll},
-    Future, FutureExt,
+    Future,
 };
+use pin_project::pin_project;
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
 /// yields the deserialized value
@@ -17,8 +17,10 @@ pub fn decode<T: serde::de::DeserializeOwned>(value: rpc::Value) -> error::Resul
 }
 
 /// Calls decode on the result of the wrapped future.
+#[pin_project]
 #[derive(Debug)]
 pub struct CallFuture<T, F> {
+    #[pin]
     inner: F,
     _marker: PhantomData<T>,
 }
@@ -35,13 +37,14 @@ impl<T, F> CallFuture<T, F> {
 
 impl<T, F> Future for CallFuture<T, F>
 where
-    T: serde::de::DeserializeOwned + Unpin,
-    F: Future<Output = error::Result<rpc::Value>> + Unpin,
+    T: serde::de::DeserializeOwned,
+    F: Future<Output = error::Result<rpc::Value>>,
 {
     type Output = error::Result<T>;
 
-    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let x = ready!(self.inner.poll_unpin(ctx));
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        let this = self.project();
+        let x = ready!(this.inner.poll(ctx));
         Poll::Ready(x.and_then(decode))
     }
 }
