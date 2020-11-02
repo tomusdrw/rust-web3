@@ -41,7 +41,7 @@ impl std::error::Error for RecoveryError {}
 ///
 /// If it's enough to pass a reference to `SecretKey` (lifetimes) than you can use `SecretKeyRef`
 /// wrapper.
-pub trait Key: std::marker::Unpin {
+pub trait Key {
     /// Sign given message and include chain-id replay protection.
     ///
     /// When a chain ID is provided, the `Signature`'s V-value will have chain relay
@@ -82,7 +82,7 @@ impl<'a> Deref for SecretKeyRef<'a> {
     }
 }
 
-impl<T: Deref<Target = SecretKey> + std::marker::Unpin> Key for T {
+impl<T: Deref<Target = SecretKey>> Key for T {
     fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
         let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
         let (recovery_id, signature) = Secp256k1::signing_only()
