@@ -165,8 +165,8 @@ impl<T: Transport> Builder<T> {
 mod tests {
     use crate::api::{self, Namespace};
     use crate::contract::{Contract, Options};
-    use crate::helpers::tests::TestTransport;
     use crate::rpc;
+    use crate::transports::test::TestTransport;
     use crate::types::{Address, U256};
     use serde_json::Value;
     use std::collections::HashMap;

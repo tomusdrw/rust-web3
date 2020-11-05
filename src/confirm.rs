@@ -117,8 +117,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::send_transaction_with_confirmation;
-    use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
+    use crate::transports::test::TestTransport;
     use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U64};
     use serde_json::json;
     use std::time::Duration;
