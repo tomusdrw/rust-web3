@@ -372,7 +372,7 @@ impl<T: Transport> Contract<T> {
 mod tests {
     use super::{Contract, Options};
     use crate::api::{self, Namespace};
-    use crate::helpers::tests::TestTransport;
+    use crate::transports::test::TestTransport;
     use crate::rpc;
     use crate::types::{Address, BlockId, BlockNumber, H256, U256};
     use crate::Transport;

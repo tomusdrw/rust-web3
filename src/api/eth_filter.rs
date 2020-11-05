@@ -288,7 +288,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::api::Namespace;
-    use crate::helpers::tests::TestTransport;
+    use crate::transports::test::TestTransport;
     use crate::types::{Address, Bytes, FilterBuilder, Log, H256};
 
     use super::EthFilter;

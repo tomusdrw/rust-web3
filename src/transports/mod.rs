@@ -15,6 +15,9 @@ pub mod ws;
 #[cfg(feature = "ws")]
 pub use self::ws::WebSocket;
 
+#[cfg(feature = "test")]
+pub mod test;
+
 #[cfg(feature = "url")]
 impl From<url::ParseError> for crate::Error {
     fn from(err: url::ParseError) -> Self {
