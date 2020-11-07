@@ -98,13 +98,12 @@ pub mod tests {
     use crate::error::{self, Error};
     use crate::rpc;
     use crate::{RequestId, Transport};
-    use futures::future;
+    use futures::future::{self, BoxFuture, FutureExt};
     use std::cell::RefCell;
     use std::collections::VecDeque;
-    use std::marker::Unpin;
     use std::rc::Rc;
 
-    type Result<T> = Box<dyn futures::Future<Output = error::Result<T>> + Send + Unpin>;
+    type Result<T> = BoxFuture<'static, error::Result<T>>;
 
     #[derive(Debug, Default, Clone)]
     pub struct TestTransport {
@@ -123,13 +122,14 @@ pub mod tests {
         }
 
         fn send(&self, id: RequestId, request: rpc::Call) -> Result<rpc::Value> {
-            Box::new(future::ready(match self.responses.borrow_mut().pop_front() {
+            future::ready(match self.responses.borrow_mut().pop_front() {
                 Some(response) => Ok(response),
                 None => {
                     println!("Unexpected request (id: {:?}): {:?}", id, request);
                     Err(Error::Unreachable)
                 }
-            }))
+            })
+            .boxed()
         }
     }
 

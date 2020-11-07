@@ -138,15 +138,14 @@ mod tests {
     use super::{error, rpc, RequestId, Transport};
 
     use crate::api::Web3;
-    use futures::Future;
-    use std::marker::Unpin;
+    use futures::future::BoxFuture;
     use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;
 
     impl Transport for FakeTransport {
-        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + Unpin>;
+        type Out = BoxFuture<'static, error::Result<rpc::Value>>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

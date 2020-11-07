@@ -229,10 +229,13 @@ impl<T> Response<T> {
     }
 }
 
+// We can do this because `hyper::client::ResponseFuture: Unpin`.
+impl<T> Unpin for Response<T> {}
+
 impl<T, Out> Future for Response<T>
 where
-    T: Fn(Vec<u8>) -> error::Result<Out> + Unpin,
-    Out: fmt::Debug + Unpin,
+    T: Fn(Vec<u8>) -> error::Result<Out>,
+    Out: fmt::Debug,
 {
     type Output = error::Result<Out>;
 
