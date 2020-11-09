@@ -1,13 +1,8 @@
 //! Contract deployment utilities
 
-use ethabi;
-use futures::{
-    task::{Context, Poll},
-    Future, FutureExt, TryFutureExt,
-};
+use futures::{Future, TryFutureExt};
 use rustc_hex::{FromHex, ToHex};
 use std::collections::HashMap;
-use std::pin::Pin;
 use std::time;
 
 use crate::api::{Eth, Namespace};
@@ -51,7 +46,7 @@ impl<T: Transport> Builder<T> {
     }
 
     /// Execute deployment passing code and contructor parameters.
-    pub fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<PendingContract<T>, ethabi::Error>
+    pub async fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<Contract<T>, Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -63,20 +58,21 @@ impl<T: Transport> Builder<T> {
         self.do_execute(code, params, from, move |tx| {
             confirm::send_transaction_with_confirmation(transport, tx, poll_interval, confirmations)
         })
+        .await
     }
-    /// Execute deployment passing code and contructor parameters.
+    /// Execute deployment passing code and constructor parameters.
     ///
     /// Unlike the above `execute`, this method uses
     /// `sign_raw_transaction_with_confirmation` instead of
     /// `sign_transaction_with_confirmation`, which requires the account from
     /// which the transaction is sent to be unlocked.
-    pub fn sign_and_execute<P, V>(
+    pub async fn sign_and_execute<P, V>(
         self,
         code: V,
         params: P,
         from: Address,
         password: &str,
-    ) -> Result<PendingContract<T, impl Future<Output = error::Result<TransactionReceipt>>>, ethabi::Error>
+    ) -> Result<Contract<T>, Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -97,15 +93,16 @@ impl<T: Transport> Builder<T> {
                     )
                 })
         })
+        .await
     }
 
-    fn do_execute<P, V, Ft>(
+    async fn do_execute<P, V, Ft>(
         self,
         code: V,
         params: P,
         from: Address,
         send: impl FnOnce(TransactionRequest) -> Ft,
-    ) -> Result<PendingContract<T, Ft>, ethabi::Error>
+    ) -> Result<Contract<T>, Error>
     where
         P: Tokenize,
         V: AsRef<str>,
@@ -119,9 +116,9 @@ impl<T: Transport> Builder<T> {
 
         for (lib, address) in self.linker {
             if lib.len() > 38 {
-                return Err(ethabi::Error::Other(
+                return Err(Error::Abi(ethabi::Error::Other(
                     "The library name should be under 39 characters.".into(),
-                ));
+                )));
             }
             let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
             let address: String = address.as_ref().to_hex();
@@ -133,7 +130,9 @@ impl<T: Transport> Builder<T> {
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
             (None, false) => {
-                return Err(ethabi::Error::Other("Constructor is not defined in the ABI.".into()));
+                return Err(Error::Abi(ethabi::Error::Other(
+                    "Constructor is not defined in the ABI.".into(),
+                )));
             }
             (None, true) => code,
             (Some(constructor), _) => constructor.encode_input(code, &params)?,
@@ -149,40 +148,8 @@ impl<T: Transport> Builder<T> {
             data: Some(Bytes(data)),
             condition: options.condition,
         };
-
-        let waiting = send(tx);
-
-        Ok(PendingContract {
-            eth: Some(eth),
-            abi: Some(abi),
-            waiting,
-        })
-    }
-}
-
-/// Contract being deployed.
-pub struct PendingContract<
-    T: Transport,
-    F: Future<Output = error::Result<TransactionReceipt>> = confirm::SendTransactionWithConfirmation<T>,
-> {
-    eth: Option<Eth<T>>,
-    abi: Option<ethabi::Contract>,
-    waiting: F,
-}
-
-impl<T, F> Future for PendingContract<T, F>
-where
-    F: Future<Output = error::Result<TransactionReceipt>> + Unpin,
-    T: Transport,
-{
-    type Output = Result<Contract<T>, Error>;
-
-    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let receipt = ready!(self.waiting.poll_unpin(ctx))?;
-        let eth = self.eth.take().expect("future polled after ready; qed");
-        let abi = self.abi.take().expect("future polled after ready; qed");
-
-        Poll::Ready(match receipt.status {
+        let receipt = send(tx).await?;
+        match receipt.status {
             Some(status) if status == 0.into() => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             // If the `status` field is not present we use the presence of `contract_address` to
             // determine if deployment was successfull.
@@ -190,7 +157,7 @@ where
                 Some(address) => Ok(Contract::new(eth, address, abi)),
                 None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             },
-        })
+        }
     }
 }
 
@@ -243,10 +210,9 @@ mod tests {
                         "0x01020304",
                         (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
                         Address::from_low_u64_be(5),
-                    )
-                    .unwrap(),
+                    ),
             )
-            .unwrap();
+            .unwrap()
         };
 
         // then
@@ -303,7 +269,7 @@ mod tests {
         let lib_address;
         {
             let builder = Contract::deploy(api::Eth::new(&transport), &lib_abi).unwrap();
-            lib_address = futures::executor::block_on(builder.execute(lib_code, (), Address::zero()).unwrap())
+            lib_address = futures::executor::block_on(builder.execute(lib_code, (), Address::zero()))
                 .unwrap()
                 .address();
         }
@@ -331,7 +297,7 @@ mod tests {
                 linker
             })
             .unwrap();
-            let _ = futures::executor::block_on(builder.execute(main_code, (), Address::zero()).unwrap()).unwrap();
+            let _ = futures::executor::block_on(builder.execute(main_code, (), Address::zero())).unwrap();
         }
 
         transport.assert_request("eth_sendTransaction", &[

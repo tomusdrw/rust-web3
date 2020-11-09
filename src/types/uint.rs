@@ -3,7 +3,6 @@ pub use ethereum_types::{BigEndianHash, Bloom as H2048, H128, H160, H256, H512, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
 
     type Res = Result<U256, serde_json::Error>;
 

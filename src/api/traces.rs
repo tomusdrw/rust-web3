@@ -104,7 +104,7 @@ mod tests {
 
     use super::Traces;
 
-    const EXAMPLE_BLOCKTRACE: &'static str = r#"
+    const EXAMPLE_BLOCKTRACE: &str = r#"
     {
         "output": "0x010203",
         "stateDiff": null,
@@ -131,7 +131,7 @@ mod tests {
     }
     "#;
 
-    const EXAMPLE_BLOCKTRACES: &'static str = r#"
+    const EXAMPLE_BLOCKTRACES: &str = r#"
 	[{
         "output": "0x",
         "stateDiff": null,
@@ -159,7 +159,7 @@ mod tests {
     }]
 	"#;
 
-    const EXAMPLE_TRACE_ARR: &'static str = r#"
+    const EXAMPLE_TRACE_ARR: &str = r#"
     [
         {
             "action": {
@@ -185,7 +185,7 @@ mod tests {
     ]
     "#;
 
-    const EXAMPLE_TRACE: &'static str = r#"
+    const EXAMPLE_TRACE: &str = r#"
       {
           "action": {
               "callType": "call",

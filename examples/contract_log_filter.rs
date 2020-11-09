@@ -18,7 +18,7 @@ async fn main() -> web3::contract::Result<()> {
         .confirmations(1)
         .poll_interval(time::Duration::from_secs(10))
         .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
-        .execute(bytecode, (), accounts[0])?
+        .execute(bytecode, (), accounts[0])
         .await?;
 
     println!("contract deployed at: {}", contract.address());
@@ -38,7 +38,8 @@ async fn main() -> web3::contract::Result<()> {
 
     let filter = web3.eth_filter().create_logs_filter(filter).await?;
 
-    let mut logs_stream = filter.stream(time::Duration::from_secs(1));
+    let logs_stream = filter.stream(time::Duration::from_secs(1));
+    futures::pin_mut!(logs_stream);
 
     let tx = contract.call("hello", (), accounts[0], Options::default()).await?;
     println!("got tx: {:?}", tx);

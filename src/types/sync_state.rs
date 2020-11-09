@@ -110,8 +110,6 @@ impl Serialize for SyncState {
 mod tests {
     use super::{SyncInfo, SyncState};
 
-    use serde_json;
-
     #[test]
     fn should_deserialize_rpc_sync_info() {
         let sync_state = r#"{

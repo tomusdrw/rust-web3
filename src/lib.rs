@@ -40,9 +40,9 @@ pub type RequestId = usize;
 // TODO [ToDr] The transport most likely don't need to be thread-safe.
 // (though it has to be Send)
 /// Transport implementation
-pub trait Transport: std::fmt::Debug + Clone + Unpin {
+pub trait Transport: std::fmt::Debug + Clone {
     /// The type of future this transport returns when a call is made.
-    type Out: futures::Future<Output = error::Result<rpc::Value>> + Unpin;
+    type Out: futures::Future<Output = error::Result<rpc::Value>>;
 
     /// Prepare serializable RPC call for given method with parameters.
     fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call);
@@ -86,7 +86,6 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
-    X: Unpin,
 {
     type Out = T::Out;
 
@@ -105,7 +104,6 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
-    X: Unpin,
 {
     type Batch = T::Batch;
 
@@ -123,7 +121,6 @@ where
     X: std::ops::Deref<Target = T>,
     X: std::fmt::Debug,
     X: Clone,
-    X: Unpin,
 {
     type NotificationStream = T::NotificationStream;
 
@@ -141,15 +138,14 @@ mod tests {
     use super::{error, rpc, RequestId, Transport};
 
     use crate::api::Web3;
-    use futures::Future;
-    use std::marker::Unpin;
+    use futures::future::BoxFuture;
     use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;
 
     impl Transport for FakeTransport {
-        type Out = Box<dyn Future<Output = error::Result<rpc::Value>> + Send + Unpin>;
+        type Out = BoxFuture<'static, error::Result<rpc::Value>>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

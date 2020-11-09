@@ -60,7 +60,7 @@ For more see [examples folder](./examples).
 - [ ] Consider getting rid of `Unpin` requirements. (#361)
 - [x] WebSockets: TLS support (#360)
 - [ ] WebSockets: Reconnecting & Pings
-- [ ] Consider using `tokio` instead of `async-std` for `ws.rs` transport (issue with test).
+- [x] Consider using `tokio` instead of `async-std` for `ws.rs` transport (issue with test).
 - [ ] Restore IPC Transport
 
 ## General
@@ -110,3 +110,15 @@ To complile, you need to disable the IPC feature:
 ```
 web3 = { version = "0.11.0", default-features = false, features = ["http"] }
 ```
+
+# Cargo Features
+
+The library supports following features:
+- `http` - Enables `http` transport.
+- `http-tls` - Enables `http` over TLS (`https`) transport support. Implies `http`.
+- `ws-tokio` - Enables `ws` tranport (`tokio` runtime).
+- `ws-tls-tokio` - Enables `wss` tranport (`tokio` runtime).
+- `ws-async-std` - Enables `ws` tranport (`async-std` runtime).
+- `ws-tls-async-std` - Enables `wss` tranport (`async-std` runtime).
+
+By default `http-tls` and `ws-tls-tokio` are enabled.

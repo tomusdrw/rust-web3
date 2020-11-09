@@ -122,7 +122,6 @@ pub struct RawTransactionDetails {
 mod tests {
     use super::RawTransaction;
     use super::Receipt;
-    use serde_json;
 
     #[test]
     fn test_deserialize_receipt() {

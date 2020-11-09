@@ -1,5 +1,4 @@
 use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
-use ethabi;
 use serde::{Deserialize, Serialize, Serializer};
 
 /// A log produced by a transaction.
@@ -176,7 +175,6 @@ mod tests {
         log::{Bytes, FilterBuilder, Log},
         Address, H160, H256,
     };
-    use ethabi;
 
     #[test]
     fn is_removed_removed_true() {
