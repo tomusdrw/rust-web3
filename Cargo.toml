@@ -48,8 +48,8 @@ tokio = { version = "0.2", features = ["full"] }
 async-std = { version = "1.5.0", features = ["attributes"] }
 
 [features]
-default = ["http", "ws", "http-tls", "ws-tls", "test"]
-http = ["hyper", "url", "base64", "test"]
+default = ["http", "ws", "http-tls", "ws-tls"]
+http = ["hyper", "url", "base64"]
 http-tls = ["hyper-tls", "native-tls", "http"]
 ws = ["soketto", "async-std", "url"]
 ws-tls = ["async-native-tls", "native-tls", "ws"]
