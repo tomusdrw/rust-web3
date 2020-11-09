@@ -15,7 +15,7 @@ pub mod ws;
 #[cfg(feature = "ws")]
 pub use self::ws::WebSocket;
 
-#[cfg(feature = "test")]
+#[cfg(any(feature = "test", test))]
 pub mod test;
 
 #[cfg(feature = "url")]
