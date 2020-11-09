@@ -202,8 +202,8 @@ impl<T: Transport> EthFilter<T> {
 mod tests {
     use super::EthFilter;
     use crate::api::Namespace;
-    use crate::helpers::tests::TestTransport;
     use crate::rpc::Value;
+    use crate::transports::test::TestTransport;
     use crate::types::{Address, Bytes, FilterBuilder, Log, H256};
     use futures::stream::StreamExt;
     use std::time::Duration;

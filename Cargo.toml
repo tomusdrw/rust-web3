@@ -58,5 +58,6 @@ ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
+test = []
 
 [workspace]

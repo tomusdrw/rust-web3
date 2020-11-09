@@ -15,6 +15,9 @@ pub mod ws;
 #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
 pub use self::ws::WebSocket;
 
+#[cfg(any(feature = "test", test))]
+pub mod test;
+
 #[cfg(feature = "url")]
 impl From<url::ParseError> for crate::Error {
     fn from(err: url::ParseError) -> Self {

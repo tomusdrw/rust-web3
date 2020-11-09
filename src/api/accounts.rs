@@ -234,8 +234,8 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helpers::tests::TestTransport;
     use crate::signing::{SecretKey, SecretKeyRef};
+    use crate::transports::test::TestTransport;
     use crate::types::Bytes;
     use rustc_hex::FromHex;
     use serde_json::json;
