@@ -14,7 +14,7 @@ pub struct BlockHeader {
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner")]
-    pub author: H160,
+    pub author: Option<H160>,
     /// State root hash
     #[serde(rename = "stateRoot")]
     pub state_root: H256,
@@ -63,7 +63,7 @@ pub struct Block<TX> {
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner")]
-    pub author: H160,
+    pub author: Option<H160>,
     /// State root hash
     #[serde(rename = "stateRoot")]
     pub state_root: H256,
