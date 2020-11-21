@@ -82,6 +82,9 @@ pub struct Filter {
     /// To Block
     #[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
     to_block: Option<BlockNumber>,
+    /// Block Hash
+    #[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+    block_hash: Option<H256>,
     /// Address
     #[serde(skip_serializing_if = "Option::is_none")]
     address: Option<ValueOrArray<H160>>,
@@ -100,15 +103,30 @@ pub struct FilterBuilder {
 }
 
 impl FilterBuilder {
-    /// Sets from block
+    /// Sets `from_block`. The fields `from_block` and `block_hash` are
+    /// mutually exclusive. Setting `from_block` will clear a previously set
+    /// `block_hash`.
     pub fn from_block(mut self, block: BlockNumber) -> Self {
+        self.filter.block_hash = None;
         self.filter.from_block = Some(block);
         self
     }
 
-    /// Sets to block
+    /// Sets `to_block`. The fields `to_block` and `block_hash` are mutually
+    /// exclusive. Setting `to_block` will clear a previously set `block_hash`.
     pub fn to_block(mut self, block: BlockNumber) -> Self {
+        self.filter.block_hash = None;
         self.filter.to_block = Some(block);
+        self
+    }
+
+    /// Sets `block_hash`. The field `block_hash` and the pair `from_block` and
+    /// `to_block` are mutually exclusive. Setting `block_hash` will clear a
+    /// previously set `from_block` and `to_block`.
+    pub fn block_hash(mut self, hash: H256) -> Self {
+        self.filter.from_block = None;
+        self.filter.to_block = None;
+        self.filter.block_hash = Some(hash);
         self
     }
 
