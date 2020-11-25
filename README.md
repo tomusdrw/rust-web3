@@ -13,7 +13,7 @@ Rust implementation of Web3.js library.
 [documentation-badge]: https://img.shields.io/badge/Documentation-master%20branch-blue
 [documentation-url]: https://tomusdrw.github.io/rust-web3
 
-Documentation: [master branch][documentation-url] or [crates.io](docs-rs-url)
+Documentation: [master branch][documentation-url] or [crates.io][docs-rs-url]
 
 ## Usage
 
