@@ -1,14 +1,19 @@
-# rust-web3
+# web3
 
 Ethereum JSON-RPC multi-transport client.
 Rust implementation of Web3.js library.
 
-[![Build Status][travis-image]][travis-url]
+[![Build Status][travis-image]][travis-url] [![Crates.io](https://img.shields.io/crates/v/web3)](https://crates.io/crates/web3) [![https://tomusdrw.github.io/rust-web3][documentation-badge]][documentation-url] [![docs.rs][docs-rs-badge]][docs-rs-url]
+
 
 [travis-image]: https://travis-ci.org/tomusdrw/rust-web3.svg?branch=master
 [travis-url]: https://travis-ci.org/tomusdrw/rust-web3
+[docs-rs-badge]: https://docs.rs/web3/badge.svg
+[docs-rs-url]: https://docs.rs/web3
+[documentation-badge]: https://img.shields.io/badge/Documentation-master%20branch-blue
+[documentation-url]: https://tomusdrw.github.io/rust-web3
 
-[Documentation](http://tomusdrw.github.io/rust-web3/index.html)
+Documentation: [master branch][documentation-url] or [crates.io][docs-rs-url]
 
 ## Usage
 
@@ -16,7 +21,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-web3 = { git = "https://github.com/tomusdrw/rust-web3" }
+web3 = "0.13.0"
 ```
 
 ## Example
@@ -106,9 +111,9 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 # Installation on Windows
 
 Currently, Windows does not support IPC, which is enabled in the library by default.
-To complile, you need to disable the IPC feature:
+To compile, you need to disable the IPC feature:
 ```
-web3 = { version = "0.11.0", default-features = false, features = ["http"] }
+web3 = { version = "0.13.0", default-features = false, features = ["http"] }
 ```
 
 # Cargo Features
