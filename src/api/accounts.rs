@@ -1,13 +1,22 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::api::{Namespace, Web3};
+use crate::api::Namespace;
+#[cfg(feature = "signing")]
+use crate::api::Web3;
+#[cfg(feature = "signing")]
 use crate::error;
-use crate::signing::{self, Signature};
+use crate::signing;
+#[cfg(feature = "signing")]
+use crate::signing::Signature;
+use crate::types::H256;
+#[cfg(feature = "signing")]
 use crate::types::{
-    Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
+    Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
 };
 use crate::Transport;
+#[cfg(feature = "signing")]
 use rlp::RlpStream;
+#[cfg(feature = "signing")]
 use std::convert::TryInto;
 
 /// `Accounts` namespace
@@ -31,6 +40,7 @@ impl<T: Transport> Namespace<T> for Accounts<T> {
 
 impl<T: Transport> Accounts<T> {
     /// Gets the parent `web3` namespace
+    #[cfg(feature = "signing")]
     fn web3(&self) -> Web3<T> {
         Web3::new(self.transport.clone())
     }
@@ -41,6 +51,7 @@ impl<T: Transport> Accounts<T> {
     /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
     /// that if all transaction parameters were provided, this future will resolve
     /// immediately.
+    #[cfg(feature = "signing")]
     pub async fn sign_transaction<K: signing::Key>(
         &self,
         tx: TransactionParameters,
@@ -100,6 +111,7 @@ impl<T: Transport> Accounts<T> {
     /// notation, that is the recovery value `v` is either `27` or `28` (as
     /// opposed to the standard notation where `v` is either `0` or `1`). This
     /// is important to consider when using this signature with other crates.
+    #[cfg(feature = "signing")]
     pub fn sign<S>(&self, message: S, key: impl signing::Key) -> SignedData
     where
         S: AsRef<[u8]>,
@@ -140,6 +152,7 @@ impl<T: Transport> Accounts<T> {
     ///
     /// Recovery signature data uses 'Electrum' notation, this means the `v`
     /// value is expected to be either `27` or `28`.
+    #[cfg(feature = "signing")]
     pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
     where
         R: Into<Recovery>,
@@ -158,6 +171,7 @@ impl<T: Transport> Accounts<T> {
 }
 
 /// A transaction used for RLP encoding, hashing and signing.
+#[cfg(feature = "signing")]
 struct Transaction {
     to: Option<Address>,
     nonce: U256,
@@ -167,6 +181,7 @@ struct Transaction {
     data: Vec<u8>,
 }
 
+#[cfg(feature = "signing")]
 impl Transaction {
     /// RLP encode an unsigned transaction for the specified chain ID.
     fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
@@ -205,6 +220,7 @@ impl Transaction {
     }
 
     /// Sign and return a raw signed transaction.
+    #[cfg(feature = "signing")]
     fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
         let mut rlp = RlpStream::new();
         self.rlp_append_unsigned(&mut rlp, chain_id);

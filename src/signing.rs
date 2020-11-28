@@ -1,10 +1,16 @@
 //! Signing capabilities and utilities.
 
-use crate::types::{Address, H256};
+#[cfg(feature = "signing")]
+use crate::types::Address;
+use crate::types::H256;
+#[cfg(feature = "signing")]
 use secp256k1::recovery::{RecoverableSignature, RecoveryId};
+#[cfg(feature = "signing")]
 use secp256k1::{Message, PublicKey, Secp256k1};
+#[cfg(feature = "signing")]
 use std::ops::Deref;
 
+#[cfg(feature = "signing")]
 pub(crate) use secp256k1::SecretKey;
 
 /// Error during signing.
@@ -41,6 +47,7 @@ impl std::error::Error for RecoveryError {}
 ///
 /// If it's enough to pass a reference to `SecretKey` (lifetimes) than you can use `SecretKeyRef`
 /// wrapper.
+#[cfg(feature = "signing")]
 pub trait Key {
     /// Sign given message and include chain-id replay protection.
     ///
@@ -57,10 +64,12 @@ pub trait Key {
 ///
 /// A wrapper around `secp256k1::SecretKey` reference, which enables it to be used in methods expecting
 /// `Key` capabilities.
+#[cfg(feature = "signing")]
 pub struct SecretKeyRef<'a> {
     key: &'a SecretKey,
 }
 
+#[cfg(feature = "signing")]
 impl<'a> SecretKeyRef<'a> {
     /// A simple wrapper around a reference to `SecretKey` which allows it to be usable for signing.
     pub fn new(key: &'a SecretKey) -> Self {
@@ -68,12 +77,14 @@ impl<'a> SecretKeyRef<'a> {
     }
 }
 
+#[cfg(feature = "signing")]
 impl<'a> From<&'a SecretKey> for SecretKeyRef<'a> {
     fn from(key: &'a SecretKey) -> Self {
         Self::new(key)
     }
 }
 
+#[cfg(feature = "signing")]
 impl<'a> Deref for SecretKeyRef<'a> {
     type Target = SecretKey;
 
@@ -82,6 +93,7 @@ impl<'a> Deref for SecretKeyRef<'a> {
     }
 }
 
+#[cfg(feature = "signing")]
 impl<T: Deref<Target = SecretKey>> Key for T {
     fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
         let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
@@ -121,6 +133,7 @@ pub struct Signature {
 /// Recover a sender, given message and the signature.
 ///
 /// Signature and `recovery_id` can be obtained from `types::Recovery` type.
+#[cfg(feature = "signing")]
 pub fn recover(message: &[u8], signature: &[u8], recovery_id: i32) -> Result<Address, RecoveryError> {
     let message = Message::from_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
     let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
@@ -140,6 +153,7 @@ pub fn recover(message: &[u8], signature: &[u8], recovery_id: i32) -> Result<Add
 /// crate is 65 bytes long, that is because it is prefixed by `0x04` to
 /// indicate an uncompressed public key; this first byte is ignored when
 /// computing the hash.
+#[cfg(feature = "signing")]
 pub(crate) fn public_key_address(public_key: &PublicKey) -> Address {
     let public_key = public_key.serialize_uncompressed();
 
@@ -150,6 +164,7 @@ pub(crate) fn public_key_address(public_key: &PublicKey) -> Address {
 }
 
 /// Gets the public address of a private key.
+#[cfg(feature = "signing")]
 pub(crate) fn secret_key_address(key: &SecretKey) -> Address {
     let secp = Secp256k1::signing_only();
     let public_key = PublicKey::from_secret_key(&secp, key);
