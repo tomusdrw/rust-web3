@@ -30,31 +30,21 @@ impl Eip1193 {
         let subscriptions: Subscriptions = Subscriptions::default();
         let subscriptions_for_closure = subscriptions.clone();
         let msg_handler = Closure::wrap(Box::new(move |evt_js: JsValue| {
-            let evt: serde_json::Value = evt_js.into_serde().expect("couldn't translate notification via JSON");
-            log::trace!("Message from provider: {}", evt);
-            match evt.get("type").and_then(serde_json::Value::as_str) {
-                Some("eth_subscription") => {
-                    let data = evt
-                        .get("data")
-                        .and_then(serde_json::Value::as_object)
-                        .expect("couldn't get data field");
-                    let subscription = data
-                        .get("subscription")
-                        .and_then(serde_json::Value::as_str)
-                        .expect("couldn't get subscription field");
-                    let result = data.get("result").expect("couldn't get result field").clone();
+            let evt = evt_js.into_serde::<Event>().expect("Couldn't parse event data");
+            log::trace!("Message from provider: {:?}", evt);
+            match evt.event_type.as_str() {
+                "eth_subscription" => {
                     let subscriptions_map = subscriptions_for_closure.borrow();
-                    match subscriptions_map.get(&SubscriptionId::from(String::from(subscription))) {
+                    match subscriptions_map.get(&SubscriptionId::from(evt.data.subscription.clone())) {
                         Some(sink) => {
-                            if let Err(err) = sink.unbounded_send(result) {
+                            if let Err(err) = sink.unbounded_send(evt.data.result) {
                                 log::error!("Error sending notification: {}", err)
                             }
                         }
-                        None => log::warn!("Got message for non-existent subscription {}", subscription),
+                        None => log::warn!("Got message for non-existent subscription {}", evt.data.subscription),
                     }
                 }
-                Some(other) => log::warn!("Got unknown notification type: {}", other),
-                None => log::error!("Got notification with no \"type\" field: {:?}", evt),
+                other => log::warn!("Got unknown notification type: {}", other),
             }
         }) as Box<dyn FnMut(JsValue)>);
         provider.on("message", &msg_handler);
@@ -64,6 +54,20 @@ impl Eip1193 {
             subscriptions,
         }
     }
+}
+
+/// Event data sent from the JavaScript side to our callback.
+#[derive(serde::Deserialize, Debug)]
+struct Event {
+    #[serde(rename = "type")]
+    event_type: String,
+    data: EventData,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct EventData {
+    subscription: String,
+    result: serde_json::Value,
 }
 
 impl Transport for Eip1193 {
