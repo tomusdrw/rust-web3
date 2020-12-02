@@ -129,7 +129,6 @@ impl DuplexTransport for Eip1193 {
 // in rustfmt 2.
 #[rustfmt::skip]
 extern "C" {
-    #[wasm_bindgen]
     #[derive(Clone, Debug)]
     /// An EIP-1193 provider object. Available by convention at `window.ethereum`
     pub type Provider;
