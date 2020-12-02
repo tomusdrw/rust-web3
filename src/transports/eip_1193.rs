@@ -15,18 +15,19 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+type Subscriptions = Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>;
+
 /// EIP-1193 transport
 #[derive(Clone, Debug)]
 pub struct Eip1193 {
     provider: Provider,
-    subscriptions: Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>,
+    subscriptions: Subscriptions,
 }
 
 impl Eip1193 {
     /// Build an EIP-1193 transport.
     pub fn new(provider: Provider) -> Self {
-        let subscriptions: Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>> =
-            Rc::new(RefCell::new(BTreeMap::new()));
+        let subscriptions: Subscriptions = Subscriptions::default();
         let subscriptions_for_closure = subscriptions.clone();
         let msg_handler = Closure::wrap(Box::new(move |evt_js: JsValue| {
             let evt: serde_json::Value = evt_js.into_serde().expect("couldn't translate notification via JSON");
@@ -84,22 +85,22 @@ impl Transport for Eip1193 {
 
     fn send(&self, _id: RequestId, request: Call) -> Self::Out {
         match request {
-            Call::MethodCall(method_call) => match method_call.params {
-                jsonrpc_core::types::Params::Array(ref params) => {
-                    let js_params = js_sys::Array::from(
-                        &JsValue::from_serde(params).expect("couldn't send method params via JSON"),
-                    );
-                    let copy = self.provider.clone();
-                    Box::pin(async move {
-                        copy.request_wrapped(RequestArguments {
-                            method: method_call.method,
-                            params: js_params,
-                        })
-                        .await
+            Call::MethodCall(MethodCall {
+                params: jsonrpc_core::types::Params::Array(params),
+                method,
+                ..
+            }) => {
+                let js_params =
+                    js_sys::Array::from(&JsValue::from_serde(&params).expect("couldn't send method params via JSON"));
+                let copy = self.provider.clone();
+                Box::pin(async move {
+                    copy.request_wrapped(RequestArguments {
+                        method,
+                        params: js_params,
                     })
-                }
-                _other => Box::pin(future::err(Error::Internal)),
-            },
+                    .await
+                })
+            }
             _other => Box::pin(future::err(Error::Internal)),
         }
     }
