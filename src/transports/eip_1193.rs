@@ -4,8 +4,6 @@
 //! EIP-1193 providers like MetaMask. It's intended for use with Rust's
 //! WebAssembly target.
 
-#![cfg(feature = "eip-1193")]
-
 use crate::api::SubscriptionId;
 use crate::{error, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::mpsc;
