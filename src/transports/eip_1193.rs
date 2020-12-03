@@ -20,13 +20,17 @@ type Subscriptions = Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<s
 /// EIP-1193 transport
 #[derive(Clone, Debug)]
 pub struct Eip1193 {
-    provider: Provider,
+    provider_and_listeners: Rc<RefCell<ProviderAndListeners>>,
     subscriptions: Subscriptions,
 }
 
 impl Eip1193 {
     /// Build an EIP-1193 transport.
     pub fn new(provider: Provider) -> Self {
+        let mut provider_and_listeners = ProviderAndListeners {
+            provider,
+            listeners: BTreeMap::new(),
+        };
         let subscriptions: Subscriptions = Subscriptions::default();
         let subscriptions_for_closure = subscriptions.clone();
         let msg_handler = Closure::wrap(Box::new(move |evt_js: JsValue| {
@@ -47,10 +51,9 @@ impl Eip1193 {
                 other => log::warn!("Got unknown notification type: {}", other),
             }
         }) as Box<dyn FnMut(JsValue)>);
-        provider.on("message", &msg_handler);
-        msg_handler.into_js_value();
+        provider_and_listeners.on("message", msg_handler);
         Eip1193 {
-            provider,
+            provider_and_listeners: Rc::new(RefCell::new(provider_and_listeners)),
             subscriptions,
         }
     }
@@ -96,7 +99,7 @@ impl Transport for Eip1193 {
             }) => {
                 let js_params =
                     js_sys::Array::from(&JsValue::from_serde(&params).expect("couldn't send method params via JSON"));
-                let copy = self.provider.clone();
+                let copy = self.provider_and_listeners.borrow().provider.clone();
                 Box::pin(async move {
                     copy.request_wrapped(RequestArguments {
                         method,
@@ -142,6 +145,9 @@ extern "C" {
 
     #[wasm_bindgen(method)]
     fn on(_: &Provider, eventName: &str, listener: &Closure<dyn FnMut(JsValue)>);
+
+    #[wasm_bindgen(method, js_name = "removeListener")]
+    fn removeListener(_: &Provider, eventName: &str, listener: &Closure<dyn FnMut(JsValue)>);
 }
 
 impl Provider {
@@ -157,6 +163,39 @@ impl Provider {
             Ok(Ok(res)) => Ok(res),
             Err(Ok(err)) => Err(Error::Rpc(err)),
             err => unreachable!("Unable to parse request response: {:?}", err),
+        }
+    }
+}
+
+/// Keep the provider and the event listeners attached to it together so we can remove them in the
+/// `Drop` implementation. The logic can't go in Eip1193 because it's `Clone`, and cloning a JS
+/// object just clones the reference.
+#[derive(Debug)]
+struct ProviderAndListeners {
+    provider: Provider,
+    // Right now we only listen for "message", but in the future we'll want to listen for connect,
+    // disconnect, chainChanged, etc. So we use a map, even though right now it'll only ever have
+    // one entry.
+    listeners: BTreeMap<String, Vec<Closure<dyn FnMut(JsValue)>>>,
+}
+
+impl ProviderAndListeners {
+    /// Listen for an event, and keep the listener closure for later cleanup.
+    fn on(&mut self, name: &str, listener: Closure<dyn FnMut(JsValue)>) {
+        self.provider.on(name, &listener);
+        self.listeners
+            .entry(name.to_owned())
+            .or_insert(Vec::with_capacity(1))
+            .push(listener);
+    }
+}
+
+impl Drop for ProviderAndListeners {
+    fn drop(&mut self) {
+        for (event_name, listeners) in self.listeners.iter() {
+            for listener in listeners.iter() {
+                self.provider.removeListener(event_name, listener)
+            }
         }
     }
 }
