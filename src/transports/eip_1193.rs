@@ -105,7 +105,7 @@ impl Transport for Eip1193 {
                     .await
                 })
             }
-            _other => Box::pin(future::err(Error::Internal)),
+            _ => panic!("Can't send JSON-RPC requests other than method calls with EIP-1193 transport!"),
         }
     }
 }
@@ -123,7 +123,7 @@ impl DuplexTransport for Eip1193 {
     fn unsubscribe(&self, id: SubscriptionId) -> error::Result<()> {
         match (*self.subscriptions.borrow_mut()).remove(&id) {
             Some(_sender) => Ok(()),
-            None => Err(Error::Internal),
+            None => panic!("Tried to unsubscribe from non-existent subscription. Did we already unsubscribe?"),
         }
     }
 }
