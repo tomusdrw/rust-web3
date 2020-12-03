@@ -146,7 +146,7 @@ extern "C" {
 
 impl Provider {
     /// Get the provider at `window.ethereum`.
-    pub fn get_default() -> Result<Self, JsValue> {
+    pub fn default() -> Result<Self, JsValue> {
         get_provider_js()
     }
 
