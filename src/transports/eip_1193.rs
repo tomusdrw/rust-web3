@@ -152,15 +152,11 @@ impl Provider {
 
     async fn request_wrapped(&self, args: RequestArguments) -> error::Result<serde_json::value::Value> {
         let js_result = self.request(args).await;
-        match js_result {
-            Ok(res) => Ok(res.into_serde().expect("couldn't translate request via JSON")),
-            Err(err) => {
-                match err.into_serde() {
-                    Ok(json_rpc_err) => Err(Error::Rpc(json_rpc_err)),
-                    // THE EIP says an error response MUST match the JSON RPC error structure.
-                    Err(_) => Err(Error::InvalidResponse(format!("{:?}", err))),
-                }
-            }
+        let parsed_value = js_result.map(|res| res.into_serde()).map_err(|err| err.into_serde());
+        match parsed_value {
+            Ok(Ok(res)) => Ok(res),
+            Err(Ok(err)) => Err(Error::Rpc(err)),
+            err => unreachable!("Unable to parse request response: {:?}", err),
         }
     }
 }
