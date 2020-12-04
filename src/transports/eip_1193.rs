@@ -5,15 +5,20 @@
 //! WebAssembly target.
 
 use crate::api::SubscriptionId;
+use crate::types::{Address, U256};
 use crate::{error, DuplexTransport, Error, RequestId, Transport};
 use futures::channel::mpsc;
-use futures::future;
 use futures::future::LocalBoxFuture;
+use futures::Stream;
 use jsonrpc_core::types::request::{Call, MethodCall};
+use serde::de::value::StringDeserializer;
+use serde::de::IntoDeserializer;
+use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 type Subscriptions = Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>;
 
@@ -34,7 +39,7 @@ impl Eip1193 {
         let subscriptions: Subscriptions = Subscriptions::default();
         let subscriptions_for_closure = subscriptions.clone();
         let msg_handler = Closure::wrap(Box::new(move |evt_js: JsValue| {
-            let evt = evt_js.into_serde::<Event>().expect("Couldn't parse event data");
+            let evt = evt_js.into_serde::<MessageEvent>().expect("Couldn't parse event data");
             log::trace!("Message from provider: {:?}", evt);
             match evt.event_type.as_str() {
                 "eth_subscription" => {
@@ -57,20 +62,94 @@ impl Eip1193 {
             subscriptions,
         }
     }
+
+    /// Get a `Stream` of `connect` events, and the `chainId`s connected to. NB the delivery on these
+    /// is unreliable, sometimes you get one on page load and sometimes you don't. The `Stream` will
+    /// be closed when the `Eip1193` is dropped.
+    pub fn connect_stream(&self) -> impl Stream<Item = Option<String>> {
+        self.handle_ad_hoc_event("connect", |evt_js| {
+            let evt = evt_js
+                .into_serde::<ConnectEvent>()
+                .expect("couldn't parse connect event");
+            evt.chain_id
+        })
+    }
+
+    /// Get a `Stream` of `disconnect` events, with the associated errors. Same drop behavior as
+    /// above.
+    pub fn disconnect_stream(&self) -> impl Stream<Item = jsonrpc_core::Error> {
+        self.handle_ad_hoc_event("disconnect", |evt_js| {
+            evt_js.into_serde().expect("deserializing disconnect error failed")
+        })
+    }
+
+    /// Get a `Stream` of `chainChanged` events, with the `chainId`s changed to. Same drop behavior
+    /// as above.
+    pub fn chain_changed_stream(&self) -> impl Stream<Item = U256> {
+        self.handle_ad_hoc_event("chainChanged", |evt_js| {
+            Self::deserialize_js_string(&evt_js, "chain changed event")
+        })
+    }
+
+    /// Get a `Stream` of `accountsChanged` events, with the addresses that are now accessible. Same
+    /// drop behavior as above.
+    pub fn accounts_changed_stream(&self) -> impl Stream<Item = Vec<Address>> {
+        self.handle_ad_hoc_event("accountsChanged", |evt_js| {
+            js_sys::Array::unchecked_from_js(evt_js)
+                .iter()
+                .map(|js_str| Self::deserialize_js_string(&js_str, "account address"))
+                .collect()
+        })
+    }
+
+    /// Helper function for handling events other than `message`. Given the event name and a
+    /// processor function, create a stream of processed events.
+    fn handle_ad_hoc_event<T, F>(&self, name: &str, handler: F) -> impl Stream<Item = T>
+    where
+        F: Fn(JsValue) -> T + 'static,
+        T: 'static,
+    {
+        let (sender, receiver) = mpsc::unbounded();
+        self.provider_and_listeners.borrow_mut().on(
+            name,
+            Closure::wrap(Box::new(move |evt| {
+                let evt_parsed = handler(evt);
+                if let Err(err) = sender.unbounded_send(evt_parsed) {
+                    log::error!("Couldn't send ad hoc event to channel: {}", err)
+                }
+            })),
+        );
+        receiver
+    }
+
+    /// Helper function for serde-deserializing from `JsString`s. Panics on failure.
+    fn deserialize_js_string<'de, O: Deserialize<'de>>(js_str: &JsValue, name: &str) -> O {
+        let deserializer: StringDeserializer<serde::de::value::Error> = js_str
+            .as_string()
+            .expect(&format!("{:?} not a string", js_str))
+            .into_deserializer();
+        O::deserialize(deserializer).expect(&format!("couldn't deserialize {}", name))
+    }
 }
 
 /// Event data sent from the JavaScript side to our callback.
 #[derive(serde::Deserialize, Debug)]
-struct Event {
+struct MessageEvent {
     #[serde(rename = "type")]
     event_type: String,
-    data: EventData,
+    data: MessageEventData,
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct EventData {
+struct MessageEventData {
     subscription: String,
     result: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+struct ConnectEvent {
+    #[serde(rename = "chainId")]
+    chain_id: Option<String>,
 }
 
 impl Transport for Eip1193 {
@@ -173,9 +252,6 @@ impl Provider {
 #[derive(Debug)]
 struct ProviderAndListeners {
     provider: Provider,
-    // Right now we only listen for "message", but in the future we'll want to listen for connect,
-    // disconnect, chainChanged, etc. So we use a map, even though right now it'll only ever have
-    // one entry.
     listeners: BTreeMap<String, Vec<Closure<dyn FnMut(JsValue)>>>,
 }
 
