@@ -2,14 +2,8 @@
 
 use crate::api::Namespace;
 use crate::signing;
-#[cfg(feature = "signing")]
-use crate::signing::Signature;
 use crate::types::H256;
-#[cfg(feature = "signing")]
-use crate::types::{Address, SignedTransaction, U256};
 use crate::Transport;
-#[cfg(feature = "signing")]
-use rlp::RlpStream;
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -54,9 +48,11 @@ mod accounts_signing {
     use super::*;
     use crate::api::Web3;
     use crate::error;
+    use crate::signing::Signature;
     use crate::types::{
         Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
     };
+    use rlp::RlpStream;
     use std::convert::TryInto;
 
     impl<T: Transport> Accounts<T> {
@@ -169,80 +165,77 @@ mod accounts_signing {
             Ok(address)
         }
     }
-}
-
-/// A transaction used for RLP encoding, hashing and signing.
-#[cfg(feature = "signing")]
-struct Transaction {
-    to: Option<Address>,
-    nonce: U256,
-    gas: U256,
-    gas_price: U256,
-    value: U256,
-    data: Vec<u8>,
-}
-
-#[cfg(feature = "signing")]
-impl Transaction {
-    /// RLP encode an unsigned transaction for the specified chain ID.
-    fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
-        rlp.begin_list(9);
-        rlp.append(&self.nonce);
-        rlp.append(&self.gas_price);
-        rlp.append(&self.gas);
-        if let Some(to) = self.to {
-            rlp.append(&to);
-        } else {
-            rlp.append(&"");
-        }
-        rlp.append(&self.value);
-        rlp.append(&self.data);
-        rlp.append(&chain_id);
-        rlp.append(&0u8);
-        rlp.append(&0u8);
+    /// A transaction used for RLP encoding, hashing and signing.
+    pub struct Transaction {
+        pub to: Option<Address>,
+        pub nonce: U256,
+        pub gas: U256,
+        pub gas_price: U256,
+        pub value: U256,
+        pub data: Vec<u8>,
     }
 
-    /// RLP encode a signed transaction with the specified signature.
-    fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
-        rlp.begin_list(9);
-        rlp.append(&self.nonce);
-        rlp.append(&self.gas_price);
-        rlp.append(&self.gas);
-        if let Some(to) = self.to {
-            rlp.append(&to);
-        } else {
-            rlp.append(&"");
+    impl Transaction {
+        /// RLP encode an unsigned transaction for the specified chain ID.
+        fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
+            rlp.begin_list(9);
+            rlp.append(&self.nonce);
+            rlp.append(&self.gas_price);
+            rlp.append(&self.gas);
+            if let Some(to) = self.to {
+                rlp.append(&to);
+            } else {
+                rlp.append(&"");
+            }
+            rlp.append(&self.value);
+            rlp.append(&self.data);
+            rlp.append(&chain_id);
+            rlp.append(&0u8);
+            rlp.append(&0u8);
         }
-        rlp.append(&self.value);
-        rlp.append(&self.data);
-        rlp.append(&signature.v);
-        rlp.append(&U256::from_big_endian(signature.r.as_bytes()));
-        rlp.append(&U256::from_big_endian(signature.s.as_bytes()));
-    }
 
-    /// Sign and return a raw signed transaction.
-    fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
-        let mut rlp = RlpStream::new();
-        self.rlp_append_unsigned(&mut rlp, chain_id);
+        /// RLP encode a signed transaction with the specified signature.
+        fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
+            rlp.begin_list(9);
+            rlp.append(&self.nonce);
+            rlp.append(&self.gas_price);
+            rlp.append(&self.gas);
+            if let Some(to) = self.to {
+                rlp.append(&to);
+            } else {
+                rlp.append(&"");
+            }
+            rlp.append(&self.value);
+            rlp.append(&self.data);
+            rlp.append(&signature.v);
+            rlp.append(&U256::from_big_endian(signature.r.as_bytes()));
+            rlp.append(&U256::from_big_endian(signature.s.as_bytes()));
+        }
 
-        let hash = signing::keccak256(rlp.as_raw());
-        let signature = sign
-            .sign(&hash, Some(chain_id))
-            .expect("hash is non-zero 32-bytes; qed");
+        /// Sign and return a raw signed transaction.
+        pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
+            let mut rlp = RlpStream::new();
+            self.rlp_append_unsigned(&mut rlp, chain_id);
 
-        rlp.clear();
-        self.rlp_append_signed(&mut rlp, &signature);
+            let hash = signing::keccak256(rlp.as_raw());
+            let signature = sign
+                .sign(&hash, Some(chain_id))
+                .expect("hash is non-zero 32-bytes; qed");
 
-        let transaction_hash = signing::keccak256(rlp.as_raw()).into();
-        let raw_transaction = rlp.out().into();
+            rlp.clear();
+            self.rlp_append_signed(&mut rlp, &signature);
 
-        SignedTransaction {
-            message_hash: hash.into(),
-            v: signature.v,
-            r: signature.r,
-            s: signature.s,
-            raw_transaction,
-            transaction_hash,
+            let transaction_hash = signing::keccak256(rlp.as_raw()).into();
+            let raw_transaction = rlp.out().into();
+
+            SignedTransaction {
+                message_hash: hash.into(),
+                v: signature.v,
+                r: signature.r,
+                s: signature.s,
+                raw_transaction,
+                transaction_hash,
+            }
         }
     }
 }
@@ -252,9 +245,11 @@ mod tests {
     use super::*;
     use crate::signing::{SecretKey, SecretKeyRef};
     use crate::transports::test::TestTransport;
-    use crate::types::{Bytes, Recovery, TransactionParameters};
+    use crate::types::{Address, Bytes, Recovery, SignedTransaction, TransactionParameters, U256};
     use rustc_hex::FromHex;
     use serde_json::json;
+
+    use accounts_signing::*;
 
     #[test]
     fn accounts_sign_transaction() {
