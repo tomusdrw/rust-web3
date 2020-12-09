@@ -337,12 +337,13 @@ impl<T: Transport> Eth<T> {
 
 #[cfg(test)]
 mod tests {
+    use hex_literal::hex;
     use serde_json::json;
 
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::{
-        Address, Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction,
+        Address, Block, BlockId, BlockNumber, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction,
         TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
     };
 
@@ -474,7 +475,7 @@ mod tests {
       }, None
       =>
       "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
-      Value::String("0x010203".into()) => Bytes(vec![1, 2, 3])
+      Value::String("0x010203".into()) => hex!("010203")
     );
 
     rpc_test! (
@@ -484,17 +485,17 @@ mod tests {
 
     rpc_test! (
       Eth:compile_lll, "code" => "eth_compileLLL", vec![r#""code""#];
-      Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
       Eth:compile_solidity, "code" => "eth_compileSolidity", vec![r#""code""#];
-      Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
       Eth:compile_serpent, "code" => "eth_compileSerpent", vec![r#""code""#];
-      Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
@@ -590,7 +591,7 @@ mod tests {
       Eth:code, H256::from_low_u64_be(0x123), Some(BlockNumber::Pending)
       =>
       "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
-      Value::String("0x0123".into()) => Bytes(vec![0x1, 0x23])
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
@@ -741,7 +742,7 @@ mod tests {
     );
 
     rpc_test! (
-      Eth:send_raw_transaction, Bytes(vec![1, 2, 3, 4])
+      Eth:send_raw_transaction, hex!("01020304")
       =>
       "eth_sendRawTransaction", vec![r#""0x01020304""#];
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
@@ -760,7 +761,7 @@ mod tests {
     );
 
     rpc_test! (
-      Eth:sign, H256::from_low_u64_be(0x123), Bytes(vec![1, 2, 3, 4])
+      Eth:sign, H256::from_low_u64_be(0x123), hex!("01020304")
       =>
       "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => H520::from_low_u64_be(0x123)

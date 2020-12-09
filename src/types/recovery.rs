@@ -159,39 +159,25 @@ impl Error for ParseSignatureError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Bytes;
-    use rustc_hex::FromHex;
+    use hex_literal::hex;
 
     #[test]
     fn recovery_signature() {
         let message = "Some data";
         let v = 0x1cu8;
-        let r: H256 = "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd"
-            .parse()
-            .unwrap();
-        let s: H256 = "6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
-            .parse()
-            .unwrap();
+        let r = hex!("b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd").into();
+        let s = hex!("6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029").into();
 
         let signed = SignedData {
             message: message.as_bytes().to_owned(),
-            message_hash: "1da44b586eb0729ff70a73c326926f6ed5a25f5b056e7f47fbc6e58d86871655"
-                .parse()
-                .unwrap(),
+            message_hash: hex!("1da44b586eb0729ff70a73c326926f6ed5a25f5b056e7f47fbc6e58d86871655").into(),
             v,
             r,
             s,
-            signature: Bytes(
-                "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c"
-                    .from_hex()
-                    .unwrap()
-            ),
+            signature: hex!("b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c").into(),
         };
         let expected_signature = (
-            "b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029"
-                .from_hex::<Vec<u8>>()
-                .unwrap(),
-            1
+            hex!("b91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a029").into(), 1
         );
         let (sig, id) = Recovery::from(&signed).as_signature().unwrap();
         assert_eq!((sig.to_vec(), id), expected_signature);
