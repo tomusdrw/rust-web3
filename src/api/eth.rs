@@ -219,8 +219,20 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
     }
 
+    /// Get uncle header by block ID and uncle index.
+    ///
+    /// This method is meant for TurboGeth compatiblity,
+    /// which is missing transaction hashes in the response.
+    pub fn uncle_header(&self, block: BlockId, index: Index) -> CallFuture<Option<BlockHeader>, T::Out> {
+        self.fetch_uncle(block, index)
+    }
+
     /// Get uncle by block ID and uncle index -- transactions only has hashes.
-    pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<BlockHeader>, T::Out> {
+    pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<Block<H256>>, T::Out> {
+        self.fetch_uncle(block, index)
+    }
+
+    fn fetch_uncle<X>(&self, block: BlockId, index: Index) -> CallFuture<Option<X>, T::Out> {
         let index = helpers::serialize(&index);
 
         let result = match block {
@@ -653,6 +665,14 @@ mod tests {
 
     rpc_test! (
       Eth:uncle:uncle_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
+      =>
+      "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
+      => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
+    );
+
+    rpc_test! (
+      Eth:uncle_header:uncle_header_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
       =>
       "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
       ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
