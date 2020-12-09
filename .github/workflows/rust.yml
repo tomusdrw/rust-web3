@@ -52,7 +52,7 @@ jobs:
           args:                    --all --verbose
 
   check-wasm:
-    name:                          Check wasm
+    name:                          Check WASM
     runs-on:                       ubuntu-latest
     env:
       RUST_BACKTRACE:              full
@@ -77,7 +77,7 @@ jobs:
           args:                    --target wasm32-unknown-unknown --no-default-features --features eip-1193
 
   check-transports:
-    name:                          Check wasm
+    name:                          Check Transports
     runs-on:                       ubuntu-latest
     env:
       RUST_BACKTRACE:              full
