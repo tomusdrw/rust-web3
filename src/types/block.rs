@@ -14,6 +14,7 @@ pub struct BlockHeader {
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner")]
+    #[serde(default)]
     pub author: H160,
     /// State root hash
     #[serde(rename = "stateRoot")]
@@ -63,6 +64,7 @@ pub struct Block<TX> {
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner")]
+    #[serde(default)]
     pub author: H160,
     /// State root hash
     #[serde(rename = "stateRoot")]
@@ -183,5 +185,44 @@ impl From<BlockNumber> for BlockId {
 impl From<H256> for BlockId {
     fn from(hash: H256) -> Self {
         BlockId::Hash(hash)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_without_miner() {
+        const EXAMPLE_BLOCK: &str = r#"{
+            "number": "0x1b4",
+            "hash": "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
+            "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
+            "mixHash": "0x1010101010101010101010101010101010101010101010101010101010101010",
+            "nonce": "0x0000000000000000",
+            "sealFields": [
+              "0xe04d296d2460cfb8472af2c5fd05b5a214109c25688d3704aed5484f9a7792f2",
+              "0x0000000000000042"
+            ],
+            "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "logsBloom":  "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
+            "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot": "0xd5855eb08b3387c0af375e9cdb6acfc05eb8f519e419b874b6ff2ffda7ed1dff",
+            "difficulty": "0x27f07",
+            "totalDifficulty": "0x27f07",
+            "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "size": "0x27f07",
+            "gasLimit": "0x9f759",
+            "minGasPrice": "0x9f759",
+            "gasUsed": "0x9f759",
+            "timestamp": "0x54e34e8e",
+            "transactions": [],
+            "uncles": []
+          }"#;
+
+        let block: Block<()> = serde_json::from_str(&EXAMPLE_BLOCK).unwrap();
+
+        assert_eq!(block.author, Default::default());
     }
 }
