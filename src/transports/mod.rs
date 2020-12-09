@@ -31,3 +31,6 @@ impl From<native_tls::Error> for crate::Error {
         crate::Error::Transport(format!("{:?}", err))
     }
 }
+
+#[cfg(feature = "eip-1193")]
+pub mod eip_1193;

@@ -23,7 +23,7 @@ log = "0.4.6"
 parking_lot = "0.11.0"
 rlp = "0.4"
 rustc-hex = "2.1.0"
-secp256k1 = { version = "0.19", features = ["recovery"] }
+secp256k1 = { version = "0.19", features = ["recovery"], optional = true }
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
@@ -44,6 +44,12 @@ soketto = { version = "0.4.1", optional = true }
 ## Shared (WS, HTTP)
 native-tls = { version = "0.2", optional = true }
 url = { version = "2.1", optional = true }
+## EIP-1193
+js-sys = { version = "0.3.45", optional = true }
+### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
+rand = { version = "0.7.3", optional = true }
+wasm-bindgen = { version = "0.2.68", optional = true, features = ["serde-serialize"] }
+wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
 [dev-dependencies]
 # For examples
@@ -51,9 +57,11 @@ env_logger = "0.8"
 tokio = { version = "0.2", features = ["full"] }
 
 [features]
-default = ["http-tls", "ws-tls-tokio"]
+default = ["http-tls", "signing", "ws-tls-tokio"]
+eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand/wasm-bindgen"]
 http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
 http-tls = ["hyper-tls", "native-tls", "http"]
+signing = ["secp256k1"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]

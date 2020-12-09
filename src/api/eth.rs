@@ -171,6 +171,13 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_chainId", vec![]))
     }
 
+    /// Get available user accounts. This method is only available in the browser. With MetaMask,
+    /// this will cause the popup that prompts the user to allow or deny access to their accounts
+    /// to your app.
+    pub fn request_accounts(&self) -> CallFuture<Vec<Address>, T::Out> {
+        CallFuture::new(self.transport.execute("eth_requestAccounts", vec![]))
+    }
+
     /// Get storage entry
     pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallFuture<H256, T::Out> {
         let address = helpers::serialize(&address);

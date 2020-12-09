@@ -18,6 +18,8 @@ use jsonrpc_core as rpc;
 pub extern crate futures;
 pub use futures::executor::{block_on, block_on_stream};
 
+pub use ethabi;
+
 // it needs to be before other modules
 // otherwise the macro for tests is not available.
 #[macro_use]

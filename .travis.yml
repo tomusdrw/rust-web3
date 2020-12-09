@@ -33,6 +33,7 @@ before_script:
   - if [[ "${TRAVIS_RUST_VERSION}" == stable ]]; then
       rustup component add rustfmt && cargo install cargo-deny;
     fi
+  - rustup target add wasm32-unknown-unknown
 
 script:
   - if [[ "${TRAVIS_RUST_VERSION}" == "stable" ]]; then
@@ -42,6 +43,7 @@ script:
   - cargo build
   - cargo test
   - cargo check --no-default-features
+  - cargo check --target wasm32-unknown-unknown --no-default-features --features eip-1193
   - cargo check --no-default-features --features http
   - cargo check --no-default-features --features http-tls
   - cargo check --no-default-features --features ws-tokio

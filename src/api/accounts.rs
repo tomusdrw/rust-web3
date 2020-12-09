@@ -1,14 +1,9 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::api::{Namespace, Web3};
-use crate::error;
-use crate::signing::{self, Signature};
-use crate::types::{
-    Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, H256, U256,
-};
+use crate::api::Namespace;
+use crate::signing;
+use crate::types::H256;
 use crate::Transport;
-use rlp::RlpStream;
-use std::convert::TryInto;
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -30,52 +25,6 @@ impl<T: Transport> Namespace<T> for Accounts<T> {
 }
 
 impl<T: Transport> Accounts<T> {
-    /// Gets the parent `web3` namespace
-    fn web3(&self) -> Web3<T> {
-        Web3::new(self.transport.clone())
-    }
-
-    /// Signs an Ethereum transaction with a given private key.
-    ///
-    /// Transaction signing can perform RPC requests in order to fill missing
-    /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
-    /// that if all transaction parameters were provided, this future will resolve
-    /// immediately.
-    pub async fn sign_transaction<K: signing::Key>(
-        &self,
-        tx: TransactionParameters,
-        key: K,
-    ) -> error::Result<SignedTransaction> {
-        macro_rules! maybe {
-            ($o: expr, $f: expr) => {
-                async {
-                    match $o {
-                        Some(value) => Ok(value),
-                        None => $f.await,
-                    }
-                }
-            };
-        }
-        let from = key.address();
-        let (nonce, gas_price, chain_id) = futures::future::try_join3(
-            maybe!(tx.nonce, self.web3().eth().transaction_count(from, None)),
-            maybe!(tx.gas_price, self.web3().eth().gas_price()),
-            maybe!(tx.chain_id.map(U256::from), self.web3().eth().chain_id()),
-        )
-        .await?;
-        let chain_id = chain_id.as_u64();
-        let tx = Transaction {
-            to: tx.to,
-            nonce,
-            gas: tx.gas,
-            gas_price,
-            value: tx.value,
-            data: tx.data.0,
-        };
-        let signed = tx.sign(key, chain_id);
-        Ok(signed)
-    }
-
     /// Hash a message according to EIP-191.
     ///
     /// The data is a UTF-8 encoded string and will enveloped as follows:
@@ -92,141 +41,201 @@ impl<T: Transport> Accounts<T> {
 
         signing::keccak256(&eth_message).into()
     }
-
-    /// Sign arbitrary string data.
-    ///
-    /// The data is UTF-8 encoded and enveloped the same way as with
-    /// `hash_message`. The returned signed data's signature is in 'Electrum'
-    /// notation, that is the recovery value `v` is either `27` or `28` (as
-    /// opposed to the standard notation where `v` is either `0` or `1`). This
-    /// is important to consider when using this signature with other crates.
-    pub fn sign<S>(&self, message: S, key: impl signing::Key) -> SignedData
-    where
-        S: AsRef<[u8]>,
-    {
-        let message = message.as_ref();
-        let message_hash = self.hash_message(message);
-
-        let signature = key
-            .sign(&message_hash.as_bytes(), None)
-            .expect("hash is non-zero 32-bytes; qed");
-        let v = signature
-            .v
-            .try_into()
-            .expect("signature recovery in electrum notation always fits in a u8");
-
-        let signature_bytes = Bytes({
-            let mut bytes = Vec::with_capacity(65);
-            bytes.extend_from_slice(signature.r.as_bytes());
-            bytes.extend_from_slice(signature.s.as_bytes());
-            bytes.push(v);
-            bytes
-        });
-
-        // We perform this allocation only after all previous fallible actions have completed successfully.
-        let message = message.to_owned();
-
-        SignedData {
-            message,
-            message_hash,
-            v,
-            r: signature.r,
-            s: signature.s,
-            signature: signature_bytes,
-        }
-    }
-
-    /// Recovers the Ethereum address which was used to sign the given data.
-    ///
-    /// Recovery signature data uses 'Electrum' notation, this means the `v`
-    /// value is expected to be either `27` or `28`.
-    pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
-    where
-        R: Into<Recovery>,
-    {
-        let recovery = recovery.into();
-        let message_hash = match recovery.message {
-            RecoveryMessage::Data(ref message) => self.hash_message(message),
-            RecoveryMessage::Hash(hash) => hash,
-        };
-        let (signature, recovery_id) = recovery
-            .as_signature()
-            .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
-        let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
-        Ok(address)
-    }
 }
 
-/// A transaction used for RLP encoding, hashing and signing.
-struct Transaction {
-    to: Option<Address>,
-    nonce: U256,
-    gas: U256,
-    gas_price: U256,
-    value: U256,
-    data: Vec<u8>,
-}
+#[cfg(feature = "signing")]
+mod accounts_signing {
+    use super::*;
+    use crate::api::Web3;
+    use crate::error;
+    use crate::signing::Signature;
+    use crate::types::{
+        Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
+    };
+    use rlp::RlpStream;
+    use std::convert::TryInto;
 
-impl Transaction {
-    /// RLP encode an unsigned transaction for the specified chain ID.
-    fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
-        rlp.begin_list(9);
-        rlp.append(&self.nonce);
-        rlp.append(&self.gas_price);
-        rlp.append(&self.gas);
-        if let Some(to) = self.to {
-            rlp.append(&to);
-        } else {
-            rlp.append(&"");
+    impl<T: Transport> Accounts<T> {
+        /// Gets the parent `web3` namespace
+        fn web3(&self) -> Web3<T> {
+            Web3::new(self.transport.clone())
         }
-        rlp.append(&self.value);
-        rlp.append(&self.data);
-        rlp.append(&chain_id);
-        rlp.append(&0u8);
-        rlp.append(&0u8);
+
+        /// Signs an Ethereum transaction with a given private key.
+        ///
+        /// Transaction signing can perform RPC requests in order to fill missing
+        /// parameters required for signing `nonce`, `gas_price` and `chain_id`. Note
+        /// that if all transaction parameters were provided, this future will resolve
+        /// immediately.
+        pub async fn sign_transaction<K: signing::Key>(
+            &self,
+            tx: TransactionParameters,
+            key: K,
+        ) -> error::Result<SignedTransaction> {
+            macro_rules! maybe {
+                ($o: expr, $f: expr) => {
+                    async {
+                        match $o {
+                            Some(value) => Ok(value),
+                            None => $f.await,
+                        }
+                    }
+                };
+            }
+            let from = key.address();
+            let (nonce, gas_price, chain_id) = futures::future::try_join3(
+                maybe!(tx.nonce, self.web3().eth().transaction_count(from, None)),
+                maybe!(tx.gas_price, self.web3().eth().gas_price()),
+                maybe!(tx.chain_id.map(U256::from), self.web3().eth().chain_id()),
+            )
+            .await?;
+            let chain_id = chain_id.as_u64();
+            let tx = Transaction {
+                to: tx.to,
+                nonce,
+                gas: tx.gas,
+                gas_price,
+                value: tx.value,
+                data: tx.data.0,
+            };
+            let signed = tx.sign(key, chain_id);
+            Ok(signed)
+        }
+
+        /// Sign arbitrary string data.
+        ///
+        /// The data is UTF-8 encoded and enveloped the same way as with
+        /// `hash_message`. The returned signed data's signature is in 'Electrum'
+        /// notation, that is the recovery value `v` is either `27` or `28` (as
+        /// opposed to the standard notation where `v` is either `0` or `1`). This
+        /// is important to consider when using this signature with other crates.
+        pub fn sign<S>(&self, message: S, key: impl signing::Key) -> SignedData
+        where
+            S: AsRef<[u8]>,
+        {
+            let message = message.as_ref();
+            let message_hash = self.hash_message(message);
+
+            let signature = key
+                .sign(&message_hash.as_bytes(), None)
+                .expect("hash is non-zero 32-bytes; qed");
+            let v = signature
+                .v
+                .try_into()
+                .expect("signature recovery in electrum notation always fits in a u8");
+
+            let signature_bytes = Bytes({
+                let mut bytes = Vec::with_capacity(65);
+                bytes.extend_from_slice(signature.r.as_bytes());
+                bytes.extend_from_slice(signature.s.as_bytes());
+                bytes.push(v);
+                bytes
+            });
+
+            // We perform this allocation only after all previous fallible actions have completed successfully.
+            let message = message.to_owned();
+
+            SignedData {
+                message,
+                message_hash,
+                v,
+                r: signature.r,
+                s: signature.s,
+                signature: signature_bytes,
+            }
+        }
+
+        /// Recovers the Ethereum address which was used to sign the given data.
+        ///
+        /// Recovery signature data uses 'Electrum' notation, this means the `v`
+        /// value is expected to be either `27` or `28`.
+        pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
+        where
+            R: Into<Recovery>,
+        {
+            let recovery = recovery.into();
+            let message_hash = match recovery.message {
+                RecoveryMessage::Data(ref message) => self.hash_message(message),
+                RecoveryMessage::Hash(hash) => hash,
+            };
+            let (signature, recovery_id) = recovery
+                .as_signature()
+                .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
+            let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
+            Ok(address)
+        }
+    }
+    /// A transaction used for RLP encoding, hashing and signing.
+    pub struct Transaction {
+        pub to: Option<Address>,
+        pub nonce: U256,
+        pub gas: U256,
+        pub gas_price: U256,
+        pub value: U256,
+        pub data: Vec<u8>,
     }
 
-    /// RLP encode a signed transaction with the specified signature.
-    fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
-        rlp.begin_list(9);
-        rlp.append(&self.nonce);
-        rlp.append(&self.gas_price);
-        rlp.append(&self.gas);
-        if let Some(to) = self.to {
-            rlp.append(&to);
-        } else {
-            rlp.append(&"");
+    impl Transaction {
+        /// RLP encode an unsigned transaction for the specified chain ID.
+        fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
+            rlp.begin_list(9);
+            rlp.append(&self.nonce);
+            rlp.append(&self.gas_price);
+            rlp.append(&self.gas);
+            if let Some(to) = self.to {
+                rlp.append(&to);
+            } else {
+                rlp.append(&"");
+            }
+            rlp.append(&self.value);
+            rlp.append(&self.data);
+            rlp.append(&chain_id);
+            rlp.append(&0u8);
+            rlp.append(&0u8);
         }
-        rlp.append(&self.value);
-        rlp.append(&self.data);
-        rlp.append(&signature.v);
-        rlp.append(&U256::from_big_endian(signature.r.as_bytes()));
-        rlp.append(&U256::from_big_endian(signature.s.as_bytes()));
-    }
 
-    /// Sign and return a raw signed transaction.
-    fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
-        let mut rlp = RlpStream::new();
-        self.rlp_append_unsigned(&mut rlp, chain_id);
+        /// RLP encode a signed transaction with the specified signature.
+        fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
+            rlp.begin_list(9);
+            rlp.append(&self.nonce);
+            rlp.append(&self.gas_price);
+            rlp.append(&self.gas);
+            if let Some(to) = self.to {
+                rlp.append(&to);
+            } else {
+                rlp.append(&"");
+            }
+            rlp.append(&self.value);
+            rlp.append(&self.data);
+            rlp.append(&signature.v);
+            rlp.append(&U256::from_big_endian(signature.r.as_bytes()));
+            rlp.append(&U256::from_big_endian(signature.s.as_bytes()));
+        }
 
-        let hash = signing::keccak256(rlp.as_raw());
-        let signature = sign
-            .sign(&hash, Some(chain_id))
-            .expect("hash is non-zero 32-bytes; qed");
+        /// Sign and return a raw signed transaction.
+        pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
+            let mut rlp = RlpStream::new();
+            self.rlp_append_unsigned(&mut rlp, chain_id);
 
-        rlp.clear();
-        self.rlp_append_signed(&mut rlp, &signature);
+            let hash = signing::keccak256(rlp.as_raw());
+            let signature = sign
+                .sign(&hash, Some(chain_id))
+                .expect("hash is non-zero 32-bytes; qed");
 
-        let transaction_hash = signing::keccak256(rlp.as_raw()).into();
-        let raw_transaction = rlp.out().into();
+            rlp.clear();
+            self.rlp_append_signed(&mut rlp, &signature);
 
-        SignedTransaction {
-            message_hash: hash.into(),
-            v: signature.v,
-            r: signature.r,
-            s: signature.s,
-            raw_transaction,
-            transaction_hash,
+            let transaction_hash = signing::keccak256(rlp.as_raw()).into();
+            let raw_transaction = rlp.out().into();
+
+            SignedTransaction {
+                message_hash: hash.into(),
+                v: signature.v,
+                r: signature.r,
+                s: signature.s,
+                raw_transaction,
+                transaction_hash,
+            }
         }
     }
 }
@@ -236,9 +245,11 @@ mod tests {
     use super::*;
     use crate::signing::{SecretKey, SecretKeyRef};
     use crate::transports::test::TestTransport;
-    use crate::types::Bytes;
+    use crate::types::{Address, Bytes, Recovery, SignedTransaction, TransactionParameters, U256};
     use rustc_hex::FromHex;
     use serde_json::json;
+
+    use accounts_signing::*;
 
     #[test]
     fn accounts_sign_transaction() {
