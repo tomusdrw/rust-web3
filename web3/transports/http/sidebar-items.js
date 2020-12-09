@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Http","HTTP Transport (synchronous)"],["Response","A future representing a response to a pending request."]]});

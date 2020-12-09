@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Batch","Transport allowing to batch queries together."],["SingleResult","Result of calling a single method that will be part of the batch. Converts `oneshot::Receiver` error into `Error::Internal`"]]});

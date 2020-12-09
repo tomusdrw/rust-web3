@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["compat","Wrap given argument into compatibility layer."],["raw_tcp_stream","Create new TcpStream object."]],"struct":[["Compat","Compatibility layer."]],"type":[["TcpListener","async-std compatible TcpListener."],["TcpStream","async-std compatible TcpStream."],["TlsStream","TLS stream type for tokio runtime."]]});

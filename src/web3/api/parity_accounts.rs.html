@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/api/parity_accounts.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>parity_accounts.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../web3/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">api</span>::<span class="ident">Namespace</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">helpers</span>::{<span class="self">self</span>, <span class="ident">CallFuture</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">Address</span>, <span class="ident">H256</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Transport</span>;
+
+<span class="doccomment">/// `Parity_Accounts` namespace</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ParityAccounts</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="ident">transport</span>: <span class="ident">T</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Transport</span><span class="op">&gt;</span> <span class="ident">Namespace</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ParityAccounts</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">transport</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="self">Self</span>: <span class="ident">Sized</span>,
+    {
+        <span class="ident">ParityAccounts</span> { <span class="ident">transport</span> }
+    }
+
+    <span class="kw">fn</span> <span class="ident">transport</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">T</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">transport</span>
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Transport</span><span class="op">&gt;</span> <span class="ident">ParityAccounts</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Given an address of an account and its password deletes the account from the parity node</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity_kill_account</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">address</span>: <span class="kw-2">&amp;</span><span class="ident">Address</span>, <span class="ident">pwd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">T</span>::<span class="ident">Out</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">address</span>);
+        <span class="kw">let</span> <span class="ident">pwd</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">pwd</span>);
+        <span class="ident">CallFuture</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">execute</span>(<span class="string">&quot;parity_killAccount&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">address</span>, <span class="ident">pwd</span>]))
+    }
+    <span class="doccomment">/// Imports an account from a given seed/phrase</span>
+    <span class="doccomment">/// Retunrs the address of the corresponding seed vinculated account</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity_new_account_from_phrase</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">seed</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">pwd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">T</span>::<span class="ident">Out</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">seed</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">seed</span>);
+        <span class="kw">let</span> <span class="ident">pwd</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">pwd</span>);
+        <span class="ident">CallFuture</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">execute</span>(<span class="string">&quot;parity_newAccountFromPhrase&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">seed</span>, <span class="ident">pwd</span>]))
+    }
+    <span class="doccomment">/// Imports an account from a given secret key.</span>
+    <span class="doccomment">/// Returns the address of the corresponding Sk vinculated account.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_account_from_secret</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">secret</span>: <span class="kw-2">&amp;</span><span class="ident">H256</span>, <span class="ident">pwd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">T</span>::<span class="ident">Out</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">secret</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">secret</span>);
+        <span class="kw">let</span> <span class="ident">pwd</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">pwd</span>);
+        <span class="ident">CallFuture</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">execute</span>(<span class="string">&quot;parity_newAccountFromSecret&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">secret</span>, <span class="ident">pwd</span>]))
+    }
+    <span class="doccomment">/// Imports an account from a JSON encoded Wallet file.</span>
+    <span class="doccomment">/// Returns the address of the corresponding wallet.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity_new_account_from_wallet</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wallet</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">pwd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">T</span>::<span class="ident">Out</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">wallet</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">wallet</span>);
+        <span class="kw">let</span> <span class="ident">pwd</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">pwd</span>);
+        <span class="ident">CallFuture</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">execute</span>(<span class="string">&quot;parity_newAccountFromWallet&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">wallet</span>, <span class="ident">pwd</span>]))
+    }
+    <span class="doccomment">/// Removes the address of the Parity node addressbook.</span>
+    <span class="doccomment">/// Returns true if the operation suceeded.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity_remove_address</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">address</span>: <span class="kw-2">&amp;</span><span class="ident">Address</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">T</span>::<span class="ident">Out</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="ident">helpers</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">address</span>);
+        <span class="ident">CallFuture</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">execute</span>(<span class="string">&quot;parity_removeAddress&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">address</span>]))
+    }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">api</span>::<span class="ident">Namespace</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">rpc</span>::<span class="ident">Value</span>;
+    <span class="kw">use</span> <span class="ident">ethereum_types</span>::{<span class="ident">Address</span>, <span class="ident">H256</span>};
+
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">ParityAccounts</span>;
+
+    <span class="macro">rpc_test</span><span class="macro">!</span> (
+        <span class="ident">ParityAccounts</span> :   <span class="ident">parity_kill_account</span>,  <span class="kw-2">&amp;</span><span class="string">&quot;9b776baeaf3896657a9ba0db5564623b3e0173e0&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;123456789&quot;</span>
+        <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;parity_killAccount&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;0x9b776baeaf3896657a9ba0db5564623b3e0173e0&quot;&quot;#</span>, <span class="string">r#&quot;&quot;123456789&quot;&quot;#</span>];
+        <span class="ident">Value</span>::<span class="ident">Bool</span>(<span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>
+    );
+
+    <span class="macro">rpc_test</span><span class="macro">!</span> (
+        <span class="ident">ParityAccounts</span> :   <span class="ident">parity_new_account_from_phrase</span>,  <span class="string">&quot;member funny cloth wrist ugly water tuition always fall recycle maze long&quot;</span>, <span class="string">&quot;123456789&quot;</span>
+        <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;parity_newAccountFromPhrase&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;member funny cloth wrist ugly water tuition always fall recycle maze long&quot;&quot;#</span>, <span class="string">r#&quot;&quot;123456789&quot;&quot;#</span>];
+        <span class="ident">Value</span>::<span class="ident">String</span>(<span class="string">&quot;0xE43eD16390bd419d48B09d6E2aa20203D1eF93E1&quot;</span>.<span class="ident">into</span>()) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;E43eD16390bd419d48B09d6E2aa20203D1eF93E1&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
+    );
+
+    <span class="macro">rpc_test</span><span class="macro">!</span> (
+        <span class="ident">ParityAccounts</span> :   <span class="ident">new_account_from_secret</span>,  <span class="kw-2">&amp;</span><span class="string">&quot;c6592108cc3577f6a2d6178bc6947b43db39057195802caa0120f26e39af4945&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">H256</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;123456789&quot;</span>
+        <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;parity_newAccountFromSecret&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;0xc6592108cc3577f6a2d6178bc6947b43db39057195802caa0120f26e39af4945&quot;&quot;#</span>, <span class="string">r#&quot;&quot;123456789&quot;&quot;#</span>];
+        <span class="ident">Value</span>::<span class="ident">String</span>(<span class="string">&quot;0x9b776Baeaf3896657A9ba0db5564623B3E0173e0&quot;</span>.<span class="ident">into</span>()) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;9b776Baeaf3896657A9ba0db5564623B3E0173e0&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
+    );
+
+    <span class="macro">rpc_test</span><span class="macro">!</span> (
+        <span class="ident">ParityAccounts</span> :   <span class="ident">parity_new_account_from_wallet</span>,  <span class="string">r#&quot;{&quot;version&quot;:3,&quot;id&quot;:&quot;3b330c3b-b0b3-4e39-b62e-c2041a98d673&quot;,&quot;address&quot;:&quot;4c8ab9d3e938285776d6717d7319f6a9b1d809dd&quot;,&quot;Crypto&quot;:{&quot;ciphertext&quot;:&quot;bb3a6dbf21f0bf2b5eb0b43426590f16650acee9462ab710cca18781691a5739&quot;,&quot;cipherparams&quot;:{&quot;iv&quot;:&quot;6a533f77fc5cb8a752a16ec6a3200da1&quot;},&quot;cipher&quot;:&quot;aes-128-ctr&quot;,&quot;kdf&quot;:&quot;scrypt&quot;,&quot;kdfparams&quot;:{&quot;dklen&quot;:32,&quot;salt&quot;:&quot;a58609853dec53c81feb165e346c700e714285771825bb4cbf87c4ea1996b682&quot;,&quot;n&quot;:8192,&quot;r&quot;:8,&quot;p&quot;:1},&quot;mac&quot;:&quot;a71edeb659ed628db13579ce9f75c80c9d386c1239b280548d9a0e58ad20d6c7&quot;}}&quot;#</span>, <span class="string">&quot;123456789&quot;</span>
+        <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;parity_newAccountFromWallet&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;{\&quot;version\&quot;:3,\&quot;id\&quot;:\&quot;3b330c3b-b0b3-4e39-b62e-c2041a98d673\&quot;,\&quot;address\&quot;:\&quot;4c8ab9d3e938285776d6717d7319f6a9b1d809dd\&quot;,\&quot;Crypto\&quot;:{\&quot;ciphertext\&quot;:\&quot;bb3a6dbf21f0bf2b5eb0b43426590f16650acee9462ab710cca18781691a5739\&quot;,\&quot;cipherparams\&quot;:{\&quot;iv\&quot;:\&quot;6a533f77fc5cb8a752a16ec6a3200da1\&quot;},\&quot;cipher\&quot;:\&quot;aes-128-ctr\&quot;,\&quot;kdf\&quot;:\&quot;scrypt\&quot;,\&quot;kdfparams\&quot;:{\&quot;dklen\&quot;:32,\&quot;salt\&quot;:\&quot;a58609853dec53c81feb165e346c700e714285771825bb4cbf87c4ea1996b682\&quot;,\&quot;n\&quot;:8192,\&quot;r\&quot;:8,\&quot;p\&quot;:1},\&quot;mac\&quot;:\&quot;a71edeb659ed628db13579ce9f75c80c9d386c1239b280548d9a0e58ad20d6c7\&quot;}}&quot;&quot;#</span>, <span class="string">r#&quot;&quot;123456789&quot;&quot;#</span>];
+        <span class="ident">Value</span>::<span class="ident">String</span>(<span class="string">&quot;0x4C8aB9d3e938285776d6717d7319F6a9B1d809DD&quot;</span>.<span class="ident">into</span>()) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;4C8aB9d3e938285776d6717d7319F6a9B1d809DD&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
+    );
+
+    <span class="macro">rpc_test</span><span class="macro">!</span> (
+        <span class="ident">ParityAccounts</span> :   <span class="ident">parity_remove_address</span>,  <span class="kw-2">&amp;</span><span class="string">&quot;9b776baeaf3896657a9ba0db5564623b3e0173e0&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
+        <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;parity_removeAddress&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;0x9b776baeaf3896657a9ba0db5564623b3e0173e0&quot;&quot;#</span>];
+        <span class="ident">Value</span>::<span class="ident">Bool</span>(<span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>
+    );
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "web3";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

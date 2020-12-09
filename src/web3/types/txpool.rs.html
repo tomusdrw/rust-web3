@@ -1,0 +1,450 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/types/txpool.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>txpool.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../web3/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::<span class="ident">U64</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">Address</span>, <span class="ident">Transaction</span>};
+<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeMap</span>;
+
+<span class="doccomment">/// Transaction Pool Content Info</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The content inspection property can be queried to list the exact details of all</span>
+<span class="doccomment">/// the transactions currently pending for inclusion in the next block(s), as well</span>
+<span class="doccomment">/// as the ones that are being scheduled for future execution only.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// See [here](https://geth.ethereum.org/docs/rpc/ns-txpool#txpool_content) for more details</span>
+<span class="doccomment">///</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TxpoolContentInfo</span> {
+    <span class="doccomment">/// pending tx</span>
+    <span class="kw">pub</span> <span class="ident">pending</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Transaction</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// queued tx</span>
+    <span class="kw">pub</span> <span class="ident">queued</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Transaction</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// Transaction Pool Inspect Info</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The inspect inspection property can be queried to list a textual summary</span>
+<span class="doccomment">/// of all the transactions currently pending for inclusion in the next block(s),</span>
+<span class="doccomment">/// as well as the ones that are being scheduled for future execution only.</span>
+<span class="doccomment">/// This is a method specifically tailored to developers to quickly see the</span>
+<span class="doccomment">/// transactions in the pool and find any potential issues.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// See [here](https://geth.ethereum.org/docs/rpc/ns-txpool#txpool_inspect) for more details</span>
+<span class="doccomment">///</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TxpoolInspectInfo</span> {
+    <span class="doccomment">/// pending tx</span>
+    <span class="kw">pub</span> <span class="ident">pending</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// queued tx</span>
+    <span class="kw">pub</span> <span class="ident">queued</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Address</span>, <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// Transaction Pool Status</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The status inspection property can be queried for the number of transactions</span>
+<span class="doccomment">/// currently pending for inclusion in the next block(s), as well as the ones that</span>
+<span class="doccomment">/// are being scheduled for future execution only.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// See [here](https://geth.ethereum.org/docs/rpc/ns-txpool#txpool_status) for more details</span>
+<span class="doccomment">///</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TxpoolStatus</span> {
+    <span class="doccomment">/// number of pending tx</span>
+    <span class="kw">pub</span> <span class="ident">pending</span>: <span class="ident">U64</span>,
+    <span class="doccomment">/// number of queued tx</span>
+    <span class="kw">pub</span> <span class="ident">queued</span>: <span class="ident">U64</span>,
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">TxpoolContentInfo</span>, <span class="ident">TxpoolInspectInfo</span>, <span class="ident">TxpoolStatus</span>};
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">should_deserialize_txpool_content</span>() {
+        <span class="kw">let</span> <span class="ident">txpool_content_str</span> <span class="op">=</span> <span class="string">r#&quot;
+{
+  &quot;pending&quot;: {
+    &quot;0x0513dc7403e074f5c77368ee2819fa3a65b5cf80&quot;: {
+      &quot;6712&quot;: {
+        &quot;hash&quot;: &quot;0xc463c2dcab885136f76d093357f62b0541d1bfa4e96f27f413a7191cc625e105&quot;,
+        &quot;nonce&quot;: &quot;0x1a38&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x0513dc7403e074f5c77368ee2819fa3a65b5cf80&quot;,
+        &quot;to&quot;: &quot;0x0b9ab0cce5238c24ea25ee3d921865da818ccf5e&quot;,
+        &quot;value&quot;: &quot;0x1&quot;,
+        &quot;gasPrice&quot;: &quot;0x2cb417800&quot;,
+        &quot;gas&quot;: &quot;0x186a0&quot;,
+        &quot;input&quot;: &quot;0x&quot;,
+        &quot;raw&quot;: null
+      }
+    },
+    &quot;0x07e80128c7a35d0d43ddcc67fa8b1495871e08bf&quot;: {
+      &quot;41588&quot;: {
+        &quot;hash&quot;: &quot;0x73057ec83d040f5d3be8afae35b447d7996472b5dedf2e727c8f4a2e1bedca14&quot;,
+        &quot;nonce&quot;: &quot;0xa274&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x07e80128c7a35d0d43ddcc67fa8b1495871e08bf&quot;,
+        &quot;to&quot;: null,
+        &quot;value&quot;: &quot;0x0&quot;,
+        &quot;gasPrice&quot;: &quot;0xee6b2800&quot;,
+        &quot;gas&quot;: &quot;0xc074c&quot;,
+        &quot;input&quot;: &quot;0x608060405234801561001057600080fd5b50604051610d54380380610d548339818101604052602081101561003357600080fd5b8101908080519060200190929190505050336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600260006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610c7f806100d56000396000f3fe6080604052600436106100705760003560e01c80638feb1b8b1161004e5780638feb1b8b146101fd578063d4ee1d901461024e578063e45bf7a6146102a5578063f2fde38b146102fc57610070565b806359a006801461013e57806379ba50971461018f5780638da5cb5b146101a6575b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166108fc349081150290604051600060405180830381858888f193505050501580156100d8573d6000803e3d6000fd5b507f0fe4cb1d003e6b2859d9f82ed185534d04565d376652186cbd07c0105fdcc5d830604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a1005b34801561014a57600080fd5b5061018d6004803603602081101561016157600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061034d565b005b34801561019b57600080fd5b506101a4610664565b005b3480156101b257600080fd5b506101bb610801565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561020957600080fd5b5061024c6004803603602081101561022057600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610826565b005b34801561025a57600080fd5b50610263610b61565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156102b157600080fd5b506102ba610b87565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561030857600080fd5b5061034b6004803603602081101561031f57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610bad565b005b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146103a657600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561042a57600080fd5b505afa15801561043e573d6000803e3d6000fd5b505050506040513d602081101561045457600080fd5b81019080805190602001909291905050509050600081116104dd576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050600060405180830381600087803b15801561058657600080fd5b505af115801561059a573d6000803e3d6000fd5b505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146106be57600080fd5b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff166000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506000600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461087f57600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561090357600080fd5b505afa158015610917573d6000803e3d6000fd5b505050506040513d602081101561092d57600080fd5b81019080805190602001909291905050509050600081116109b6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050602060405180830381600087803b158015610a5f57600080fd5b505af1158015610a73573d6000803e3d6000fd5b505050506040513d6020811015610a8957600080fd5b8101908080519060200190929190505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610c0657600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505056fea265627a7a7231582001543b5939e998cc829c177eb8dd2927268ba9f47e41ce006f6276379d324b6f64736f6c634300050c0032000000000000000000000000e8bb7d0000e0b8f7114863d7fee666b5270111b8&quot;,
+        &quot;raw&quot;: null
+      },
+      &quot;41589&quot;: {
+        &quot;hash&quot;: &quot;0xc67949dfcf2e5cbb054f0711d5dbf1789801303773c85b7d0b3a8108832b99b0&quot;,
+        &quot;nonce&quot;: &quot;0xa275&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x07e80128c7a35d0d43ddcc67fa8b1495871e08bf&quot;,
+        &quot;to&quot;: null,
+        &quot;value&quot;: &quot;0x0&quot;,
+        &quot;gasPrice&quot;: &quot;0xee6b2800&quot;,
+        &quot;gas&quot;: &quot;0xc074c&quot;,
+        &quot;input&quot;: &quot;0x608060405234801561001057600080fd5b50604051610d54380380610d548339818101604052602081101561003357600080fd5b8101908080519060200190929190505050336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600260006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610c7f806100d56000396000f3fe6080604052600436106100705760003560e01c80638feb1b8b1161004e5780638feb1b8b146101fd578063d4ee1d901461024e578063e45bf7a6146102a5578063f2fde38b146102fc57610070565b806359a006801461013e57806379ba50971461018f5780638da5cb5b146101a6575b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166108fc349081150290604051600060405180830381858888f193505050501580156100d8573d6000803e3d6000fd5b507f0fe4cb1d003e6b2859d9f82ed185534d04565d376652186cbd07c0105fdcc5d830604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a1005b34801561014a57600080fd5b5061018d6004803603602081101561016157600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061034d565b005b34801561019b57600080fd5b506101a4610664565b005b3480156101b257600080fd5b506101bb610801565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561020957600080fd5b5061024c6004803603602081101561022057600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610826565b005b34801561025a57600080fd5b50610263610b61565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156102b157600080fd5b506102ba610b87565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561030857600080fd5b5061034b6004803603602081101561031f57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610bad565b005b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146103a657600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561042a57600080fd5b505afa15801561043e573d6000803e3d6000fd5b505050506040513d602081101561045457600080fd5b81019080805190602001909291905050509050600081116104dd576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050600060405180830381600087803b15801561058657600080fd5b505af115801561059a573d6000803e3d6000fd5b505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146106be57600080fd5b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff166000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506000600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461087f57600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561090357600080fd5b505afa158015610917573d6000803e3d6000fd5b505050506040513d602081101561092d57600080fd5b81019080805190602001909291905050509050600081116109b6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050602060405180830381600087803b158015610a5f57600080fd5b505af1158015610a73573d6000803e3d6000fd5b505050506040513d6020811015610a8957600080fd5b8101908080519060200190929190505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610c0657600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505056fea265627a7a7231582001543b5939e998cc829c177eb8dd2927268ba9f47e41ce006f6276379d324b6f64736f6c634300050c0032000000000000000000000000e8bb7d0000e0b8f7114863d7fee666b5270111b8&quot;,
+        &quot;raw&quot;: null
+      },
+      &quot;41590&quot;: {
+        &quot;hash&quot;: &quot;0x87f1eca993dd77d4fcf34aaa078f555dde68d478c7fcc75afefbc06553bde807&quot;,
+        &quot;nonce&quot;: &quot;0xa276&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x07e80128c7a35d0d43ddcc67fa8b1495871e08bf&quot;,
+        &quot;to&quot;: null,
+        &quot;value&quot;: &quot;0x0&quot;,
+        &quot;gasPrice&quot;: &quot;0xee6b2800&quot;,
+        &quot;gas&quot;: &quot;0xc074c&quot;,
+        &quot;input&quot;: &quot;0x608060405234801561001057600080fd5b50604051610d54380380610d548339818101604052602081101561003357600080fd5b8101908080519060200190929190505050336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600260006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610c7f806100d56000396000f3fe6080604052600436106100705760003560e01c80638feb1b8b1161004e5780638feb1b8b146101fd578063d4ee1d901461024e578063e45bf7a6146102a5578063f2fde38b146102fc57610070565b806359a006801461013e57806379ba50971461018f5780638da5cb5b146101a6575b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166108fc349081150290604051600060405180830381858888f193505050501580156100d8573d6000803e3d6000fd5b507f0fe4cb1d003e6b2859d9f82ed185534d04565d376652186cbd07c0105fdcc5d830604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a1005b34801561014a57600080fd5b5061018d6004803603602081101561016157600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061034d565b005b34801561019b57600080fd5b506101a4610664565b005b3480156101b257600080fd5b506101bb610801565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561020957600080fd5b5061024c6004803603602081101561022057600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610826565b005b34801561025a57600080fd5b50610263610b61565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156102b157600080fd5b506102ba610b87565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34801561030857600080fd5b5061034b6004803603602081101561031f57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610bad565b005b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146103a657600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561042a57600080fd5b505afa15801561043e573d6000803e3d6000fd5b505050506040513d602081101561045457600080fd5b81019080805190602001909291905050509050600081116104dd576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050600060405180830381600087803b15801561058657600080fd5b505af115801561059a573d6000803e3d6000fd5b505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146106be57600080fd5b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff166000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506000600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461087f57600080fd5b600081905060008173ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b15801561090357600080fd5b505afa158015610917573d6000803e3d6000fd5b505050506040513d602081101561092d57600080fd5b81019080805190602001909291905050509050600081116109b6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f62616c616e6365206d7573742062652067726561746572207468616e2030000081525060200191505060405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1663a9059cbb600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050602060405180830381600087803b158015610a5f57600080fd5b505af1158015610a73573d6000803e3d6000fd5b505050506040513d6020811015610a8957600080fd5b8101908080519060200190929190505050507f8664be48506bd501d568d732361f45a27336ed6ea23c69c994d33e971ff7f40130600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1683604051808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001828152602001935050505060405180910390a1505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610c0657600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505056fea265627a7a7231582001543b5939e998cc829c177eb8dd2927268ba9f47e41ce006f6276379d324b6f64736f6c634300050c0032000000000000000000000000e8bb7d0000e0b8f7114863d7fee666b5270111b8&quot;,
+        &quot;raw&quot;: null
+      }
+    }
+  },
+  &quot;queued&quot;: {
+    &quot;0x0f87ffcd71859233eb259f42b236c8e9873444e3&quot;: {
+      &quot;7&quot;: {
+        &quot;hash&quot;: &quot;0x5c2cc0e17ea6c48489fddd2a64975791e0d4a7cc0ae4a81613682fd134be1baa&quot;,
+        &quot;nonce&quot;: &quot;0x7&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x0f87ffcd71859233eb259f42b236c8e9873444e3&quot;,
+        &quot;to&quot;: &quot;0x3479be69e07e838d9738a301bb0c89e8ea2bef4a&quot;,
+        &quot;value&quot;: &quot;0x38d7ea4c68000&quot;,
+        &quot;gasPrice&quot;: &quot;0x2540be400&quot;,
+        &quot;gas&quot;: &quot;0x5208&quot;,
+        &quot;input&quot;: &quot;0x&quot;,
+        &quot;raw&quot;: null
+      },
+      &quot;8&quot;: {
+        &quot;hash&quot;: &quot;0x8755fadda87e9fd2e66c0bfa542baa9f552cddda334f673e272f3aa686efb5e4&quot;,
+        &quot;nonce&quot;: &quot;0x8&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x0f87ffcd71859233eb259f42b236c8e9873444e3&quot;,
+        &quot;to&quot;: &quot;0x73aaf691bc33fe38f86260338ef88f9897ecaa4f&quot;,
+        &quot;value&quot;: &quot;0x38d7ea4c68000&quot;,
+        &quot;gasPrice&quot;: &quot;0x2540be400&quot;,
+        &quot;gas&quot;: &quot;0x5208&quot;,
+        &quot;input&quot;: &quot;0x&quot;,
+        &quot;raw&quot;: null
+      }
+    },
+    &quot;0x307e8f249bcccfa5b245449256c5d7e6e079943e&quot;: {
+      &quot;3&quot;: {
+        &quot;hash&quot;: &quot;0x54ea4d4905bf74b687ccc73e8a1fb9615357e5e82d3f716e7ab10cd8460a3221&quot;,
+        &quot;nonce&quot;: &quot;0x3&quot;,
+        &quot;blockHash&quot;: null,
+        &quot;blockNumber&quot;: null,
+        &quot;transactionIndex&quot;: null,
+        &quot;from&quot;: &quot;0x307e8f249bcccfa5b245449256c5d7e6e079943e&quot;,
+        &quot;to&quot;: &quot;0x73aaf691bc33fe38f86260338ef88f9897ecaa4f&quot;,
+        &quot;value&quot;: &quot;0x2386f26fc10000&quot;,
+        &quot;gasPrice&quot;: &quot;0x2540be400&quot;,
+        &quot;gas&quot;: &quot;0x5208&quot;,
+        &quot;input&quot;: &quot;0x&quot;,
+        &quot;raw&quot;: null
+      }
+    }
+  }
+}&quot;#</span>;
+        <span class="kw">let</span> <span class="ident">deserialized</span>: <span class="ident">TxpoolContentInfo</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">from_str</span>(<span class="ident">txpool_content_str</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">serialized</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">deserialized</span>).<span class="ident">unwrap</span>();
+        <span class="comment">// println!(&quot;{}&quot;, serialized);</span>
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">txpool_content_str</span>.<span class="ident">trim</span>(), <span class="ident">serialized</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">should_deserialize_txpool_inspect</span>() {
+        <span class="kw">let</span> <span class="ident">txpool_inspect_str</span> <span class="op">=</span> <span class="string">r#&quot;
+{
+  &quot;pending&quot;: {
+    &quot;0x0512261a7486b1e29704ac49a5eb355b6fd86872&quot;: {
+      &quot;124930&quot;: &quot;0x000000000000000000000000000000000000007E: 0 wei + 100187 gas × 20000000000 wei&quot;
+    },
+    &quot;0x201354729f8d0f8b64e9a0c353c672c6a66b3857&quot;: {
+      &quot;252350&quot;: &quot;0xd10e3Be2bc8f959Bc8C41CF65F60dE721cF89ADF: 0 wei + 65792 gas × 2000000000 wei&quot;,
+      &quot;252351&quot;: &quot;0xd10e3Be2bc8f959Bc8C41CF65F60dE721cF89ADF: 0 wei + 65792 gas × 2000000000 wei&quot;,
+      &quot;252352&quot;: &quot;0xd10e3Be2bc8f959Bc8C41CF65F60dE721cF89ADF: 0 wei + 65780 gas × 2000000000 wei&quot;,
+      &quot;252353&quot;: &quot;0xd10e3Be2bc8f959Bc8C41CF65F60dE721cF89ADF: 0 wei + 65780 gas × 2000000000 wei&quot;
+    }
+  },
+  &quot;queued&quot;: {
+    &quot;0x0f87ffcd71859233eb259f42b236c8e9873444e3&quot;: {
+      &quot;7&quot;: &quot;0x3479BE69e07E838D9738a301Bb0c89e8EA2Bef4a: 1000000000000000 wei + 21000 gas × 10000000000 wei&quot;,
+      &quot;8&quot;: &quot;0x73Aaf691bc33fe38f86260338EF88f9897eCaa4F: 1000000000000000 wei + 21000 gas × 10000000000 wei&quot;
+    },
+    &quot;0x307e8f249bcccfa5b245449256c5d7e6e079943e&quot;: {
+      &quot;3&quot;: &quot;0x73Aaf691bc33fe38f86260338EF88f9897eCaa4F: 10000000000000000 wei + 21000 gas × 10000000000 wei&quot;
+    }
+  }
+}&quot;#</span>;
+        <span class="kw">let</span> <span class="ident">deserialized</span>: <span class="ident">TxpoolInspectInfo</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">from_str</span>(<span class="ident">txpool_inspect_str</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">serialized</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">deserialized</span>).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">txpool_inspect_str</span>.<span class="ident">trim</span>(), <span class="ident">serialized</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">should_deserialize_txpool_status</span>() {
+        <span class="kw">let</span> <span class="ident">txpool_status_str</span> <span class="op">=</span> <span class="string">r#&quot;
+{
+  &quot;pending&quot;: &quot;0x23&quot;,
+  &quot;queued&quot;: &quot;0x20&quot;
+}&quot;#</span>;
+        <span class="kw">let</span> <span class="ident">deserialized</span>: <span class="ident">TxpoolStatus</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">from_str</span>(<span class="ident">txpool_status_str</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">serialized</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">deserialized</span>).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">txpool_status_str</span>.<span class="ident">trim</span>(), <span class="ident">serialized</span>);
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "web3";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

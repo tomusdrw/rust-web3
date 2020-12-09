@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["web3"] = [{"text":"impl Display for Error","synthetic":false,"types":[]},{"text":"impl Display for Error","synthetic":false,"types":[]},{"text":"impl Display for Error","synthetic":false,"types":[]},{"text":"impl Display for SigningError","synthetic":false,"types":[]},{"text":"impl Display for RecoveryError","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
