@@ -3,7 +3,7 @@
 use crate::api::Namespace;
 use crate::helpers::{self, CallFuture};
 use crate::types::{
-    Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
+    Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
     TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
 };
 use crate::Transport;
@@ -226,8 +226,20 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
     }
 
+    /// Get uncle header by block ID and uncle index.
+    ///
+    /// This method is meant for TurboGeth compatiblity,
+    /// which is missing transaction hashes in the response.
+    pub fn uncle_header(&self, block: BlockId, index: Index) -> CallFuture<Option<BlockHeader>, T::Out> {
+        self.fetch_uncle(block, index)
+    }
+
     /// Get uncle by block ID and uncle index -- transactions only has hashes.
     pub fn uncle(&self, block: BlockId, index: Index) -> CallFuture<Option<Block<H256>>, T::Out> {
+        self.fetch_uncle(block, index)
+    }
+
+    fn fetch_uncle<X>(&self, block: BlockId, index: Index) -> CallFuture<Option<X>, T::Out> {
         let index = helpers::serialize(&index);
 
         let result = match block {
@@ -342,8 +354,8 @@ mod tests {
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::{
-        Address, Block, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState, Transaction,
-        TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, Log, SyncInfo, SyncState,
+        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
     };
 
     use super::Eth;
@@ -664,6 +676,14 @@ mod tests {
       "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
       ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
       => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
+    );
+
+    rpc_test! (
+      Eth:uncle_header:uncle_header_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
+      =>
+      "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
+      => Some(::serde_json::from_str::<BlockHeader>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
