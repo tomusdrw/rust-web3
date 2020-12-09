@@ -18,11 +18,11 @@ ethabi = "12.0.0"
 ethereum-types = "0.9.0"
 futures = "0.3.5"
 futures-timer = "3.0.2"
+hex = "0.4"
 jsonrpc-core = "15.0.0"
 log = "0.4.6"
 parking_lot = "0.11.0"
 rlp = "0.4"
-rustc-hex = "2.1.0"
 secp256k1 = { version = "0.19", features = ["recovery"], optional = true }
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
@@ -54,6 +54,7 @@ wasm-bindgen-futures = { version = "0.4.18", optional = true }
 [dev-dependencies]
 # For examples
 env_logger = "0.8"
+hex-literal = "0.3"
 tokio = { version = "0.2", features = ["full"] }
 
 [features]

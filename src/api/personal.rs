@@ -83,7 +83,7 @@ mod tests {
     use crate::api::Namespace;
     use crate::rpc::Value;
     use crate::types::{Address, RawTransaction, TransactionRequest};
-    use rustc_hex::FromHex;
+    use hex_literal::hex;
 
     use super::Personal;
 
@@ -135,12 +135,12 @@ mod tests {
 
     rpc_test! (
       Personal:sign_transaction, TransactionRequest {
-        from: "407d73d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap(),
-        to: Some("853f43d8a49eeb85d32cf465507dd71d507100c1".parse().unwrap()),
+        from: hex!("407d73d8a49eeb85d32cf465507dd71d507100c1").into(),
+        to: Some(hex!("853f43d8a49eeb85d32cf465507dd71d507100c1").into()),
         gas: Some(0x7f110.into()),
         gas_price: Some(0x09184e72a000u64.into()),
         value: Some(0x7f110.into()),
-        data: Some(FromHex::from_hex::<Vec<u8>>("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").unwrap().into()),
+        data: Some(hex!("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").into()),
         nonce: Some(0x0.into()),
         condition: None,
       }, "hunter2"

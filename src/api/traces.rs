@@ -98,11 +98,10 @@ impl<T: Transport> Traces<T> {
 #[cfg(test)]
 mod tests {
     use crate::api::Namespace;
-    use crate::types::{
-        Address, BlockNumber, BlockTrace, Bytes, CallRequest, Trace, TraceFilterBuilder, TraceType, H256,
-    };
+    use crate::types::{Address, BlockNumber, BlockTrace, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
 
     use super::Traces;
+    use hex_literal::hex;
 
     const EXAMPLE_BLOCKTRACE: &str = r#"
     {
@@ -222,7 +221,7 @@ mod tests {
     );
 
     rpc_test!(
-    Traces:raw_transaction, Bytes(vec![1, 2, 3, 4]), vec![TraceType::Trace]
+    Traces:raw_transaction, hex!("01020304"), vec![TraceType::Trace]
     =>
     "trace_rawTransaction", vec![r#""0x01020304""#, r#"["trace"]"#];
     ::serde_json::from_str(EXAMPLE_BLOCKTRACE).unwrap()
