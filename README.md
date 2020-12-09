@@ -6,7 +6,7 @@ Rust implementation of Web3.js library.
 [![Build Status][ci-image]][ci-url] [![Crates.io](https://img.shields.io/crates/v/web3)](https://crates.io/crates/web3)
 
 [ci-image]: https://github.com/tomusdrw/rust-web3/workflows/Compilation%20and%20Testing%20Suite/badge.svg
-[ci-url]: https://github.com/tomusdrw/rust-web3/workflows
+[ci-url]: https://github.com/tomusdrw/rust-web3/actions?query=workflow%3A%22Compilation+and+Testing+Suite%22
 [docs-rs-badge]: https://docs.rs/web3/badge.svg
 [docs-rs-url]: https://docs.rs/web3
 
