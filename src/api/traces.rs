@@ -98,9 +98,7 @@ impl<T: Transport> Traces<T> {
 #[cfg(test)]
 mod tests {
     use crate::api::Namespace;
-    use crate::types::{
-        Address, BlockNumber, BlockTrace, CallRequest, Trace, TraceFilterBuilder, TraceType, H256,
-    };
+    use crate::types::{Address, BlockNumber, BlockTrace, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
 
     use super::Traces;
     use hex_literal::hex;
