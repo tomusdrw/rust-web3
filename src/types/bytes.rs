@@ -1,4 +1,3 @@
-use rustc_hex::{FromHex, ToHex};
 use serde::de::{Error, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -19,7 +18,7 @@ impl Serialize for Bytes {
         S: Serializer,
     {
         let mut serialized = "0x".to_owned();
-        serialized.push_str(self.0.to_hex::<String>().as_ref());
+        serialized.push_str(&hex::encode(&self.0));
         serializer.serialize_str(serialized.as_ref())
     }
 }
@@ -47,7 +46,7 @@ impl<'a> Visitor<'a> for BytesVisitor {
         E: Error,
     {
         if value.len() >= 2 && &value[0..2] == "0x" {
-            let bytes = FromHex::from_hex(&value[2..]).map_err(|e| Error::custom(format!("Invalid hex: {}", e)))?;
+            let bytes = hex::decode(&value[2..]).map_err(|e| Error::custom(format!("Invalid hex: {}", e)))?;
             Ok(Bytes(bytes))
         } else {
             Err(Error::invalid_value(Unexpected::Str(value), &"0x prefix"))

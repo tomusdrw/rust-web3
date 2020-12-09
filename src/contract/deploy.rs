@@ -1,7 +1,6 @@
 //! Contract deployment utilities
 
 use futures::{Future, TryFutureExt};
-use rustc_hex::{FromHex, ToHex};
 use std::collections::HashMap;
 use std::time;
 
@@ -121,11 +120,11 @@ impl<T: Transport> Builder<T> {
                 )));
             }
             let replace = format!("__{:_<38}", lib); // This makes the required width 38 characters and will pad with `_` to match it.
-            let address: String = address.as_ref().to_hex();
+            let address: String = hex::encode(address);
             code_hex = code_hex.replacen(&replace, &address, 1);
         }
         code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = code_hex.from_hex().map_err(ethabi::Error::Hex)?;
+        let code = hex::decode(&code_hex).map_err(|e| ethabi::Error::Other(format!("hex decode error: {}", e)))?;
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {

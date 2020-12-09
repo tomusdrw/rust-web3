@@ -441,6 +441,7 @@ mod tests {
     use super::{Detokenize, Tokenizable};
     use crate::types::{Address, BytesArray, U256};
     use ethabi::{Token, Uint};
+    use hex_literal::hex;
 
     fn output<R: Detokenize>() -> R {
         unimplemented!()
@@ -472,14 +473,14 @@ mod tests {
     fn should_decode_array_of_fixed_bytes() {
         // byte[8][]
         let tokens = vec![Token::FixedArray(vec![
-            Token::FixedBytes(vec![1]),
-            Token::FixedBytes(vec![2]),
-            Token::FixedBytes(vec![3]),
-            Token::FixedBytes(vec![4]),
-            Token::FixedBytes(vec![5]),
-            Token::FixedBytes(vec![6]),
-            Token::FixedBytes(vec![7]),
-            Token::FixedBytes(vec![8]),
+            Token::FixedBytes(hex!("01").into()),
+            Token::FixedBytes(hex!("02").into()),
+            Token::FixedBytes(hex!("03").into()),
+            Token::FixedBytes(hex!("04").into()),
+            Token::FixedBytes(hex!("05").into()),
+            Token::FixedBytes(hex!("06").into()),
+            Token::FixedBytes(hex!("07").into()),
+            Token::FixedBytes(hex!("08").into()),
         ])];
         let data: [[u8; 1]; 8] = Detokenize::from_tokens(tokens).unwrap();
         assert_eq!(data[0][0], 1);

@@ -1,5 +1,6 @@
+use hex_literal::hex;
 use web3::contract::{Contract, Options};
-use web3::types::{Address, U256};
+use web3::types::U256;
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
@@ -7,7 +8,7 @@ async fn main() -> web3::contract::Result<()> {
     let http = web3::transports::Http::new("http://localhost:8545")?;
     let web3 = web3::Web3::new(http);
 
-    let my_account: Address = "d028d24f16a8893bd078259d413372ac01580769".parse().unwrap();
+    let my_account = hex!("d028d24f16a8893bd078259d413372ac01580769").into();
     // Get the contract bytecode for instance from Solidity compiler
     let bytecode = include_str!("./res/contract_token.code");
     // Deploying a contract

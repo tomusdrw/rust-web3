@@ -42,9 +42,10 @@ impl<T: Transport> Web3<T> {
 mod tests {
     use crate::api::Namespace;
     use crate::rpc::Value;
-    use crate::types::{Bytes, H256};
+    use crate::types::H256;
 
     use super::Web3;
+    use hex_literal::hex;
 
     rpc_test! (
       Web3:client_version => "web3_clientVersion";
@@ -52,7 +53,7 @@ mod tests {
     );
 
     rpc_test! (
-      Web3:sha3, Bytes(vec![1, 2, 3, 4])
+      Web3:sha3, hex!("01020304")
       =>
       "web3_sha3", vec![r#""0x01020304""#];
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)

@@ -190,16 +190,17 @@ fn topic_to_option<T>(topic: ethabi::Topic<T>) -> Option<Vec<T>> {
 #[cfg(test)]
 mod tests {
     use crate::types::{
-        log::{Bytes, FilterBuilder, Log},
+        log::{FilterBuilder, Log},
         Address, H160, H256,
     };
+    use hex_literal::hex;
 
     #[test]
     fn is_removed_removed_true() {
         let log = Log {
             address: Address::from_low_u64_be(1),
             topics: vec![],
-            data: Bytes(vec![]),
+            data: hex!("").into(),
             block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
             transaction_hash: Some(H256::from_low_u64_be(3)),
@@ -217,7 +218,7 @@ mod tests {
         let log = Log {
             address: H160::from_low_u64_be(1),
             topics: vec![],
-            data: Bytes(vec![]),
+            data: hex!("").into(),
             block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
             transaction_hash: Some(H256::from_low_u64_be(3)),
@@ -235,7 +236,7 @@ mod tests {
         let log = Log {
             address: Address::from_low_u64_be(1),
             topics: vec![],
-            data: Bytes(vec![]),
+            data: hex!("").into(),
             block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
             transaction_hash: Some(H256::from_low_u64_be(3)),
@@ -253,7 +254,7 @@ mod tests {
         let log = Log {
             address: Address::from_low_u64_be(1),
             topics: vec![],
-            data: Bytes(vec![]),
+            data: hex!("").into(),
             block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
             transaction_hash: Some(H256::from_low_u64_be(3)),
@@ -271,7 +272,7 @@ mod tests {
         let log = Log {
             address: Address::from_low_u64_be(1),
             topics: vec![],
-            data: Bytes(vec![]),
+            data: hex!("").into(),
             block_hash: Some(H256::from_low_u64_be(2)),
             block_number: Some(1.into()),
             transaction_hash: Some(H256::from_low_u64_be(3)),
