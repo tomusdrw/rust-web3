@@ -1,18 +1,16 @@
 //! Batching Transport
 
-use crate::error::{self, Error};
-use crate::rpc;
-use crate::{BatchTransport, RequestId, Transport};
-use futures::channel::oneshot;
+use crate::{
+    error::{self, Error},
+    rpc, BatchTransport, RequestId, Transport,
+};
 use futures::{
+    channel::oneshot,
     task::{Context, Poll},
     Future, FutureExt,
 };
 use parking_lot::Mutex;
-use std::collections::BTreeMap;
-use std::mem;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{collections::BTreeMap, mem, pin::Pin, sync::Arc};
 
 type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;

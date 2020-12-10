@@ -120,8 +120,7 @@ pub struct RawTransactionDetails {
 
 #[cfg(test)]
 mod tests {
-    use super::RawTransaction;
-    use super::Receipt;
+    use super::{RawTransaction, Receipt};
 
     #[test]
     fn test_deserialize_receipt() {

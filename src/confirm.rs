@@ -1,8 +1,11 @@
 //! Easy to use utilities for confirmations.
 
-use crate::api::{Eth, EthFilter, Namespace};
-use crate::types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64};
-use crate::{error, Transport};
+use crate::{
+    api::{Eth, EthFilter, Namespace},
+    error,
+    types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64},
+    Transport,
+};
 use futures::{Future, StreamExt};
 use std::time::Duration;
 
@@ -117,9 +120,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::send_transaction_with_confirmation;
-    use crate::rpc::Value;
-    use crate::transports::test::TestTransport;
-    use crate::types::{Address, TransactionReceipt, TransactionRequest, H256, U64};
+    use crate::{
+        rpc::Value,
+        transports::test::TestTransport,
+        types::{Address, TransactionReceipt, TransactionRequest, H256, U64},
+    };
     use serde_json::json;
     use std::time::Duration;
 

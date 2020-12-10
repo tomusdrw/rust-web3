@@ -1,9 +1,11 @@
 //! `Txpool` namespace
 
-use crate::api::Namespace;
-use crate::helpers::CallFuture;
-use crate::types::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus};
-use crate::Transport;
+use crate::{
+    api::Namespace,
+    helpers::CallFuture,
+    types::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus},
+    Transport,
+};
 
 /// `Txpool` namespace
 #[derive(Debug, Clone)]
@@ -43,10 +45,11 @@ impl<T: Transport> Txpool<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::Namespace;
-    use crate::types::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus};
-
     use super::Txpool;
+    use crate::{
+        api::Namespace,
+        types::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus},
+    };
 
     const EXAMPLE_CONTENT_INFO: &str = r#"{
         "pending": {

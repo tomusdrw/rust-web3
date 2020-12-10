@@ -1,14 +1,12 @@
 //! Web3 helpers.
 
-use std::marker::PhantomData;
-use std::pin::Pin;
-
 use crate::{error, rpc};
 use futures::{
     task::{Context, Poll},
     Future,
 };
 use pin_project::pin_project;
+use std::{marker::PhantomData, pin::Pin};
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
 /// yields the deserialized value

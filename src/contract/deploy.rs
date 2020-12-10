@@ -1,16 +1,15 @@
 //! Contract deployment utilities
 
+use crate::{
+    api::{Eth, Namespace},
+    confirm,
+    contract::{tokens::Tokenize, Contract, Options},
+    error,
+    types::{Address, Bytes, TransactionReceipt, TransactionRequest},
+    Transport,
+};
 use futures::{Future, TryFutureExt};
-use std::collections::HashMap;
-use std::time;
-
-use crate::api::{Eth, Namespace};
-use crate::confirm;
-use crate::contract::tokens::Tokenize;
-use crate::contract::{Contract, Options};
-use crate::error;
-use crate::types::{Address, Bytes, TransactionReceipt, TransactionRequest};
-use crate::Transport;
+use std::{collections::HashMap, time};
 
 pub use crate::contract::error::deploy::Error;
 
@@ -162,11 +161,13 @@ impl<T: Transport> Builder<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::{self, Namespace};
-    use crate::contract::{Contract, Options};
-    use crate::rpc;
-    use crate::transports::test::TestTransport;
-    use crate::types::{Address, U256};
+    use crate::{
+        api::{self, Namespace},
+        contract::{Contract, Options},
+        rpc,
+        transports::test::TestTransport,
+        types::{Address, U256},
+    };
     use serde_json::Value;
     use std::collections::HashMap;
 

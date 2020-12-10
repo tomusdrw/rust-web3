@@ -33,8 +33,10 @@ pub mod signing;
 pub mod transports;
 pub mod types;
 
-pub use crate::api::Web3;
-pub use crate::error::{Error, Result};
+pub use crate::{
+    api::Web3,
+    error::{Error, Result},
+};
 
 /// Assigned RequestId
 pub type RequestId = usize;

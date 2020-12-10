@@ -1,8 +1,10 @@
 use hex_literal::hex;
 use std::time;
-use web3::contract::{Contract, Options};
-use web3::futures::StreamExt;
-use web3::types::FilterBuilder;
+use web3::{
+    contract::{Contract, Options},
+    futures::StreamExt,
+    types::FilterBuilder,
+};
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {

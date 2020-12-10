@@ -1,9 +1,6 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::api::Namespace;
-use crate::signing;
-use crate::types::H256;
-use crate::Transport;
+use crate::{api::Namespace, signing, types::H256, Transport};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -46,11 +43,13 @@ impl<T: Transport> Accounts<T> {
 #[cfg(feature = "signing")]
 mod accounts_signing {
     use super::*;
-    use crate::api::Web3;
-    use crate::error;
-    use crate::signing::Signature;
-    use crate::types::{
-        Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
+    use crate::{
+        api::Web3,
+        error,
+        signing::Signature,
+        types::{
+            Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
+        },
     };
     use rlp::RlpStream;
     use std::convert::TryInto;
@@ -243,13 +242,14 @@ mod accounts_signing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::signing::{SecretKey, SecretKeyRef};
-    use crate::transports::test::TestTransport;
-    use crate::types::{Address, Recovery, SignedTransaction, TransactionParameters, U256};
+    use crate::{
+        signing::{SecretKey, SecretKeyRef},
+        transports::test::TestTransport,
+        types::{Address, Recovery, SignedTransaction, TransactionParameters, U256},
+    };
+    use accounts_signing::*;
     use hex_literal::hex;
     use serde_json::json;
-
-    use accounts_signing::*;
 
     #[test]
     fn accounts_sign_transaction() {

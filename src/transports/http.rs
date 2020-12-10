@@ -1,18 +1,21 @@
 //! HTTP Transport
 
-use crate::error;
-use crate::helpers;
-use crate::rpc;
-use crate::{BatchTransport, Error, RequestId, Transport};
-use futures::task::{Context, Poll};
-use futures::{self, Future, FutureExt, StreamExt};
+use crate::{error, helpers, rpc, BatchTransport, Error, RequestId, Transport};
+use futures::{
+    self,
+    task::{Context, Poll},
+    Future, FutureExt, StreamExt,
+};
 use hyper::header::HeaderValue;
-use std::env;
-use std::fmt;
-use std::ops::Deref;
-use std::pin::Pin;
-use std::sync::atomic::{self, AtomicUsize};
-use std::sync::Arc;
+use std::{
+    env, fmt,
+    ops::Deref,
+    pin::Pin,
+    sync::{
+        atomic::{self, AtomicUsize},
+        Arc,
+    },
+};
 use url::Url;
 
 impl From<hyper::Error> for Error {

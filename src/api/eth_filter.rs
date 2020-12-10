@@ -1,16 +1,15 @@
 //! `Eth` namespace, filters.
 
+use crate::{
+    api::Namespace,
+    error, helpers, rpc,
+    types::{Filter, Log, H256},
+    Transport,
+};
 use futures::{stream, Stream, TryStreamExt};
 use futures_timer::Delay;
 use serde::de::DeserializeOwned;
-use std::marker::PhantomData;
-use std::time::Duration;
-use std::{fmt, vec};
-
-use crate::api::Namespace;
-use crate::helpers;
-use crate::types::{Filter, Log, H256};
-use crate::{error, rpc, Transport};
+use std::{fmt, marker::PhantomData, time::Duration, vec};
 
 fn filter_stream<T: Transport, I: DeserializeOwned>(
     base: BaseFilter<T, I>,
@@ -201,10 +200,12 @@ impl<T: Transport> EthFilter<T> {
 #[cfg(test)]
 mod tests {
     use super::EthFilter;
-    use crate::api::Namespace;
-    use crate::rpc::Value;
-    use crate::transports::test::TestTransport;
-    use crate::types::{Address, FilterBuilder, Log, H256};
+    use crate::{
+        api::Namespace,
+        rpc::Value,
+        transports::test::TestTransport,
+        types::{Address, FilterBuilder, Log, H256},
+    };
     use futures::stream::StreamExt;
     use hex_literal::hex;
     use std::time::Duration;

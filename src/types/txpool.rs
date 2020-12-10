@@ -1,5 +1,4 @@
-use crate::types::U64;
-use crate::types::{Address, Transaction};
+use crate::types::{Address, Transaction, U64};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

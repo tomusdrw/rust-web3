@@ -29,13 +29,13 @@ pub use feature_gated::*;
 #[cfg(feature = "signing")]
 mod feature_gated {
     use super::*;
-
-    use secp256k1::recovery::{RecoverableSignature, RecoveryId};
-    pub(crate) use secp256k1::SecretKey;
-    use secp256k1::{Message, PublicKey, Secp256k1};
-    use std::ops::Deref;
-
     use crate::types::Address;
+    pub(crate) use secp256k1::SecretKey;
+    use secp256k1::{
+        recovery::{RecoverableSignature, RecoveryId},
+        Message, PublicKey, Secp256k1,
+    };
+    use std::ops::Deref;
 
     /// A trait representing ethereum-compatible key with signing capabilities.
     ///

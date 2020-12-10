@@ -4,21 +4,20 @@
 //! EIP-1193 providers like MetaMask. It's intended for use with Rust's
 //! WebAssembly target.
 
-use crate::api::SubscriptionId;
-use crate::types::{Address, U256};
-use crate::{error, DuplexTransport, Error, RequestId, Transport};
-use futures::channel::mpsc;
-use futures::future::LocalBoxFuture;
-use futures::Stream;
+use crate::{
+    api::SubscriptionId,
+    error,
+    types::{Address, U256},
+    DuplexTransport, Error, RequestId, Transport,
+};
+use futures::{channel::mpsc, future::LocalBoxFuture, Stream};
 use jsonrpc_core::types::request::{Call, MethodCall};
-use serde::de::value::StringDeserializer;
-use serde::de::IntoDeserializer;
-use serde::Deserialize;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::rc::Rc;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use serde::{
+    de::{value::StringDeserializer, IntoDeserializer},
+    Deserialize,
+};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use wasm_bindgen::{prelude::*, JsCast};
 
 type Subscriptions = Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>;
 

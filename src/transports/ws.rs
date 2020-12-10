@@ -1,25 +1,23 @@
 //! WebSocket Transport
 
-use std::collections::BTreeMap;
-use std::marker::Unpin;
-use std::sync::{atomic, Arc};
-use std::{fmt, pin::Pin};
-
 use self::compat::{TcpStream, TlsStream};
-use crate::api::SubscriptionId;
-use crate::error;
-use crate::helpers;
-use crate::rpc;
-use crate::{BatchTransport, DuplexTransport, Error, RequestId, Transport};
-use futures::channel::{mpsc, oneshot};
+use crate::{api::SubscriptionId, error, helpers, rpc, BatchTransport, DuplexTransport, Error, RequestId, Transport};
 use futures::{
+    channel::{mpsc, oneshot},
     task::{Context, Poll},
-    Future, FutureExt, Stream, StreamExt,
+    AsyncRead, AsyncWrite, Future, FutureExt, Stream, StreamExt,
 };
-use futures::{AsyncRead, AsyncWrite};
-
-use soketto::connection;
-use soketto::handshake::{Client, ServerResponse};
+use soketto::{
+    connection,
+    handshake::{Client, ServerResponse},
+};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    marker::Unpin,
+    pin::Pin,
+    sync::{atomic, Arc},
+};
 use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
@@ -437,8 +435,7 @@ impl DuplexTransport for WebSocket {
 #[cfg(feature = "ws-async-std")]
 #[doc(hidden)]
 pub mod compat {
-    pub use async_std::net::TcpListener;
-    pub use async_std::net::TcpStream;
+    pub use async_std::net::{TcpListener, TcpStream};
     /// TLS stream type for async-std runtime.
     #[cfg(feature = "ws-tls-async-std")]
     pub type TlsStream = async_native_tls::TlsStream<TcpStream>;
@@ -472,9 +469,11 @@ pub mod compat {
     #[cfg(not(feature = "ws-tls-tokio"))]
     pub type TlsStream = TcpStream;
 
-    use std::io;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
+    use std::{
+        io,
+        pin::Pin,
+        task::{Context, Poll},
+    };
 
     /// Create new TcpStream object.
     pub async fn raw_tcp_stream(addrs: String) -> io::Result<tokio::net::TcpStream> {
@@ -533,8 +532,10 @@ pub mod compat {
 mod tests {
     use super::*;
     use crate::{rpc, Transport};
-    use futures::io::{BufReader, BufWriter};
-    use futures::StreamExt;
+    use futures::{
+        io::{BufReader, BufWriter},
+        StreamExt,
+    };
     use soketto::handshake;
 
     #[test]

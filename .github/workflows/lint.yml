@@ -32,4 +32,4 @@ jobs:
         uses:           actions-rs/cargo@master
         with:
           command:      fmt
-          args:         --all -- --check
+          args:         --all -- --check --config merge_imports=true

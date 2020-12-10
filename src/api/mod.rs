@@ -13,21 +13,26 @@ mod traces;
 mod txpool;
 mod web3;
 
-pub use self::accounts::Accounts;
-pub use self::eth::Eth;
-pub use self::eth_filter::{BaseFilter, EthFilter};
-pub use self::eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionStream};
-pub use self::net::Net;
-pub use self::parity::Parity;
-pub use self::parity_accounts::ParityAccounts;
-pub use self::parity_set::ParitySet;
-pub use self::personal::Personal;
-pub use self::traces::Traces;
-pub use self::txpool::Txpool;
-pub use self::web3::Web3 as Web3Api;
+pub use self::{
+    accounts::Accounts,
+    eth::Eth,
+    eth_filter::{BaseFilter, EthFilter},
+    eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionStream},
+    net::Net,
+    parity::Parity,
+    parity_accounts::ParityAccounts,
+    parity_set::ParitySet,
+    personal::Personal,
+    traces::Traces,
+    txpool::Txpool,
+    web3::Web3 as Web3Api,
+};
 
-use crate::types::{Bytes, TransactionReceipt, TransactionRequest, U64};
-use crate::{confirm, error, DuplexTransport, Transport};
+use crate::{
+    confirm, error,
+    types::{Bytes, TransactionReceipt, TransactionRequest, U64},
+    DuplexTransport, Transport,
+};
 use futures::Future;
 use std::time::Duration;
 

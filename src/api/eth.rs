@@ -1,12 +1,14 @@
 //! `Eth` namespace
 
-use crate::api::Namespace;
-use crate::helpers::{self, CallFuture};
-use crate::types::{
-    Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState, Transaction,
-    TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
+use crate::{
+    api::Namespace,
+    helpers::{self, CallFuture},
+    types::{
+        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState,
+        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
+    },
+    Transport,
 };
-use crate::Transport;
 
 /// `Eth` namespace
 #[derive(Debug, Clone)]
@@ -349,17 +351,17 @@ impl<T: Transport> Eth<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::Eth;
+    use crate::{
+        api::Namespace,
+        rpc::Value,
+        types::{
+            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FilterBuilder, Log, SyncInfo, SyncState,
+            Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+        },
+    };
     use hex_literal::hex;
     use serde_json::json;
-
-    use crate::api::Namespace;
-    use crate::rpc::Value;
-    use crate::types::{
-        Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FilterBuilder, Log, SyncInfo, SyncState,
-        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
-    };
-
-    use super::Eth;
 
     // taken from RPC docs.
     const EXAMPLE_BLOCK: &str = r#"{
