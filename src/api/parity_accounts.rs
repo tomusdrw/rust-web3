@@ -1,7 +1,9 @@
-use crate::api::Namespace;
-use crate::helpers::{self, CallFuture};
-use crate::types::{Address, H256};
-use crate::Transport;
+use crate::{
+    api::Namespace,
+    helpers::{self, CallFuture},
+    types::{Address, H256},
+    Transport,
+};
 
 /// `Parity_Accounts` namespace
 #[derive(Debug, Clone)]
@@ -60,11 +62,9 @@ impl<T: Transport> ParityAccounts<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::Namespace;
-    use crate::rpc::Value;
-    use ethereum_types::{Address, H256};
-
     use super::ParityAccounts;
+    use crate::{api::Namespace, rpc::Value};
+    use ethereum_types::{Address, H256};
 
     rpc_test! (
         ParityAccounts :   parity_kill_account,  &"9b776baeaf3896657a9ba0db5564623b3e0173e0".parse::<Address>().unwrap(), "123456789"

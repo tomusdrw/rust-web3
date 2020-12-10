@@ -1,13 +1,11 @@
 //! Test Transport
 
-use crate::error::{self, Error};
-use crate::helpers;
-use crate::rpc;
-use crate::{RequestId, Transport};
+use crate::{
+    error::{self, Error},
+    helpers, rpc, RequestId, Transport,
+};
 use futures::future::{self, BoxFuture, FutureExt};
-use std::cell::RefCell;
-use std::collections::VecDeque;
-use std::rc::Rc;
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 type Result<T> = BoxFuture<'static, error::Result<T>>;
 

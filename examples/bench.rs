@@ -1,6 +1,8 @@
 use parking_lot::Mutex;
-use std::sync::{atomic, Arc};
-use std::{thread, time};
+use std::{
+    sync::{atomic, Arc},
+    thread, time,
+};
 
 #[tokio::main]
 async fn main() -> web3::Result {

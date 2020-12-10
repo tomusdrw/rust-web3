@@ -72,9 +72,8 @@ pub enum TransactionCondition {
 
 #[cfg(test)]
 mod tests {
-    use hex_literal::hex;
-
     use super::{Address, CallRequest, TransactionCondition, TransactionRequest};
+    use hex_literal::hex;
 
     #[test]
     fn should_serialize_call_request() {

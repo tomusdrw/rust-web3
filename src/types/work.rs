@@ -1,6 +1,5 @@
 use crate::types::{H256, U256};
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{self, Value};
 
 /// Miner's work package

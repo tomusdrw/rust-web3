@@ -1,8 +1,10 @@
 //based on examples/contract.rs
 
 use std::time;
-use web3::contract::{Contract, Options};
-use web3::types::U256;
+use web3::{
+    contract::{Contract, Options},
+    types::U256,
+};
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {

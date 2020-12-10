@@ -1,13 +1,15 @@
 //! Ethereum Contract Interface
 
-use crate::api::{Eth, Namespace};
-use crate::confirm;
-use crate::contract::tokens::{Detokenize, Tokenize};
-use crate::types::{
-    Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt, TransactionRequest,
-    H256, U256,
+use crate::{
+    api::{Eth, Namespace},
+    confirm,
+    contract::tokens::{Detokenize, Tokenize},
+    types::{
+        Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
+        TransactionRequest, H256, U256,
+    },
+    Transport,
 };
-use crate::Transport;
 use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
@@ -278,11 +280,9 @@ impl<T: Transport> Contract<T> {
 
 #[cfg(feature = "signing")]
 mod contract_signing {
-    use crate::api::Accounts;
-    use crate::signing;
-    use crate::types::TransactionParameters;
-
     use super::*;
+    use crate::{api::Accounts, signing, types::TransactionParameters};
+
     impl<T: Transport> Contract<T> {
         /// Execute a signed contract function and wait for confirmations
         pub async fn signed_call_with_confirmations(
@@ -331,11 +331,13 @@ mod contract_signing {
 #[cfg(test)]
 mod tests {
     use super::{Contract, Options};
-    use crate::api::{self, Namespace};
-    use crate::rpc;
-    use crate::transports::test::TestTransport;
-    use crate::types::{Address, BlockId, BlockNumber, H256, U256};
-    use crate::Transport;
+    use crate::{
+        api::{self, Namespace},
+        rpc,
+        transports::test::TestTransport,
+        types::{Address, BlockId, BlockNumber, H256, U256},
+        Transport,
+    };
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);

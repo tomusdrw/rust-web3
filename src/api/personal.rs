@@ -1,10 +1,11 @@
 //! `Personal` namespace
 
-use crate::api::Namespace;
-use crate::helpers::{self, CallFuture};
-use crate::types::{Address, RawTransaction, TransactionRequest, H256};
-
-use crate::Transport;
+use crate::{
+    api::Namespace,
+    helpers::{self, CallFuture},
+    types::{Address, RawTransaction, TransactionRequest, H256},
+    Transport,
+};
 
 /// `Personal` namespace
 #[derive(Debug, Clone)]
@@ -80,12 +81,13 @@ impl<T: Transport> Personal<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::Namespace;
-    use crate::rpc::Value;
-    use crate::types::{Address, RawTransaction, TransactionRequest};
-    use hex_literal::hex;
-
     use super::Personal;
+    use crate::{
+        api::Namespace,
+        rpc::Value,
+        types::{Address, RawTransaction, TransactionRequest},
+    };
+    use hex_literal::hex;
 
     const EXAMPLE_TX: &str = r#"{
     "raw": "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",

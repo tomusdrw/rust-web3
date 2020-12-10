@@ -1,6 +1,8 @@
 use crate::types::{SignedData, SignedTransaction, H256};
-use std::error::Error;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    error::Error,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 /// Data for recovering the public address of signed data.
 ///

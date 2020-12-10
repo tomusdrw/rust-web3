@@ -1,16 +1,17 @@
 //! `Eth` namespace, subscriptions
 
-use crate::api::Namespace;
-use crate::helpers;
-use crate::types::{BlockHeader, Filter, Log, SyncState, H256};
-use crate::{error, DuplexTransport};
+use crate::{
+    api::Namespace,
+    error, helpers,
+    types::{BlockHeader, Filter, Log, SyncState, H256},
+    DuplexTransport,
+};
 use futures::{
     task::{Context, Poll},
     Stream,
 };
 use pin_project::{pin_project, pinned_drop};
-use std::marker::PhantomData;
-use std::pin::Pin;
+use std::{marker::PhantomData, pin::Pin};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]

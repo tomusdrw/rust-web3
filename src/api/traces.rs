@@ -1,7 +1,9 @@
-use crate::api::Namespace;
-use crate::helpers::{self, CallFuture};
-use crate::types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256};
-use crate::Transport;
+use crate::{
+    api::Namespace,
+    helpers::{self, CallFuture},
+    types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256},
+    Transport,
+};
 
 /// `Trace` namespace
 #[derive(Debug, Clone)]
@@ -97,10 +99,11 @@ impl<T: Transport> Traces<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::Namespace;
-    use crate::types::{Address, BlockNumber, BlockTrace, CallRequest, Trace, TraceFilterBuilder, TraceType, H256};
-
     use super::Traces;
+    use crate::{
+        api::Namespace,
+        types::{Address, BlockNumber, BlockTrace, CallRequest, Trace, TraceFilterBuilder, TraceType, H256},
+    };
     use hex_literal::hex;
 
     const EXAMPLE_BLOCKTRACE: &str = r#"

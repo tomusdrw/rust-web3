@@ -1,10 +1,6 @@
 //! `Net` namespace
 
-use crate::api::Namespace;
-use crate::helpers::CallFuture;
-use crate::types::U256;
-
-use crate::Transport;
+use crate::{api::Namespace, helpers::CallFuture, types::U256, Transport};
 
 /// `Net` namespace
 #[derive(Debug, Clone)]
@@ -44,11 +40,8 @@ impl<T: Transport> Net<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::Namespace;
-    use crate::rpc::Value;
-    use crate::types::U256;
-
     use super::Net;
+    use crate::{api::Namespace, rpc::Value, types::U256};
 
     rpc_test! (
       Net:version => "net_version";
