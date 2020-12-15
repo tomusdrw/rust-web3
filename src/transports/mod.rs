@@ -15,6 +15,11 @@ pub mod ws;
 #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
 pub use self::ws::WebSocket;
 
+#[cfg(feature = "ipc-tokio")]
+pub mod ipc;
+#[cfg(feature = "ipc-tokio")]
+pub use self::ipc::Ipc;
+
 #[cfg(any(feature = "test", test))]
 pub mod test;
 

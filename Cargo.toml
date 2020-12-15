@@ -58,7 +58,7 @@ hex-literal = "0.3"
 tokio = { version = "0.2", features = ["full"] }
 
 [features]
-default = ["http-tls", "signing", "ws-tls-tokio"]
+default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
 eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand/wasm-bindgen"]
 http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
 http-tls = ["hyper-tls", "native-tls", "http"]
@@ -67,6 +67,7 @@ ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
+ipc-tokio = ["tokio"]
 test = []
 
 [workspace]
