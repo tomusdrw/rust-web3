@@ -145,14 +145,12 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
                 },
                 Some(Err(err)) => {
                     log::error!("IPC read error: {:?}", err);
-                    break;
+                    return Err(err.into());
                 },
-                None => break,
+                None => return Ok(()),
             }
         };
     }
-
-    Ok(())
 }
 
 fn respond(
