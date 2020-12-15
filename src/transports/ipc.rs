@@ -137,10 +137,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
                             };
 
                             for output in outputs {
-                                let id = match &output {
-                                    rpc::Output::Success(success) => success.id.clone(),
-                                    rpc::Output::Failure(failure) => failure.id.clone(),
-                                };
+                                let id = output.id().clone();
 
                                 let value = match helpers::to_result_from_output(output) {
                                     Ok(value) => value,
