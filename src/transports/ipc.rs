@@ -140,7 +140,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
                                 let _ = respond(&mut pending_response_txs, output);
                             }
                         }
-                        Err(err) => log::warn!("Got bad IPC response bytes: {:?}", err),
+                        Err(_) => {},
                     };
                 },
                 Some(Err(err)) => {
