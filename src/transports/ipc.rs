@@ -100,19 +100,16 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
 
     loop {
         tokio::select! {
-            message = messages_rx.next() => match message {
-                Some(message) => {
-                    if pending_response_txs.insert(message.id, message.response_tx).is_some() {
-                        log::warn!("Replacing a pending request with id {:?}", message.id);
-                    }
+            message = messages_rx.next() => if let Some(message) = message {
+                if pending_response_txs.insert(message.id, message.response_tx).is_some() {
+                    log::warn!("Replacing a pending request with id {:?}", message.id);
+                }
 
-                    let bytes = helpers::to_string(&message.request).into_bytes();
-                    if let Err(err) = socket_writer.write(&bytes).await {
-                        pending_response_txs.remove(&message.id);
-                        log::error!("IPC write error: {:?}", err);
-                    }
-                },
-                None => {},
+                let bytes = helpers::to_string(&message.request).into_bytes();
+                if let Err(err) = socket_writer.write(&bytes).await {
+                    pending_response_txs.remove(&message.id);
+                    log::error!("IPC write error: {:?}", err);
+                }
             },
             bytes = socket_reader.next() => match bytes {
                 Some(Ok(bytes)) => {
