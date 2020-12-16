@@ -1,6 +1,6 @@
 //! IPC transport
 
-use crate::{helpers, BatchTransport, Error, RequestId, Result, Transport};
+use crate::{api::SubscriptionId, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport};
 use futures::future::{join_all, JoinAll};
 use jsonrpc_core as rpc;
 use std::{
@@ -89,6 +89,22 @@ impl BatchTransport for Ipc {
     }
 }
 
+impl DuplexTransport for Ipc {
+    type NotificationStream = mpsc::UnboundedReceiver<rpc::Value>;
+
+    fn subscribe(&self, id: SubscriptionId) -> Result<Self::NotificationStream> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.messages_tx.send(TransportMessage::Subscribe(id, tx))?;
+        Ok(rx)
+    }
+
+    fn unsubscribe(&self, id: SubscriptionId) -> Result<()> {
+        self.messages_tx
+            .send(TransportMessage::Unsubscribe(id))
+            .map_err(Into::into)
+    }
+}
+
 /// A future representing a pending RPC request. Resolves to a JSON RPC value.
 pub struct SingleResponse(Result<oneshot::Receiver<rpc::Value>>);
 
@@ -129,12 +145,15 @@ type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Value>);
 enum TransportMessage {
     Single(TransportRequest),
     Batch(Vec<TransportRequest>),
+    Subscribe(SubscriptionId, mpsc::UnboundedSender<rpc::Value>),
+    Unsubscribe(SubscriptionId),
 }
 
 #[cfg(unix)]
 async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceiver<TransportMessage>) -> Result<()> {
     let (socket_reader, mut socket_writer) = unix_stream.into_split();
     let mut pending_response_txs = BTreeMap::default();
+    let mut subscription_txs = BTreeMap::default();
 
     let mut socket_reader = reader_stream(socket_reader);
     let mut messages_rx = messages_rx.fuse();
@@ -144,6 +163,16 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
         tokio::select! {
             message = messages_rx.next() => if let Some(message) = message {
                 match message {
+                    TransportMessage::Subscribe(id, tx) => {
+                        if let Some(_) = subscription_txs.insert(id.clone(), tx) {
+                            log::warn!("Replacing a subscription with id {:?}", id);
+                        }
+                    },
+                    TransportMessage::Unsubscribe(id) => {
+                        if let None = subscription_txs.remove(&id) {
+                            log::warn!("Unsubscribing not subscribed id {:?}", id);
+                        }
+                    },
                     TransportMessage::Single((request_id, rpc_call, response_tx)) => {
                         if pending_response_txs.insert(request_id, response_tx).is_some() {
                             log::warn!("Replacing a pending request with id {:?}", request_id);
@@ -183,30 +212,29 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
                 Some(Ok(bytes)) => {
                     read_buffer.extend_from_slice(&bytes);
 
-                    let pos = match read_buffer.iter().rposition(|&b| b == b']' || b == b'}') {
-                        Some(pos) => pos + 1,
-                        None => continue,
-                    };
+                    let read_len = {
+                        let mut de: serde_json::StreamDeserializer<_, serde_json::Value> =
+                            serde_json::Deserializer::from_slice(&read_buffer).into_iter();
 
-                    match helpers::to_response_from_slice(&read_buffer[..pos]) {
-                        Ok(response) => {
-                            let remaining_bytes_len = read_buffer.len() - pos;
-                            for i in 0..remaining_bytes_len {
-                                read_buffer[i] = read_buffer[pos + i];
+                        while let Some(Ok(value)) = de.next() {
+                            if let Ok(notification) = serde_json::from_value::<rpc::Notification>(value.clone()) {
+                                let _ = notify(&mut subscription_txs, notification);
+                                continue;
                             }
-                            read_buffer.truncate(remaining_bytes_len);
 
-                            let outputs = match response {
-                                rpc::Response::Single(output) => vec![output],
-                                rpc::Response::Batch(outputs) => outputs,
-                            };
-
-                            for output in outputs {
-                                let _ = respond(&mut pending_response_txs, output);
+                            if let Ok(response) = serde_json::from_value::<rpc::Response>(value) {
+                                let _ = respond(&mut pending_response_txs, response);
+                                continue;
                             }
+
+                            log::warn!("JSON is not a response or notification");
                         }
-                        Err(_) => {},
+
+                        de.byte_offset()
                     };
+
+                    read_buffer.copy_within(read_len.., 0);
+                    read_buffer.truncate(read_buffer.len() - read_len);
                 },
                 Some(Err(err)) => {
                     log::error!("IPC read error: {:?}", err);
@@ -218,7 +246,48 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
     }
 }
 
+fn notify(
+    subscription_txs: &mut BTreeMap<SubscriptionId, mpsc::UnboundedSender<rpc::Value>>,
+    notification: rpc::Notification,
+) -> std::result::Result<(), ()> {
+    if let rpc::Params::Map(params) = notification.params {
+        let id = params.get("subscription");
+        let result = params.get("result");
+
+        if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
+            let id: SubscriptionId = id.clone().into();
+            if let Some(tx) = subscription_txs.get(&id) {
+                if let Err(e) = tx.send(result.clone()) {
+                    log::error!("Error sending notification: {:?} (id: {:?}", e, id);
+                }
+            } else {
+                log::warn!("Got notification for unknown subscription (id: {:?})", id);
+            }
+        } else {
+            log::error!("Got unsupported notification (id: {:?})", id);
+        }
+    }
+
+    Ok(())
+}
+
 fn respond(
+    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
+    response: rpc::Response,
+) -> std::result::Result<(), ()> {
+    let outputs = match response {
+        rpc::Response::Single(output) => vec![output],
+        rpc::Response::Batch(outputs) => outputs,
+    };
+
+    for output in outputs {
+        let _ = respond_output(pending_response_txs, output);
+    }
+
+    Ok(())
+}
+
+fn respond_output(
     pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
     output: rpc::Output,
 ) -> std::result::Result<(), ()> {
@@ -399,5 +468,51 @@ mod test {
 
             tx.flush().await.unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn works_for_partial_batches() {
+        let (stream1, stream2) = UnixStream::pair().unwrap();
+        let ipc = Ipc::with_stream(stream1);
+
+        tokio::spawn(eth_node_partial_batches(stream2));
+
+        let requests = vec![json!({"test": 0}), json!({"test": 1}), json!({"test": 2})];
+        let requests = requests.into_iter().map(|v| ipc.execute("eth_test", vec![v]));
+        let responses = join_all(requests).await;
+
+        assert_eq!(responses[0], Ok(json!({"test": 0})));
+        assert_eq!(responses[2], Ok(json!({"test": 2})));
+        assert!(responses[1].is_err());
+    }
+
+    async fn eth_node_partial_batches(stream: UnixStream) {
+        let (rx, mut tx) = stream.into_split();
+        let mut buf = vec![];
+        let mut rx = reader_stream(rx);
+        while let Some(Ok(bytes)) = rx.next().await {
+            buf.extend(bytes);
+
+            let requests: std::result::Result<Vec<rpc::Call>, serde_json::Error> =
+                serde_json::Deserializer::from_slice(&buf).into_iter().collect();
+
+            if let Ok(requests) = requests {
+                if requests.len() == 3 {
+                    break;
+                }
+            }
+        }
+
+        let response = json!([
+            {"jsonrpc": "2.0", "id": 1, "result": {"test": 0}},
+            {"jsonrpc": "2.0", "id": "2", "result": {"test": 2}},
+            {"jsonrpc": "2.0", "id": 3, "result": {"test": 2}},
+        ]);
+
+        tx.write_all(serde_json::to_string(&response).unwrap().as_ref())
+            .await
+            .unwrap();
+
+        tx.flush().await.unwrap();
     }
 }
