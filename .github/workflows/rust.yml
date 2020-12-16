@@ -134,3 +134,9 @@ jobs:
           command:                 check
           toolchain:               stable
           args:                    --no-default-features --features ws-tls-async-std
+      - name:                      Checking ipc-tokio
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               stable
+          args:                    --no-default-features --features ipc-tokio
