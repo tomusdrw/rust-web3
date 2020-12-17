@@ -150,60 +150,60 @@ enum TransportMessage {
 }
 
 #[cfg(unix)]
-async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceiver<TransportMessage>) -> Result<()> {
-    let (socket_reader, mut socket_writer) = unix_stream.into_split();
+async fn run_server(mut unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceiver<TransportMessage>) -> Result<()> {
+    let (socket_reader, mut socket_writer) = unix_stream.split();
     let mut pending_response_txs = BTreeMap::default();
     let mut subscription_txs = BTreeMap::default();
 
     let mut socket_reader = reader_stream(socket_reader);
     let mut messages_rx = messages_rx.fuse();
     let mut read_buffer = vec![];
+    let mut closed = false;
 
-    loop {
+    while !closed || pending_response_txs.len() > 0 {
         tokio::select! {
-            message = messages_rx.next() => if let Some(message) = message {
-                match message {
-                    TransportMessage::Subscribe(id, tx) => {
-                        if let Some(_) = subscription_txs.insert(id.clone(), tx) {
-                            log::warn!("Replacing a subscription with id {:?}", id);
-                        }
-                    },
-                    TransportMessage::Unsubscribe(id) => {
-                        if let None = subscription_txs.remove(&id) {
-                            log::warn!("Unsubscribing not subscribed id {:?}", id);
-                        }
-                    },
-                    TransportMessage::Single((request_id, rpc_call, response_tx)) => {
+            message = messages_rx.next() => match message {
+                None => closed = true,
+                Some(TransportMessage::Subscribe(id, tx)) => {
+                    if let Some(_) = subscription_txs.insert(id.clone(), tx) {
+                        log::warn!("Replacing a subscription with id {:?}", id);
+                    }
+                },
+                Some(TransportMessage::Unsubscribe(id)) => {
+                    if let None = subscription_txs.remove(&id) {
+                        log::warn!("Unsubscribing not subscribed id {:?}", id);
+                    }
+                },
+                Some(TransportMessage::Single((request_id, rpc_call, response_tx))) => {
+                    if pending_response_txs.insert(request_id, response_tx).is_some() {
+                        log::warn!("Replacing a pending request with id {:?}", request_id);
+                    }
+
+                    let bytes = helpers::to_string(&rpc::Request::Single(rpc_call)).into_bytes();
+                    if let Err(err) = socket_writer.write(&bytes).await {
+                        pending_response_txs.remove(&request_id);
+                        log::error!("IPC write error: {:?}", err);
+                    }
+                }
+                Some(TransportMessage::Batch(requests)) => {
+                    let mut request_ids = vec![];
+                    let mut rpc_calls = vec![];
+
+                    for (request_id, rpc_call, response_tx) in requests {
+                        request_ids.push(request_id);
+                        rpc_calls.push(rpc_call);
+
                         if pending_response_txs.insert(request_id, response_tx).is_some() {
                             log::warn!("Replacing a pending request with id {:?}", request_id);
                         }
-
-                        let bytes = helpers::to_string(&rpc::Request::Single(rpc_call)).into_bytes();
-                        if let Err(err) = socket_writer.write(&bytes).await {
-                            pending_response_txs.remove(&request_id);
-                            log::error!("IPC write error: {:?}", err);
-                        }
                     }
-                    TransportMessage::Batch(requests) => {
-                        let mut request_ids = vec![];
-                        let mut rpc_calls = vec![];
 
-                        for (request_id, rpc_call, response_tx) in requests {
-                            request_ids.push(request_id);
-                            rpc_calls.push(rpc_call);
+                    let bytes = helpers::to_string(&rpc::Request::Batch(rpc_calls)).into_bytes();
 
-                            if pending_response_txs.insert(request_id, response_tx).is_some() {
-                                log::warn!("Replacing a pending request with id {:?}", request_id);
-                            }
-                        }
-
-                        let bytes = helpers::to_string(&rpc::Request::Batch(rpc_calls)).into_bytes();
-
-                        if let Err(err) = socket_writer.write(&bytes).await {
-                            log::error!("IPC write error: {:?}", err);
-                            for request_id in request_ids {
-                                pending_response_txs.remove(&request_id);
-                            }
+                    if let Err(err) = socket_writer.write(&bytes).await {
+                        log::error!("IPC write error: {:?}", err);
+                        for request_id in request_ids {
+                            pending_response_txs.remove(&request_id);
                         }
                     }
                 }
@@ -240,10 +240,12 @@ async fn run_server(unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceive
                     log::error!("IPC read error: {:?}", err);
                     return Err(err.into());
                 },
-                None => return Ok(()),
+                None => break,
             }
         };
     }
+
+    Ok(())
 }
 
 fn notify(
