@@ -118,6 +118,7 @@ web3 = { version = "0.14.0", default-features = false, features = ["http"] }
 The library supports following features:
 - `http` - Enables `http` transport.
 - `http-tls` - Enables `http` over TLS (`https`) transport support. Implies `http`.
+- `ipc-tokio` - Enables `ipc` transport (`tokio` runtime). *NIX only!
 - `ws-tokio` - Enables `ws` tranport (`tokio` runtime).
 - `ws-tls-tokio` - Enables `wss` tranport (`tokio` runtime).
 - `ws-async-std` - Enables `ws` tranport (`async-std` runtime).
