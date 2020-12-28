@@ -110,6 +110,7 @@ impl WsServerTask {
         let addrs = format!("{}:{}", host, port);
 
         let stream = compat::raw_tcp_stream(addrs).await?;
+        stream.set_nodelay(true)?;
         let socket = if scheme == "wss" {
             #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
             {
