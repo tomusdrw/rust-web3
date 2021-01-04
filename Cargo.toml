@@ -23,7 +23,7 @@ jsonrpc-core = "16.0.0"
 log = "0.4.6"
 parking_lot = "0.11.0"
 rlp = "0.4"
-secp256k1 = { version = "0.19", features = ["recovery"], optional = true }
+secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
