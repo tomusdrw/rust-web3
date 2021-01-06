@@ -48,6 +48,7 @@ url = { version = "2.1", optional = true }
 js-sys = { version = "0.3.45", optional = true }
 ### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
 rand = { version = "0.8.1", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 wasm-bindgen = { version = "0.2.68", optional = true, features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
@@ -62,7 +63,7 @@ tokio = { version = "0.2", features = ["full"] }
 
 [features]
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
-eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand/wasm-bindgen"]
+eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
 http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
 http-tls = ["hyper-tls", "native-tls", "http"]
 signing = ["secp256k1"]
