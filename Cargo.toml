@@ -47,7 +47,7 @@ url = { version = "2.1", optional = true }
 ## EIP-1193
 js-sys = { version = "0.3.45", optional = true }
 ### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
-rand = { version = "0.7.3", optional = true }
+rand = { version = "0.8.1", optional = true }
 wasm-bindgen = { version = "0.2.68", optional = true, features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
