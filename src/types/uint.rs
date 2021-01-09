@@ -3,6 +3,7 @@ pub use ethereum_types::{BigEndianHash, Bloom as H2048, H128, H160, H256, H512, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::*;
 
     type Res = Result<U256, serde_json::Error>;
 
@@ -153,5 +154,12 @@ mod tests {
         assert_eq!(1u64, U256::from(1u64).low_u64());
         assert_eq!(11u64, U256::from(11u64).low_u64());
         assert_eq!(111u64, U256::from(111u64).low_u64());
+    }
+
+    // Getting random numbers uses a different code path in JS, so we sanity
+    // check it here.
+    #[wasm_bindgen_test]
+    fn random_doesnt_panic() {
+        H160::random();
     }
 }
