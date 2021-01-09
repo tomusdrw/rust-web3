@@ -114,7 +114,7 @@ impl<T: Transport> Builder<T> {
 
         for (lib, address) in self.linker {
             if lib.len() > 38 {
-                return Err(Error::Abi(ethabi::Error::Other(
+                return Err(Error::Abi(ethabi::Error::InvalidName(
                     "The library name should be under 39 characters.".into(),
                 )));
             }
@@ -123,12 +123,14 @@ impl<T: Transport> Builder<T> {
             code_hex = code_hex.replacen(&replace, &address, 1);
         }
         code_hex = code_hex.replace("\"", "").replace("0x", ""); // This is to fix truffle + serde_json redundant `"` and `0x`
-        let code = hex::decode(&code_hex).map_err(|e| ethabi::Error::Other(format!("hex decode error: {}", e)))?;
+        let code = hex::decode(&code_hex).map_err(|e| ethabi::Error::InvalidName(
+            format!("hex decode error: {}", e)
+        ))?;
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
             (None, false) => {
-                return Err(Error::Abi(ethabi::Error::Other(
+                return Err(Error::Abi(ethabi::Error::InvalidName(
                     "Constructor is not defined in the ABI.".into(),
                 )));
             }

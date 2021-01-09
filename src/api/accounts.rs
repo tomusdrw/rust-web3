@@ -225,7 +225,7 @@ mod accounts_signing {
             self.rlp_append_signed(&mut rlp, &signature);
 
             let transaction_hash = signing::keccak256(rlp.as_raw()).into();
-            let raw_transaction = rlp.out().into();
+            let raw_transaction = rlp.out().to_vec().into();
 
             SignedTransaction {
                 message_hash: hash.into(),
