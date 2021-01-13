@@ -81,13 +81,13 @@ impl<T: Transport> Personal<T> {
     /// Imports a raw key and protects it with the given password.
     /// Returns the address of created account.
     pub fn import_private_key(&self, private_key: &str, password: &str) -> CallFuture<Address, T::Out> {
-      let private_key = helpers::serialize(&private_key);
-      let password = helpers::serialize(&password);
+        let private_key = helpers::serialize(&private_key);
+        let password = helpers::serialize(&password);
 
-      CallFuture::new(
-          self.transport
-              .execute("personal_importRawKey", vec![private_key, password]),
-      )
+        CallFuture::new(
+            self.transport
+                .execute("personal_importRawKey", vec![private_key, password]),
+        )
     }
 }
 
