@@ -163,4 +163,10 @@ mod tests {
       ::serde_json::from_str(EXAMPLE_TX).unwrap()
       => ::serde_json::from_str::<RawTransaction>(EXAMPLE_TX).unwrap()
     );
+
+    rpc_test! {
+      Personal:import_private_key, "0000000000000000000000000000000000000000000000000000000000000123", "hunter2" =>
+      "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000123""#, r#""hunter2""#];
+      Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
+    }
 }
