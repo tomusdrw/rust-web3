@@ -30,9 +30,9 @@ impl From<url::ParseError> for crate::Error {
     }
 }
 
-#[cfg(feature = "native-tls")]
-impl From<native_tls::Error> for crate::Error {
-    fn from(err: native_tls::Error) -> Self {
+#[cfg(feature = "async-native-tls")]
+impl From<async_native_tls::Error> for crate::Error {
+    fn from(err: async_native_tls::Error) -> Self {
         crate::Error::Transport(format!("{:?}", err))
     }
 }
