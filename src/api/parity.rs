@@ -1,7 +1,8 @@
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
-    types::{Bytes, CallRequest},
+    rpc::Value,
+    types::{Bytes, CallRequest, ParityPendingTransactionFilter, Transaction},
     Transport,
 };
 
@@ -31,6 +32,23 @@ impl<T: Transport> Parity<T> {
 
         CallFuture::new(self.transport.execute("parity_call", vec![reqs]))
     }
+
+    /// Get pending transactions
+    /// Blocked by https://github.com/openethereum/openethereum/issues/159
+    pub fn pending_transactions(
+        &self,
+        limit: Option<usize>,
+        filter: Option<ParityPendingTransactionFilter>,
+    ) -> CallFuture<Vec<Transaction>, T::Out> {
+        let params = match (limit, filter) {
+            (Some(l), Some(f)) => vec![l.into(), helpers::serialize(&f)],
+            (Some(l), _) => vec![l.into()],
+            (_, Some(f)) => vec![Value::Null, helpers::serialize(&f)],
+            _ => vec![],
+        };
+
+        CallFuture::new(self.transport.execute("parity_pendingTransactions", params))
+    }
 }
 
 #[cfg(test)]
@@ -39,9 +57,23 @@ mod tests {
     use crate::{
         api::Namespace,
         rpc::Value,
-        types::{Address, CallRequest},
+        types::{Address, CallRequest, FilterCondition, ParityPendingTransactionFilterBuilder, Transaction, U64},
     };
     use hex_literal::hex;
+
+    const EXAMPLE_PENDING_TX: &str = r#"{
+    "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+    "nonce": "0x0",
+    "blockHash": null,
+    "blockNumber": null,
+    "transactionIndex": null,
+    "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+    "to":   "0x85dd43d8a49eeb85d32cf465507dd71d507100c1",
+    "value": "0x7f110",
+    "gas": "0x7f110",
+    "gasPrice": "0x09184e72a000",
+    "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
+  }"#;
 
     rpc_test!(
         Parity:call,
@@ -74,5 +106,19 @@ mod tests {
             r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},{"data":"0x0493","from":"0x0000000000000000000000000000000000000321","to":"0x0000000000000000000000000000000000000123"},{"data":"0x0723","to":"0x0000000000000000000000000000000000000765","value":"0x5"}]"#
         ];
         Value::Array(vec![Value::String("0x010203".into()), Value::String("0x7198ab".into()), Value::String("0xde763f".into())]) => vec![hex!("010203").into(), hex!("7198ab").into(), hex!("de763f").into()]
+    );
+
+    rpc_test!(
+        Parity:pending_transactions,
+        1,
+        ParityPendingTransactionFilterBuilder::default()
+            .from(FilterCondition::Eq(Address::from_low_u64_be(0x32)))
+            .gas_price(FilterCondition::Gt(U64::from(100_000_000_000 as u64)))
+            .build()
+         => "parity_pendingTransactions",
+            vec![r#"1"#, r#"{"from":{"eq":"0x0000000000000000000000000000000000000032"},"gas_price":{"gt":"0x174876e800"}}"#]
+        ;
+        Value::Array(vec![::serde_json::from_str(EXAMPLE_PENDING_TX).unwrap()])
+      => vec![::serde_json::from_str::<Transaction>(EXAMPLE_PENDING_TX).unwrap()]
     );
 }
