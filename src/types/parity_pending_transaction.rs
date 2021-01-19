@@ -6,14 +6,23 @@ use serde::{
 use super::{Address, U256, U64};
 
 /// Condition to filter pending transactions
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum FilterCondition<T> {
     /// Lower Than
-    Lt(T),
+    #[serde(rename(serialize = "lt"))]
+    LowerThan(T),
     /// Equal
-    Eq(T),
+    #[serde(rename(serialize = "eq"))]
+    Equal(T),
     /// Greater Than
-    Gt(T),
+    #[serde(rename(serialize = "gt"))]
+    GreaterThan(T),
+}
+
+impl<T> From<T> for FilterCondition<T> {
+    fn from(t: T) -> Self {
+        FilterCondition::Equal(t)
+    }
 }
 
 /// To Filter
@@ -48,24 +57,6 @@ pub struct ParityPendingTransactionFilter {
     pub nonce: Option<FilterCondition<U256>>,
 }
 
-impl<T> Serialize for FilterCondition<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(1))?;
-        match self {
-            Self::Lt(v) => map.serialize_entry("lt", v),
-            Self::Eq(v) => map.serialize_entry("eq", v),
-            Self::Gt(v) => map.serialize_entry("gt", v),
-        }?;
-        map.end()
-    }
-}
-
 impl Serialize for ToFilter {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -81,6 +72,13 @@ impl Serialize for ToFilter {
     }
 }
 
+impl ParityPendingTransactionFilter {
+    /// Returns a filter builder
+    pub fn builder() -> ParityPendingTransactionFilterBuilder {
+        Default::default()
+    }
+}
+
 /// Filter Builder
 #[derive(Default, Clone)]
 pub struct ParityPendingTransactionFilterBuilder {
@@ -89,13 +87,9 @@ pub struct ParityPendingTransactionFilterBuilder {
 
 impl ParityPendingTransactionFilterBuilder {
     /// Sets `from`
-    pub fn from(mut self, from: FilterCondition<Address>) -> Self {
-        if let FilterCondition::Eq(_) = from {
-            self.filter.from = Some(from);
-            self
-        } else {
-            panic!("Must use FilterConditon::Eq to apply filter for `from` address")
-        }
+    pub fn from(mut self, from: Address) -> Self {
+        self.filter.from = Some(FilterCondition::Equal(from));
+        self
     }
 
     /// Sets `to`
@@ -105,26 +99,26 @@ impl ParityPendingTransactionFilterBuilder {
     }
 
     /// Sets `gas`
-    pub fn gas(mut self, gas: FilterCondition<U64>) -> Self {
-        self.filter.gas = Some(gas);
+    pub fn gas(mut self, gas: impl Into<FilterCondition<U64>>) -> Self {
+        self.filter.gas = Some(gas.into());
         self
     }
 
     /// Sets `gas_price`
-    pub fn gas_price(mut self, gas_price: FilterCondition<U64>) -> Self {
-        self.filter.gas_price = Some(gas_price);
+    pub fn gas_price(mut self, gas_price: impl Into<FilterCondition<U64>>) -> Self {
+        self.filter.gas_price = Some(gas_price.into());
         self
     }
 
     /// Sets `value`
-    pub fn value(mut self, value: FilterCondition<U256>) -> Self {
-        self.filter.value = Some(value);
+    pub fn value(mut self, value: impl Into<FilterCondition<U256>>) -> Self {
+        self.filter.value = Some(value.into());
         self
     }
 
     /// Sets `nonce`
-    pub fn nonce(mut self, nonce: FilterCondition<U256>) -> Self {
-        self.filter.nonce = Some(nonce);
+    pub fn nonce(mut self, nonce: impl Into<FilterCondition<U256>>) -> Self {
+        self.filter.nonce = Some(nonce.into());
         self
     }
 

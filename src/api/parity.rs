@@ -40,10 +40,11 @@ impl<T: Transport> Parity<T> {
         limit: Option<usize>,
         filter: Option<ParityPendingTransactionFilter>,
     ) -> CallFuture<Vec<Transaction>, T::Out> {
+        let limit = limit.map(Value::from);
+        let filter = filter.as_ref().map(helpers::serialize);
         let params = match (limit, filter) {
-            (Some(l), Some(f)) => vec![l.into(), helpers::serialize(&f)],
-            (Some(l), _) => vec![l.into()],
-            (_, Some(f)) => vec![Value::Null, helpers::serialize(&f)],
+            (l, Some(f)) => vec![l.unwrap_or(Value::Null), f],
+            (Some(l), None) => vec![l],
             _ => vec![],
         };
 
@@ -57,7 +58,7 @@ mod tests {
     use crate::{
         api::Namespace,
         rpc::Value,
-        types::{Address, CallRequest, FilterCondition, ParityPendingTransactionFilterBuilder, Transaction, U64},
+        types::{Address, CallRequest, FilterCondition, ParityPendingTransactionFilter, Transaction, U64},
     };
     use hex_literal::hex;
 
@@ -111,12 +112,13 @@ mod tests {
     rpc_test!(
         Parity:pending_transactions,
         1,
-        ParityPendingTransactionFilterBuilder::default()
-            .from(FilterCondition::Eq(Address::from_low_u64_be(0x32)))
-            .gas_price(FilterCondition::Gt(U64::from(100_000_000_000 as u64)))
+        ParityPendingTransactionFilter::builder()
+            .from(Address::from_low_u64_be(0x32))
+            .gas(U64::from(100_000))
+            .gas_price(FilterCondition::GreaterThan(U64::from(100_000_000_000 as u64)))
             .build()
          => "parity_pendingTransactions",
-            vec![r#"1"#, r#"{"from":{"eq":"0x0000000000000000000000000000000000000032"},"gas_price":{"gt":"0x174876e800"}}"#]
+            vec![r#"1"#, r#"{"from":{"eq":"0x0000000000000000000000000000000000000032"},"gas":{"eq":"0x186a0"},"gas_price":{"gt":"0x174876e800"}}"#]
         ;
         Value::Array(vec![::serde_json::from_str(EXAMPLE_PENDING_TX).unwrap()])
       => vec![::serde_json::from_str::<Transaction>(EXAMPLE_PENDING_TX).unwrap()]
