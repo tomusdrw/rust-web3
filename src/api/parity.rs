@@ -63,18 +63,29 @@ mod tests {
     use hex_literal::hex;
 
     const EXAMPLE_PENDING_TX: &str = r#"{
-    "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
-    "nonce": "0x0",
     "blockHash": null,
     "blockNumber": null,
+    "creates": null,
+    "from": "0xee3ea02840129123d5397f91be0391283a25bc7d",
+    "gas": "0x23b58",
+    "gasPrice": "0xba43b7400",
+    "hash": "0x160b3c30ab1cf5871083f97ee1cee3901cfba3b0a2258eb337dd20a7e816b36e",
+    "input": "0x095ea7b3000000000000000000000000bf4ed7b27f1d666546e30d74d50d173d20bca75400000000000000000000000000002643c948210b4bd99244ccd64d5555555555",
+    "condition": {
+    "block": 1
+    },
+    "chainId": 1,
+    "nonce": "0x5",
+    "publicKey": "0x96157302dade55a1178581333e57d60ffe6fdf5a99607890456a578b4e6b60e335037d61ed58aa4180f9fd747dc50d44a7924aa026acbfb988b5062b629d6c36",
+    "r": "0x92e8beb19af2bad0511d516a86e77fa73004c0811b2173657a55797bdf8558e1",
+    "raw": "0xf8aa05850ba43b740083023b5894bb9bc244d798123fde783fcc1c72d3bb8c18941380b844095ea7b3000000000000000000000000bf4ed7b27f1d666546e30d74d50d173d20bca75400000000000000000000000000002643c948210b4bd99244ccd64d555555555526a092e8beb19af2bad0511d516a86e77fa73004c0811b2173657a55797bdf8558e1a062b4d4d125bbcb9c162453bc36ca156537543bb4414d59d1805d37fb63b351b8",
+    "s": "0x62b4d4d125bbcb9c162453bc36ca156537543bb4414d59d1805d37fb63b351b8",
+    "standardV": "0x1",
+    "to": "0xbb9bc244d798123fde783fcc1c72d3bb8c189413",
     "transactionIndex": null,
-    "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-    "to":   "0x85dd43d8a49eeb85d32cf465507dd71d507100c1",
-    "value": "0x7f110",
-    "gas": "0x7f110",
-    "gasPrice": "0x09184e72a000",
-    "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
-  }"#;
+    "v": "0x26",
+    "value": "0x0"
+}"#;
 
     rpc_test!(
         Parity:call,
