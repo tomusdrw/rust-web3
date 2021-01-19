@@ -5,6 +5,7 @@ mod bytes;
 mod bytes_array;
 mod log;
 mod parity_peers;
+mod parity_pending_transaction;
 mod recovery;
 mod signed;
 mod sync_state;
@@ -24,6 +25,9 @@ pub use self::{
     log::{Filter, FilterBuilder, Log},
     parity_peers::{
         EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
+    },
+    parity_pending_transaction::{
+        FilterCondition, ParityPendingTransactionFilter, ParityPendingTransactionFilterBuilder, ToFilter,
     },
     recovery::{Recovery, RecoveryMessage},
     signed::{SignedData, SignedTransaction, TransactionParameters},
