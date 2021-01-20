@@ -81,7 +81,7 @@ impl<T: Transport> Personal<T> {
     /// Imports a raw key and protects it with the given password.
     /// Returns the address of created account.
     pub fn import_raw_key(&self, private_key: &[u8; 32], password: &str) -> CallFuture<Address, T::Out> {
-      let private_key = hex::encode(private_key);
+        let private_key = hex::encode(private_key);
         let private_key = helpers::serialize(&private_key);
         let password = helpers::serialize(&password);
 
@@ -166,7 +166,7 @@ mod tests {
     );
 
     rpc_test! {
-      Personal:import_raw_key, "0000000000000000000000000000000000000000000000000000000000000123", "hunter2" =>
+      Personal:import_raw_key, &[0u8; 32], "hunter2" =>
       "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000123""#, r#""hunter2""#];
       Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
     }
