@@ -167,7 +167,7 @@ mod tests {
 
     rpc_test! {
       Personal:import_raw_key, &[0u8; 32], "hunter2" =>
-      "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000123""#, r#""hunter2""#];
+      "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000000""#, r#""hunter2""#];
       Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
     }
 }
