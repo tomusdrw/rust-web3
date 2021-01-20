@@ -80,7 +80,8 @@ impl<T: Transport> Personal<T> {
 
     /// Imports a raw key and protects it with the given password.
     /// Returns the address of created account.
-    pub fn import_raw_key(&self, private_key: &str, password: &str) -> CallFuture<Address, T::Out> {
+    pub fn import_raw_key(&self, private_key: &[u8; 32], password: &str) -> CallFuture<Address, T::Out> {
+      let private_key = hex::encode(private_key);
         let private_key = helpers::serialize(&private_key);
         let password = helpers::serialize(&password);
 
