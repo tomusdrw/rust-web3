@@ -42,7 +42,6 @@ tokio = { version = "0.2", optional = true, features = ["full"] }
 tokio-util = { version = "0.6", optional = true, features = ["compat"] }
 soketto = { version = "0.4.1", optional = true }
 ## Shared (WS, HTTP)
-native-tls = { version = "0.2", optional = true }
 url = { version = "2.1", optional = true }
 ## EIP-1193
 js-sys = { version = "0.3.45", optional = true }
@@ -65,12 +64,12 @@ tokio = { version = "0.2", features = ["full"] }
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
 eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
 http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
-http-tls = ["hyper-tls", "native-tls", "http"]
+http-tls = ["hyper-tls", "http"]
 signing = ["secp256k1"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
-ws-tls-tokio = ["async-native-tls", "native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
-ws-tls-async-std = ["async-native-tls", "native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
+ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
+ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
 ipc-tokio = ["tokio"]
 test = []
 
