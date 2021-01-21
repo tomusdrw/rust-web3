@@ -231,7 +231,8 @@ impl<T: Transport> Contract<T> {
                 );
                 (call_future, function)
             });
-
+        // NOTE for the batch transport to work correctly, we must call `transport.execute` without ever polling the future,
+        // hence it cannot be a fully `async` function.
         async {
             let (call_future, function) = result?;
             let bytes = call_future.await?;
