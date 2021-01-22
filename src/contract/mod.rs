@@ -4,6 +4,7 @@ use crate::{
     api::{Eth, Namespace},
     confirm,
     contract::tokens::{Detokenize, Tokenize},
+    futures::Future,
     types::{
         Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
         TransactionRequest, H256, U256,
@@ -202,31 +203,50 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Call constant function
-    pub async fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> Result<R>
+    pub fn query<R, A, B, P>(
+        &self,
+        func: &str,
+        params: P,
+        from: A,
+        options: Options,
+        block: B,
+    ) -> impl Future<Output = Result<R>> + '_
     where
         R: Detokenize,
         A: Into<Option<Address>>,
         B: Into<Option<BlockId>>,
         P: Tokenize,
     {
-        let function = self.abi.function(func)?;
-        let call = function.encode_input(&params.into_tokens())?;
-        let bytes = self
-            .eth
-            .call(
-                CallRequest {
-                    from: from.into(),
-                    to: Some(self.address),
-                    gas: options.gas,
-                    gas_price: options.gas_price,
-                    value: options.value,
-                    data: Some(Bytes(call)),
-                },
-                block.into(),
-            )
-            .await?;
-        let output = function.decode_output(&bytes.0)?;
-        R::from_tokens(output)
+        let result = self
+            .abi
+            .function(func)
+            .and_then(|function| {
+                function
+                    .encode_input(&params.into_tokens())
+                    .map(|call| (call, function))
+            })
+            .map(|(call, function)| {
+                let call_future = self.eth.call(
+                    CallRequest {
+                        from: from.into(),
+                        to: Some(self.address),
+                        gas: options.gas,
+                        gas_price: options.gas_price,
+                        value: options.value,
+                        data: Some(Bytes(call)),
+                    },
+                    block.into(),
+                );
+                (call_future, function)
+            });
+        // NOTE for the batch transport to work correctly, we must call `transport.execute` without ever polling the future,
+        // hence it cannot be a fully `async` function.
+        async {
+            let (call_future, function) = result?;
+            let bytes = call_future.await?;
+            let output = function.decode_output(&bytes.0)?;
+            R::from_tokens(output)
+        }
     }
 
     /// Find events matching the topics.
