@@ -203,14 +203,22 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Call constant function
-    pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> impl Future<Output = Result<R>> + '_
+    pub fn query<R, A, B, P>(
+        &self,
+        func: &str,
+        params: P,
+        from: A,
+        options: Options,
+        block: B,
+    ) -> impl Future<Output = Result<R>> + '_
     where
         R: Detokenize,
         A: Into<Option<Address>>,
         B: Into<Option<BlockId>>,
         P: Tokenize,
     {
-        let result = self.abi
+        let result = self
+            .abi
             .function(func)
             .and_then(|function| {
                 function
