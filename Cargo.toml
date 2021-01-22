@@ -31,15 +31,16 @@ pin-project = "1.0"
 # Optional deps
 ## HTTP
 base64 = { version = "0.13", optional = true }
-hyper = { version = "0.13", optional = true, default-features = false, features = ["stream", "tcp"] }
-hyper-tls = { version = "0.4", optional = true }
-hyper-proxy = {version = "0.8.0", optional = true }
-typed-headers = { version = "0.2.0", optional = true }
+hyper = { version = "0.14", optional = true, default-features = false, features = ["client", "http1", "stream", "tcp"] }
+hyper-tls = { version = "0.5", optional = true }
+hyper-proxy = { version = "0.9.0", optional = true }
+headers = { version = "0.3", optional = true }
 ## WS
-async-native-tls = { version = "0.3", optional = true, default-features = false }
+async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
 async-std = { version = "1.6", optional = true }
-tokio = { version = "0.2", optional = true, features = ["full"] }
-tokio-util = { version = "0.6", optional = true, features = ["compat"] }
+tokio = { version = "1.0", optional = true, features = ["full"] }
+tokio-stream = { version = "0.1", optional = true }
+tokio-util = { version = "0.6", optional = true, features = ["compat", "io"] }
 soketto = { version = "0.4.1", optional = true }
 ## Shared (WS, HTTP)
 url = { version = "2.1", optional = true }
@@ -58,19 +59,21 @@ hex-literal = "0.3"
 wasm-bindgen-test = "0.3.19"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "0.2", features = ["full"] }
+hyper = { version = "0.14", default-features = false, features = ["server"] }
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 
 [features]
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
 eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
-http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
+http = ["hyper", "hyper-proxy", "url", "base64", "headers"]
 http-tls = ["hyper-tls", "http"]
 signing = ["secp256k1"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
-ipc-tokio = ["tokio"]
+ipc-tokio = ["tokio", "tokio-stream", "tokio-util"]
 arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]
 test = []
 

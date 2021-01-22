@@ -1,7 +1,10 @@
 //! IPC transport
 
 use crate::{api::SubscriptionId, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport};
-use futures::future::{join_all, JoinAll};
+use futures::{
+    future::{join_all, JoinAll},
+    stream::StreamExt,
+};
 use jsonrpc_core as rpc;
 use std::{
     collections::BTreeMap,
@@ -11,11 +14,12 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::{
-    io::{reader_stream, AsyncWriteExt},
+    io::AsyncWriteExt,
     net::UnixStream,
-    stream::StreamExt,
     sync::{mpsc, oneshot},
 };
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_util::io::ReaderStream;
 
 /// Unix Domain Sockets (IPC) transport.
 #[derive(Debug, Clone)]
@@ -39,7 +43,7 @@ impl Ipc {
         let id = Arc::new(AtomicUsize::new(1));
         let (messages_tx, messages_rx) = mpsc::unbounded_channel();
 
-        tokio::spawn(run_server(stream, messages_rx));
+        tokio::spawn(run_server(stream, UnboundedReceiverStream::new(messages_rx)));
 
         Ipc { id, messages_tx }
     }
@@ -90,12 +94,12 @@ impl BatchTransport for Ipc {
 }
 
 impl DuplexTransport for Ipc {
-    type NotificationStream = mpsc::UnboundedReceiver<rpc::Value>;
+    type NotificationStream = UnboundedReceiverStream<rpc::Value>;
 
     fn subscribe(&self, id: SubscriptionId) -> Result<Self::NotificationStream> {
         let (tx, rx) = mpsc::unbounded_channel();
         self.messages_tx.send(TransportMessage::Subscribe(id, tx))?;
-        Ok(rx)
+        Ok(UnboundedReceiverStream::new(rx))
     }
 
     fn unsubscribe(&self, id: SubscriptionId) -> Result<()> {
@@ -154,12 +158,12 @@ enum TransportMessage {
 }
 
 #[cfg(unix)]
-async fn run_server(mut unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceiver<TransportMessage>) -> Result<()> {
-    let (socket_reader, mut socket_writer) = unix_stream.split();
+async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStream<TransportMessage>) -> Result<()> {
+    let (socket_reader, mut socket_writer) = unix_stream.into_split();
     let mut pending_response_txs = BTreeMap::default();
     let mut subscription_txs = BTreeMap::default();
 
-    let mut socket_reader = reader_stream(socket_reader);
+    let mut socket_reader = ReaderStream::new(socket_reader);
     let mut messages_rx = messages_rx.fuse();
     let mut read_buffer = vec![];
     let mut closed = false;
@@ -332,10 +336,7 @@ impl From<oneshot::error::RecvError> for Error {
 mod test {
     use super::*;
     use serde_json::json;
-    use tokio::{
-        io::{reader_stream, AsyncWriteExt},
-        net::UnixStream,
-    };
+    use tokio::{io::AsyncWriteExt, net::UnixStream};
 
     #[tokio::test]
     async fn works_for_single_requests() {
@@ -372,7 +373,7 @@ mod test {
     async fn eth_node_single(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
 
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         if let Some(Ok(bytes)) = rx.next().await {
             let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
@@ -436,7 +437,7 @@ mod test {
     async fn eth_node_batch(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
 
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         if let Some(Ok(bytes)) = rx.next().await {
             let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
@@ -491,7 +492,7 @@ mod test {
     async fn eth_node_partial_batches(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
         let mut buf = vec![];
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         while let Some(Ok(bytes)) = rx.next().await {
             buf.extend(bytes);
 

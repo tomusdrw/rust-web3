@@ -93,9 +93,7 @@ impl Http {
                 let mut proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
 
                 if username != "" {
-                    let credentials =
-                        typed_headers::Credentials::basic(&username, &password).map_err(|_| Error::Internal)?;
-
+                    let credentials = headers::Authorization::basic(&username, &password);
                     proxy.set_authorization(credentials);
                 }
 
