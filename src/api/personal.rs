@@ -77,6 +77,19 @@ impl<T: Transport> Personal<T> {
                 .execute("personal_signTransaction", vec![transaction, password]),
         )
     }
+
+    /// Imports a raw key and protects it with the given password.
+    /// Returns the address of created account.
+    pub fn import_raw_key(&self, private_key: &[u8; 32], password: &str) -> CallFuture<Address, T::Out> {
+        let private_key = hex::encode(private_key);
+        let private_key = helpers::serialize(&private_key);
+        let password = helpers::serialize(&password);
+
+        CallFuture::new(
+            self.transport
+                .execute("personal_importRawKey", vec![private_key, password]),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -151,4 +164,10 @@ mod tests {
       ::serde_json::from_str(EXAMPLE_TX).unwrap()
       => ::serde_json::from_str::<RawTransaction>(EXAMPLE_TX).unwrap()
     );
+
+    rpc_test! {
+      Personal:import_raw_key, &[0u8; 32], "hunter2" =>
+      "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000000""#, r#""hunter2""#];
+      Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
+    }
 }
