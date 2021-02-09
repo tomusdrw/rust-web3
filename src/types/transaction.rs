@@ -18,7 +18,8 @@ pub struct Transaction {
     #[serde(rename = "transactionIndex")]
     pub transaction_index: Option<Index>,
     /// Sender
-    pub from: H160,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<H160>,
     /// Recipient (None when contract creation)
     pub to: Option<H160>,
     /// Transfered value
@@ -30,8 +31,17 @@ pub struct Transaction {
     pub gas: U256,
     /// Input data
     pub input: Bytes,
+    /// ECDSA recovery id
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub v: Option<U64>,
+    /// ECDSA signature r, 32 bytes
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r: Option<U256>,
+    /// ECDSA signature s, 32 bytes
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s: Option<U256>,
     /// Raw transaction data
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw: Option<Bytes>,
 }
 
@@ -78,44 +88,7 @@ pub struct RawTransaction {
     /// Signed transaction as raw bytes
     pub raw: Bytes,
     /// Transaction details
-    pub tx: RawTransactionDetails,
-}
-
-/// Details of a signed transaction
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RawTransactionDetails {
-    /// Hash
-    pub hash: H256,
-    /// Nonce
-    pub nonce: U256,
-    /// Block hash. None when pending.
-    #[serde(rename = "blockHash")]
-    pub block_hash: Option<H256>,
-    /// Block number. None when pending.
-    #[serde(rename = "blockNumber")]
-    pub block_number: Option<U64>,
-    /// Transaction Index. None when pending.
-    #[serde(rename = "transactionIndex")]
-    pub transaction_index: Option<Index>,
-    /// Sender
-    pub from: Option<H160>,
-    /// Recipient (None when contract creation)
-    pub to: Option<H160>,
-    /// Transfered value
-    pub value: U256,
-    /// Gas Price
-    #[serde(rename = "gasPrice")]
-    pub gas_price: U256,
-    /// Gas amount
-    pub gas: U256,
-    /// Input data
-    pub input: Bytes,
-    /// ECDSA recovery id, set by Geth
-    pub v: Option<U64>,
-    /// ECDSA signature r, 32 bytes, set by Geth
-    pub r: Option<U256>,
-    /// ECDSA signature s, 32 bytes, set by Geth
-    pub s: Option<U256>,
+    pub tx: Transaction,
 }
 
 #[cfg(test)]
