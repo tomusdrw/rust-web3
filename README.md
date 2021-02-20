@@ -18,7 +18,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-web3 = "0.14.0"
+web3 = "0.15.0"
 ```
 
 ## Example
