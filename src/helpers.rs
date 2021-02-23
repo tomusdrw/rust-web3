@@ -1,6 +1,6 @@
 //! Web3 helpers.
 
-use crate::{error, rpc};
+use crate::{error, rpc, Error};
 use futures::{
     task::{Context, Poll},
     Future,
@@ -68,8 +68,15 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 }
 
 /// Parse bytes slice into JSON-RPC response.
+/// It looks for arbitrary_precision feature as a temporary workaround for https://github.com/tomusdrw/rust-web3/issues/460.
 pub fn to_response_from_slice(response: &[u8]) -> error::Result<rpc::Response> {
-    serde_json::from_slice(response).map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
+    if cfg!(feature = "arbitrary_precision") {
+        let val: serde_json::Value =
+            serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
+        serde_json::from_value(val).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+    } else {
+        serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+    }
 }
 
 /// Parse bytes slice into JSON-RPC notification.
