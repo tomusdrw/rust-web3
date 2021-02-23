@@ -495,7 +495,7 @@ mod test {
         while let Some(Ok(bytes)) = rx.next().await {
             buf.extend(bytes);
 
-            let requests: std::result::Result<Vec<rpc::Call>, serde_json::Error> =
+            let requests: std::result::Result<Vec<serde_json::Value>, serde_json::Error> =
                 serde_json::Deserializer::from_slice(&buf).into_iter().collect();
 
             if let Ok(requests) = requests {

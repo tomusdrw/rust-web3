@@ -71,6 +71,7 @@ ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
 ipc-tokio = ["tokio"]
+arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]
 test = []
 
 [workspace]
