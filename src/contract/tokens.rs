@@ -1,4 +1,31 @@
-//! Contract Functions Output types.
+//! Mapping of rust types to [`Token`](ethabi::Token) for easier calling of solidity functions from
+//! rust.
+//!
+//! `Tokenizable` is implemented for types that map to a single `Token`. For example, leaf types
+//! like `i32` and `String` or compound types of leaf types like `[i32]` and `(i32, i32)`.
+//!
+//! `Tokenize` and `Detokenize` are implemented for tuples of `Tokenize`. These tuples represent a
+//! group of function arguments or return values that are used for when ethabi's encode and decode
+//! functions work with `Vec<Token>`.
+//!
+//! They are also implemented on `Vec<Token>` in order to allow opting out of the conversion.
+//!
+//! ```
+//! use ethabi::Token;
+//! use web3::contract::tokens::{Tokenizable, Tokenize};
+//!
+//! // We have a rust tuple
+//! let tuple = (false, true);
+//! // and the equivalent tokens.
+//! let tokens = vec![Token::Bool(false), Token::Bool(true)];
+//!
+//! // When treating the tuple as a single a token it becomes `Token::Tuple`
+//! assert_eq!(tuple.into_token(), Token::Tuple(tokens.clone()));
+//! // and when treating it as a collection of arguments it becomes a vector of two bool tokens.
+//! assert_eq!(tuple.into_tokens(), tokens.clone());
+//! // If we wanted to treat it as a single tuple argument we would wrap it in another tuple.
+//! assert_eq!((tuple,).into_tokens(), vec![Token::Tuple(tokens.clone())]);
+//! ```
 
 use crate::{
     contract::error::Error,
@@ -15,16 +42,12 @@ pub trait Detokenize {
         Self: Sized;
 }
 
-impl<T: Tokenizable> Detokenize for T {
-    fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
-        if tokens.len() != 1 {
-            Err(Error::InvalidOutputType(format!(
-                "Expected single element, got a list: {:?}",
-                tokens
-            )))
-        } else {
-            Self::from_token(tokens.drain(..).next().expect("At least one element in vector; qed"))
-        }
+impl Detokenize for Vec<Token> {
+    fn from_tokens(tokens: Vec<Token>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        Ok(tokens)
     }
 }
 
@@ -81,9 +104,9 @@ impl<'a> Tokenize for &'a [Token] {
     }
 }
 
-impl<T: Tokenizable> Tokenize for T {
+impl Tokenize for Vec<Token> {
     fn into_tokens(self) -> Vec<Token> {
-        vec![self.into_token()]
+        self
     }
 }
 
@@ -438,9 +461,55 @@ impl_fixed_types!(256);
 impl_fixed_types!(512);
 impl_fixed_types!(1024);
 
+macro_rules! impl_tokenizable {
+    ($count: expr, $( $ty: ident : $no: tt, )*) => {
+        impl<$($ty, )*> Tokenizable for ($($ty,)*)
+        where
+            $($ty: Tokenizable,)*
+        {
+            fn from_token(token: Token) -> Result<Self, Error>
+            {
+                let mut tokens = match token {
+                    Token::Tuple(tokens) => tokens,
+                    _ => return Err(Error::InvalidOutputType(format!("expected tuple"))),
+                };
+                if tokens.len() != $count {
+                    return Err(Error::InvalidOutputType(format!("expected tuple of size {} but got {}", $count, tokens.len())));
+                }
+                #[allow(unused_variables)]
+                #[allow(unused_mut)]
+                let mut drain = tokens.drain(..);
+                Ok(($($ty::from_token(drain.next().unwrap())?,)*))
+            }
+
+            fn into_token(self) -> Token {
+                Token::Tuple(vec![$(self.$no.into_token(),)*])
+            }
+        }
+    }
+}
+
+impl_tokenizable!(0,);
+impl_tokenizable!(1, A:0, );
+impl_tokenizable!(2, A:0, B:1, );
+impl_tokenizable!(3, A:0, B:1, C:2, );
+impl_tokenizable!(4, A:0, B:1, C:2, D:3, );
+impl_tokenizable!(5, A:0, B:1, C:2, D:3, E:4, );
+impl_tokenizable!(6, A:0, B:1, C:2, D:3, E:4, F:5, );
+impl_tokenizable!(7, A:0, B:1, C:2, D:3, E:4, F:5, G:6, );
+impl_tokenizable!(8, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, );
+impl_tokenizable!(9, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, );
+impl_tokenizable!(10, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, );
+impl_tokenizable!(11, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, );
+impl_tokenizable!(12, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, );
+impl_tokenizable!(13, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, );
+impl_tokenizable!(14, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, N:13, );
+impl_tokenizable!(15, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, N:13, O:14, );
+impl_tokenizable!(16, A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, N:13, O:14, P:15, );
+
 #[cfg(test)]
 mod tests {
-    use super::{Detokenize, Tokenizable};
+    use super::*;
     use crate::types::{Address, BytesArray, U256};
     use ethabi::{Token, Uint};
     use hex_literal::hex;
@@ -453,22 +522,39 @@ mod tests {
     #[ignore]
     fn should_be_able_to_compile() {
         let _tokens: Vec<Token> = output();
-        let _uint: U256 = output();
-        let _address: Address = output();
-        let _string: String = output();
-        let _bool: bool = output();
-        let _bytes: Vec<u8> = output();
-        let _bytes_array: BytesArray = output();
+        let _uint: (U256,) = output();
+        let _address: (Address,) = output();
+        let _string: (String,) = output();
+        let _bool: (bool,) = output();
+        let _bytes: (Vec<u8>,) = output();
+        let _bytes_array: (BytesArray,) = output();
 
-        let _pair: (U256, bool) = output();
-        let _vec: Vec<U256> = output();
-        let _array: [U256; 4] = output();
-        let _bytes: Vec<[[u8; 1]; 64]> = output();
+        let _pair: ((U256, bool),) = output();
+        let _vec: (Vec<U256>,) = output();
+        let _array: ([U256; 4],) = output();
+        let _bytes: (Vec<[[u8; 1]; 64]>,) = output();
 
         let _mixed: (Vec<Vec<u8>>, [U256; 4], Vec<U256>, U256) = output();
 
         let _ints: (i8, i16, i32, i64, i128) = output();
         let _uints: (u16, u32, u64, u128) = output();
+    }
+
+    #[test]
+    fn nested_tuples() {
+        type T = (u8, (u16, (u32, u64)));
+        let tuple: T = (0, (1, (2, 3)));
+        let expected = vec![
+            Token::Uint(0.into()),
+            Token::Tuple(vec![
+                Token::Uint(1.into()),
+                Token::Tuple(vec![Token::Uint(2.into()), Token::Uint(3.into())]),
+            ]),
+        ];
+        assert_eq!(tuple.into_token(), Token::Tuple(expected.clone()));
+        assert_eq!(T::from_token(Token::Tuple(expected.clone())).unwrap(), tuple);
+        assert_eq!(tuple.into_tokens(), expected);
+        assert_eq!(T::from_tokens(expected).unwrap(), tuple);
     }
 
     #[test]
@@ -484,11 +570,11 @@ mod tests {
             Token::FixedBytes(hex!("07").into()),
             Token::FixedBytes(hex!("08").into()),
         ])];
-        let data: [[u8; 1]; 8] = Detokenize::from_tokens(tokens).unwrap();
-        assert_eq!(data[0][0], 1);
-        assert_eq!(data[1][0], 2);
-        assert_eq!(data[2][0], 3);
-        assert_eq!(data[7][0], 8);
+        let data: ([[u8; 1]; 8],) = Detokenize::from_tokens(tokens).unwrap();
+        assert_eq!(data.0[0][0], 1);
+        assert_eq!(data.0[1][0], 2);
+        assert_eq!(data.0[2][0], 3);
+        assert_eq!(data.0[7][0], 8);
     }
 
     #[test]

@@ -370,7 +370,7 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
 
-        let result: String = {
+        let result: (String,) = {
             let token = contract(&transport);
 
             // when
@@ -393,7 +393,7 @@ mod tests {
             ],
         );
         transport.assert_no_more_requests();
-        assert_eq!(result, "Hello World!".to_owned());
+        assert_eq!(result.0, "Hello World!".to_owned());
     }
 
     #[test]
@@ -402,7 +402,7 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
 
-        let result: String = {
+        let result: (String,) = {
             let token = contract(&transport);
 
             // when
@@ -425,7 +425,7 @@ mod tests {
             ],
         );
         transport.assert_no_more_requests();
-        assert_eq!(result, "Hello World!".to_owned());
+        assert_eq!(result.0, "Hello World!".to_owned());
     }
 
     #[test]
@@ -434,7 +434,7 @@ mod tests {
         let mut transport = TestTransport::default();
         transport.set_response(rpc::Value::String("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000".into()));
 
-        let result: String = {
+        let result: (String,) = {
             let token = contract(&transport);
 
             // when
@@ -453,7 +453,7 @@ mod tests {
         // then
         transport.assert_request("eth_call", &["{\"data\":\"0x06fdde03\",\"from\":\"0x0000000000000000000000000000000000000005\",\"gasPrice\":\"0x989680\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"latest\"".into()]);
         transport.assert_no_more_requests();
-        assert_eq!(result, "Hello World!".to_owned());
+        assert_eq!(result.0, "Hello World!".to_owned());
     }
 
     #[test]
@@ -504,13 +504,13 @@ mod tests {
             "0x0000000000000000000000000000000000000000000000000000000000000020".into(),
         ));
 
-        let result: U256 = {
+        let result: (U256,) = {
             let token = contract(&transport);
 
             // when
             futures::executor::block_on(token.query(
                 "balanceOf",
-                Address::from_low_u64_be(5),
+                (Address::from_low_u64_be(5),),
                 None,
                 Options::default(),
                 None,
@@ -521,6 +521,6 @@ mod tests {
         // then
         transport.assert_request("eth_call", &["{\"data\":\"0x70a082310000000000000000000000000000000000000000000000000000000000000005\",\"to\":\"0x0000000000000000000000000000000000000001\"}".into(), "\"latest\"".into()]);
         transport.assert_no_more_requests();
-        assert_eq!(result, 0x20.into());
+        assert_eq!(result.0, 0x20.into());
     }
 }

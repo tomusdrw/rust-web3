@@ -28,8 +28,10 @@ async fn main() -> web3::contract::Result<()> {
         )
         .await?;
 
-    let result = contract.query("balanceOf", (my_account,), None, Options::default(), None);
-    let balance_of: U256 = result.await?;
+    let result: (U256,) = contract
+        .query("balanceOf", (my_account,), None, Options::default(), None)
+        .await?;
+    let balance_of = result.0;
     assert_eq!(balance_of, 1_000_000.into());
 
     // Accessing existing contract
@@ -40,8 +42,10 @@ async fn main() -> web3::contract::Result<()> {
         include_bytes!("../src/contract/res/token.json"),
     )?;
 
-    let result = contract.query("balanceOf", (my_account,), None, Options::default(), None);
-    let balance_of: U256 = result.await?;
+    let result: (U256,) = contract
+        .query("balanceOf", (my_account,), None, Options::default(), None)
+        .await?;
+    let balance_of = result.0;
     assert_eq!(balance_of, 1_000_000.into());
 
     Ok(())

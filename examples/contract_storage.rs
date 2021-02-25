@@ -31,8 +31,8 @@ async fn main() -> web3::contract::Result<()> {
     println!("Deployed at: {}", contract.address());
 
     // interact with the contract
-    let result = contract.query("get", (), None, Options::default(), None);
-    let storage: U256 = result.await?;
+    let result: (U256,) = contract.query("get", (), None, Options::default(), None).await?;
+    let storage = result.0;
     println!("Get Storage: {}", storage);
 
     // Change state of the contract
@@ -43,8 +43,8 @@ async fn main() -> web3::contract::Result<()> {
     std::thread::sleep(std::time::Duration::from_secs(5));
 
     // View changes made
-    let result = contract.query("get", (), None, Options::default(), None);
-    let storage: U256 = result.await?;
+    let result: (U256,) = contract.query("get", (), None, Options::default(), None).await?;
+    let storage = result.0;
     println!("Get again: {}", storage);
 
     Ok(())
