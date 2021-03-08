@@ -2,6 +2,7 @@
 
 mod accounts;
 mod eth;
+mod eth_ens;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
@@ -16,6 +17,7 @@ mod web3;
 pub use self::{
     accounts::Accounts,
     eth::Eth,
+    eth_ens::Ens,
     eth_filter::{BaseFilter, EthFilter},
     eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionStream},
     net::Net,
@@ -74,6 +76,11 @@ impl<T: Transport> Web3<T> {
 
     /// Access methods from `eth` namespace
     pub fn eth(&self) -> eth::Eth<T> {
+        self.api()
+    }
+
+    /// Access ENS methods from `eth` namespace
+    pub fn ens(&self) -> eth_ens::Ens<T> {
         self.api()
     }
 
