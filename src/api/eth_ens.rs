@@ -5,7 +5,7 @@ use crate::{
     api::Namespace,
     contract::{Contract, Options},
     signing::namehash,
-    types::{Address, Bytes, H256, U256},
+    types::{Address, TransactionId, U256},
     Transport, Web3,
 };
 
@@ -63,9 +63,13 @@ impl<T: Transport> Namespace<T> for Ens<T> {
 
 impl<T: Transport> Ens<T> {
     /// Sets the resolver contract address of a name.
-    pub async fn set_resolver(&self, from: Address, domain: &str, address: Address) -> Result<H256, ContractError> {
+    pub async fn set_resolver(
+        &self,
+        from: Address,
+        domain: &str,
+        address: Address,
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         self.registry.set_resolver(from, node, address).await
@@ -74,16 +78,14 @@ impl<T: Transport> Ens<T> {
     /// Returns the owner of a name.
     pub async fn get_owner(&self, domain: &str) -> Result<Address, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         self.registry.get_owner(node).await
     }
 
     /// Sets the owner of the given name.
-    pub async fn set_owner(&self, from: Address, domain: &str, owner: Address) -> Result<H256, ContractError> {
+    pub async fn set_owner(&self, from: Address, domain: &str, owner: Address) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         self.registry.set_owner(from, node, owner).await
@@ -92,16 +94,14 @@ impl<T: Transport> Ens<T> {
     /// Returns the caching TTL (time-to-live) of a name.
     pub async fn get_ttl(&self, domain: &str) -> Result<u64, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         self.registry.get_ttl(node).await
     }
 
     /// Sets the caching TTL (time-to-live) of a name.
-    pub async fn set_ttl(&self, from: Address, domain: &str, ttl: u64) -> Result<H256, ContractError> {
+    pub async fn set_ttl(&self, from: Address, domain: &str, ttl: u64) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         self.registry.set_ttl(from, node, ttl).await
@@ -114,7 +114,7 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         label: &str,
         owner: Address,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
         let node = namehash(&domain);
 
@@ -132,7 +132,7 @@ impl<T: Transport> Ens<T> {
         owner: Address,
         resolver: Address,
         ttl: u64,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
         let node = namehash(&domain);
 
@@ -148,7 +148,7 @@ impl<T: Transport> Ens<T> {
         owner: Address,
         resolver: Address,
         ttl: u64,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
         let node = namehash(&domain);
 
@@ -167,7 +167,7 @@ impl<T: Transport> Ens<T> {
         from: Address,
         operator: Address,
         approved: bool,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         self.registry.set_approval_for_all(from, operator, approved).await
     }
 
@@ -188,11 +188,9 @@ impl<T: Transport> Ens<T> {
     /// Resolves an ENS name to an Ethereum address.
     pub async fn get_eth_address(&self, domain: &str) -> Result<Address, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*ADDR_INTERFACE_ID).await? {
@@ -203,26 +201,27 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Sets the address of an ENS name in this resolver.
-    pub async fn set_eth_address(&self, from: Address, domain: &str, address: Address) -> Result<H256, ContractError> {
+    pub async fn set_eth_address(
+        &self,
+        from: Address,
+        domain: &str,
+        address: Address,
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         resolver.set_ethereum_address(from, node, address).await
     }
 
     /// Returns the Blockchain address associated with the provided node and coinType, or 0 if none.
-    /* pub async fn get_blockchain_address(&self, domain: &str, coin_type: U256) -> Result<Bytes, ContractError> {
+    pub async fn get_blockchain_address(&self, domain: &str, coin_type: U256) -> Result<Vec<u8>, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*BLOCKCHAIN_ADDR_INTERFACE_ID).await? {
@@ -230,35 +229,31 @@ impl<T: Transport> Ens<T> {
         }
 
         resolver.get_blockchain_address(node, coin_type).await
-    } */
+    }
 
     /// Sets the blockchain address associated with the provided node and coinType to addr.
-    /* pub async fn set_blockchain_address(
+    pub async fn set_blockchain_address(
         &self,
         from: Address,
         domain: &str,
         coin_type: U256,
-        a: Bytes,
-    ) -> Result<H256, ContractError> {
+        a: Vec<u8>,
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         resolver.set_blockchain_address(from, node, coin_type, a).await
-    } */
+    }
 
     /// Returns the X and Y coordinates of the curve point for the public key.
     pub async fn get_pubkey(&self, domain: &str) -> Result<([u8; 32], [u8; 32]), ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*PUBKEY_INTERFACE_ID).await? {
@@ -275,26 +270,22 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         x: [u8; 32],
         y: [u8; 32],
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         resolver.set_public_key(from, node, x, y).await
     }
 
     /// Returns the content hash object associated with an ENS node.
-    pub async fn get_content_hash(&self, domain: &str) -> Result<Bytes, ContractError> {
+    pub async fn get_content_hash(&self, domain: &str) -> Result<Vec<u8>, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*CONTENTHASH_INTERFACE_ID).await? {
@@ -305,28 +296,29 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Sets the content hash associated with an ENS node.
-    /* pub async fn set_content_hash(&self, from: Address, domain: &str, hash: Bytes) -> Result<H256, ContractError> {
+    pub async fn set_content_hash(
+        &self,
+        from: Address,
+        domain: &str,
+        hash: Vec<u8>,
+    ) -> Result<TransactionId, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         //TODO check hash is valid multicodec
 
         resolver.set_content_hash(from, node, hash).await
-    } */
+    }
 
     /// Returns true if the related Resolver does support the given interfaceId.
     pub async fn supports_interface(&self, domain: &str, interface_id: [u8; 4]) -> Result<bool, ContractError> {
         let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
-
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         resolver.check_interface_support(interface_id).await
@@ -360,12 +352,15 @@ impl<T: Transport> Registry<T> {
         owner: Address,
         resolver: Address,
         ttl: u64,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract
+        let id = self
+            .contract
             .call("setRecord", (node, owner, resolver, ttl), from, options)
-            .await
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-subdomain-record
@@ -377,12 +372,15 @@ impl<T: Transport> Registry<T> {
         owner: Address,
         resolver: Address,
         ttl: u64,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract
+        let id = self
+            .contract
             .call("setSubnodeRecord", (node, label, owner, resolver, ttl), from, options)
-            .await
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-subdomain-owner
@@ -392,33 +390,50 @@ impl<T: Transport> Registry<T> {
         node: [u8; 32],
         label: [u8; 32],
         owner: Address,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract
+        let id = self
+            .contract
             .call("setSubnodeOwner", (node, label, owner), from, options)
-            .await
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-resolver
-    async fn set_resolver(&self, from: Address, node: [u8; 32], resolver: Address) -> Result<H256, ContractError> {
+    async fn set_resolver(
+        &self,
+        from: Address,
+        node: [u8; 32],
+        resolver: Address,
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setResolver", (node, resolver), from, options).await
+        let id = self
+            .contract
+            .call("setResolver", (node, resolver), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-owner
-    async fn set_owner(&self, from: Address, node: [u8; 32], owner: Address) -> Result<H256, ContractError> {
+    async fn set_owner(&self, from: Address, node: [u8; 32], owner: Address) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setOwner", (node, owner), from, options).await
+        let id = self.contract.call("setOwner", (node, owner), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-ttl
-    async fn set_ttl(&self, from: Address, node: [u8; 32], ttl: u64) -> Result<H256, ContractError> {
+    async fn set_ttl(&self, from: Address, node: [u8; 32], ttl: u64) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setTTL", (node, ttl), from, options).await
+        let id = self.contract.call("setTTL", (node, ttl), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-approval
@@ -427,12 +442,15 @@ impl<T: Transport> Registry<T> {
         from: Address,
         operator: Address,
         approved: bool,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract
+        let id = self
+            .contract
             .call("setApprovalForAll", (operator, approved), from, options)
-            .await
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#get-owner
@@ -491,7 +509,7 @@ impl<T: Transport> Resolver<T> {
     // https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-contract-abi
-    async fn get_abi(&self, node: [u8; 32], content_types: U256) -> Result<(U256, Bytes), ContractError> {
+    async fn get_abi(&self, node: [u8; 32], content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
         let options = Options::default();
 
         self.contract
@@ -507,7 +525,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-blockchain-address
-    async fn get_blockchain_address(&self, node: [u8; 32], coin_type: U256) -> Result<Bytes, ContractError> {
+    async fn get_blockchain_address(&self, node: [u8; 32], coin_type: U256) -> Result<Vec<u8>, ContractError> {
         let options = Options::default();
 
         self.contract
@@ -516,7 +534,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-content-hash
-    async fn get_content_hash(&self, node: [u8; 32]) -> Result<Bytes, ContractError> {
+    async fn get_content_hash(&self, node: [u8; 32]) -> Result<Vec<u8>, ContractError> {
         let options = Options::default();
 
         self.contract.query("contenthash", node, None, options, None).await
@@ -553,13 +571,16 @@ impl<T: Transport> Resolver<T> {
         from: Address,
         node: [u8; 32],
         content_type: U256,
-        data: Bytes,
-    ) -> Result<H256, ContractError> {
+        data: Vec<u8>,
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract
+        let id = self
+            .contract
             .call("setABI", (node, content_type, data), from, options)
-            .await
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-ethereum-address
@@ -568,10 +589,12 @@ impl<T: Transport> Resolver<T> {
         from: Address,
         node: [u8; 32],
         address: Address,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setAddr", (node, address), from, options).await
+        let id = self.contract.call("setAddr", (node, address), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-blockchain-address
@@ -580,27 +603,49 @@ impl<T: Transport> Resolver<T> {
         from: Address,
         node: [u8; 32],
         coin_type: U256,
-        a: Bytes,
-    ) -> Result<H256, ContractError> {
+        a: Vec<u8>,
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setAddr", (node, coin_type, a), from, options).await
+        let id = self
+            .contract
+            .call("setAddr", (node, coin_type, a), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-content-hash
-    async fn set_content_hash(&self, from: Address, node: [u8; 32], hash: Bytes) -> Result<H256, ContractError> {
+    async fn set_content_hash(
+        &self,
+        from: Address,
+        node: [u8; 32],
+        hash: Vec<u8>,
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setContenthash", (node, hash), from, options).await
+        let id = self
+            .contract
+            .call("setContenthash", (node, hash), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     //setDnsrr
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
-    async fn set_canonical_name(&self, from: Address, node: [u8; 32], name: String) -> Result<H256, ContractError> {
+    async fn set_canonical_name(
+        &self,
+        from: Address,
+        node: [u8; 32],
+        name: String,
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setName", (node, name), from, options).await
+        let id = self.contract.call("setName", (node, name), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-public-key
@@ -610,10 +655,12 @@ impl<T: Transport> Resolver<T> {
         node: [u8; 32],
         x: [u8; 32],
         y: [u8; 32],
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setPubkey", (node, x, y), from, options).await
+        let id = self.contract.call("setPubkey", (node, x, y), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-text-data
@@ -623,10 +670,12 @@ impl<T: Transport> Resolver<T> {
         node: [u8; 32],
         key: String,
         value: String,
-    ) -> Result<H256, ContractError> {
+    ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
-        self.contract.call("setText", (node, key, value), from, options).await
+        let id = self.contract.call("setText", (node, key, value), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
     }
 
     //setInterface
