@@ -105,8 +105,8 @@ impl DuplexTransport for Ipc {
     }
 }
 
-/// A future representing a pending RPC request. Resolves to a JSON RPC value.
-pub struct SingleResponse(Result<oneshot::Receiver<rpc::Value>>);
+/// A future representing a pending RPC request. Resolves to a JSON RPC output.
+pub struct SingleResponse(Result<oneshot::Receiver<rpc::Output>>);
 
 impl futures::Future for SingleResponse {
     type Output = Result<rpc::Value>;
@@ -114,15 +114,15 @@ impl futures::Future for SingleResponse {
         match &mut self.0 {
             Err(err) => Poll::Ready(Err(err.clone())),
             Ok(ref mut rx) => {
-                let value = ready!(futures::Future::poll(Pin::new(rx), cx))?;
-                Poll::Ready(Ok(value))
+                let output = ready!(futures::Future::poll(Pin::new(rx), cx))?;
+                Poll::Ready(helpers::to_result_from_output(output))
             }
         }
     }
 }
 
 /// A future representing a pending batch RPC request. Resolves to a vector of JSON RPC value.
-pub struct BatchResponse(Result<JoinAll<oneshot::Receiver<rpc::Value>>>);
+pub struct BatchResponse(Result<JoinAll<oneshot::Receiver<rpc::Output>>>);
 
 impl futures::Future for BatchResponse {
     type Output = Result<Vec<Result<rpc::Value>>>;
@@ -131,7 +131,11 @@ impl futures::Future for BatchResponse {
             Err(err) => Poll::Ready(Err(err.clone())),
             Ok(ref mut rxs) => {
                 let poll = futures::Future::poll(Pin::new(rxs), cx);
-                let values = ready!(poll).into_iter().map(|r| r.map_err(Into::into)).collect();
+                let values = ready!(poll)
+                    .into_iter()
+                    .map(|r| r.map_err(Into::into))
+                    .map(|r| r.and_then(helpers::to_result_from_output))
+                    .collect();
 
                 Poll::Ready(Ok(values))
             }
@@ -139,7 +143,7 @@ impl futures::Future for BatchResponse {
     }
 }
 
-type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Value>);
+type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Output>);
 
 #[derive(Debug)]
 enum TransportMessage {
@@ -274,7 +278,7 @@ fn notify(
 }
 
 fn respond(
-    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
+    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Output>>,
     response: rpc::Response,
 ) -> std::result::Result<(), ()> {
     let outputs = match response {
@@ -290,14 +294,10 @@ fn respond(
 }
 
 fn respond_output(
-    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
+    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Output>>,
     output: rpc::Output,
 ) -> std::result::Result<(), ()> {
     let id = output.id().clone();
-
-    let value = helpers::to_result_from_output(output).map_err(|err| {
-        log::warn!("Unable to parse output into rpc::Value: {:?}", err);
-    })?;
 
     let id = match id {
         rpc::Id::Num(num) => num as usize,
@@ -311,7 +311,7 @@ fn respond_output(
         log::warn!("Got response for unknown request (id: {:?})", id);
     })?;
 
-    response_tx.send(value).map_err(|err| {
+    response_tx.send(output).map_err(|err| {
         log::warn!("Sending a response to deallocated channel: {:?}", err);
     })
 }
