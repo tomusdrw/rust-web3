@@ -1,11 +1,13 @@
 //! Contract deployment utilities
 
+#[cfg(feature = "signing")]
+use crate::signing::Key;
 use crate::{
     api::{Eth, Namespace},
     confirm,
     contract::{tokens::Tokenize, Contract, Options},
     error,
-    types::{Address, Bytes, TransactionReceipt, TransactionRequest},
+    types::{Address, Bytes, TransactionParameters, TransactionReceipt, TransactionRequest},
     Transport,
 };
 use futures::{Future, TryFutureExt};
@@ -90,6 +92,49 @@ impl<T: Transport> Builder<T> {
                         confirmations,
                     )
                 })
+        })
+        .await
+    }
+
+    /// Execute deployment passing code and constructor parameters.
+    ///
+    /// Unlike the above `sign_and_execute`, this method allows the
+    /// caller to pass in a private key to sign the transaction with
+    /// and therefore allows deploying from an account that the
+    /// ethereum node doesn't need to know the private key for.
+    #[cfg(feature = "signing")]
+    pub async fn sign_with_key_and_execute<P, V, K>(self, code: V, params: P, from: K) -> Result<Contract<T>, Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        K: Key,
+    {
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
+
+        self.do_execute(code, params, from.address(), move |tx| async move {
+            let tx = TransactionParameters {
+                nonce: tx.nonce,
+                to: tx.to,
+                gas: tx.gas.unwrap_or(0.into()),
+                gas_price: tx.gas_price,
+                value: tx.value.unwrap_or(0.into()),
+                data: tx
+                    .data
+                    .expect("Tried to deploy a contract but transaction data wasn't set"),
+                chain_id: None,
+            };
+            let signed_tx = crate::api::Accounts::new(transport.clone())
+                .sign_transaction(tx, from)
+                .await?;
+            confirm::send_raw_transaction_with_confirmation(
+                transport,
+                signed_tx.raw_transaction,
+                poll_interval,
+                confirmations,
+            )
+            .await
         })
         .await
     }
