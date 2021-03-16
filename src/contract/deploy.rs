@@ -102,6 +102,13 @@ impl<T: Transport> Builder<T> {
     /// caller to pass in a private key to sign the transaction with
     /// and therefore allows deploying from an account that the
     /// ethereum node doesn't need to know the private key for.
+    ///
+    /// An optional `chain_id` parameter can be passed to provide
+    /// replay protection for transaction signatures. Passing `None`
+    /// would create a transaction WITHOUT replay protection and
+    /// should be avoided.
+    /// You can obtain `chain_id` of the network you are connected
+    /// to using `web3.eth().chain_id()` method.
     #[cfg(feature = "signing")]
     pub async fn sign_with_key_and_execute<P, V, K>(
         self,
