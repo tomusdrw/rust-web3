@@ -1,7 +1,5 @@
 //! Contract deployment utilities
 
-#[cfg(feature = "signing")]
-use crate::{signing::Key, types::TransactionParameters};
 use crate::{
     api::{Eth, Namespace},
     confirm,
@@ -10,6 +8,8 @@ use crate::{
     types::{Address, Bytes, TransactionReceipt, TransactionRequest},
     Transport,
 };
+#[cfg(feature = "signing")]
+use crate::{signing::Key, types::TransactionParameters};
 use futures::{Future, TryFutureExt};
 use std::{collections::HashMap, time};
 
@@ -103,7 +103,13 @@ impl<T: Transport> Builder<T> {
     /// and therefore allows deploying from an account that the
     /// ethereum node doesn't need to know the private key for.
     #[cfg(feature = "signing")]
-    pub async fn sign_with_key_and_execute<P, V, K>(self, code: V, params: P, from: K, chain_id: Option<u64>) -> Result<Contract<T>, Error>
+    pub async fn sign_with_key_and_execute<P, V, K>(
+        self,
+        code: V,
+        params: P,
+        from: K,
+        chain_id: Option<u64>,
+    ) -> Result<Contract<T>, Error>
     where
         P: Tokenize,
         V: AsRef<str>,
