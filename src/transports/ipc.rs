@@ -1,7 +1,10 @@
 //! IPC transport
 
 use crate::{api::SubscriptionId, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport};
-use futures::future::{join_all, JoinAll};
+use futures::{
+    future::{join_all, JoinAll},
+    stream::StreamExt,
+};
 use jsonrpc_core as rpc;
 use std::{
     collections::BTreeMap,
@@ -11,11 +14,12 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::{
-    io::{reader_stream, AsyncWriteExt},
+    io::AsyncWriteExt,
     net::UnixStream,
-    stream::StreamExt,
     sync::{mpsc, oneshot},
 };
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_util::io::ReaderStream;
 
 /// Unix Domain Sockets (IPC) transport.
 #[derive(Debug, Clone)]
@@ -39,7 +43,7 @@ impl Ipc {
         let id = Arc::new(AtomicUsize::new(1));
         let (messages_tx, messages_rx) = mpsc::unbounded_channel();
 
-        tokio::spawn(run_server(stream, messages_rx));
+        tokio::spawn(run_server(stream, UnboundedReceiverStream::new(messages_rx)));
 
         Ipc { id, messages_tx }
     }
@@ -90,12 +94,12 @@ impl BatchTransport for Ipc {
 }
 
 impl DuplexTransport for Ipc {
-    type NotificationStream = mpsc::UnboundedReceiver<rpc::Value>;
+    type NotificationStream = UnboundedReceiverStream<rpc::Value>;
 
     fn subscribe(&self, id: SubscriptionId) -> Result<Self::NotificationStream> {
         let (tx, rx) = mpsc::unbounded_channel();
         self.messages_tx.send(TransportMessage::Subscribe(id, tx))?;
-        Ok(rx)
+        Ok(UnboundedReceiverStream::new(rx))
     }
 
     fn unsubscribe(&self, id: SubscriptionId) -> Result<()> {
@@ -105,8 +109,8 @@ impl DuplexTransport for Ipc {
     }
 }
 
-/// A future representing a pending RPC request. Resolves to a JSON RPC value.
-pub struct SingleResponse(Result<oneshot::Receiver<rpc::Value>>);
+/// A future representing a pending RPC request. Resolves to a JSON RPC output.
+pub struct SingleResponse(Result<oneshot::Receiver<rpc::Output>>);
 
 impl futures::Future for SingleResponse {
     type Output = Result<rpc::Value>;
@@ -114,15 +118,15 @@ impl futures::Future for SingleResponse {
         match &mut self.0 {
             Err(err) => Poll::Ready(Err(err.clone())),
             Ok(ref mut rx) => {
-                let value = ready!(futures::Future::poll(Pin::new(rx), cx))?;
-                Poll::Ready(Ok(value))
+                let output = ready!(futures::Future::poll(Pin::new(rx), cx))?;
+                Poll::Ready(helpers::to_result_from_output(output))
             }
         }
     }
 }
 
 /// A future representing a pending batch RPC request. Resolves to a vector of JSON RPC value.
-pub struct BatchResponse(Result<JoinAll<oneshot::Receiver<rpc::Value>>>);
+pub struct BatchResponse(Result<JoinAll<oneshot::Receiver<rpc::Output>>>);
 
 impl futures::Future for BatchResponse {
     type Output = Result<Vec<Result<rpc::Value>>>;
@@ -131,7 +135,11 @@ impl futures::Future for BatchResponse {
             Err(err) => Poll::Ready(Err(err.clone())),
             Ok(ref mut rxs) => {
                 let poll = futures::Future::poll(Pin::new(rxs), cx);
-                let values = ready!(poll).into_iter().map(|r| r.map_err(Into::into)).collect();
+                let values = ready!(poll)
+                    .into_iter()
+                    .map(|r| r.map_err(Into::into))
+                    .map(|r| r.and_then(helpers::to_result_from_output))
+                    .collect();
 
                 Poll::Ready(Ok(values))
             }
@@ -139,7 +147,7 @@ impl futures::Future for BatchResponse {
     }
 }
 
-type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Value>);
+type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Output>);
 
 #[derive(Debug)]
 enum TransportMessage {
@@ -150,12 +158,12 @@ enum TransportMessage {
 }
 
 #[cfg(unix)]
-async fn run_server(mut unix_stream: UnixStream, messages_rx: mpsc::UnboundedReceiver<TransportMessage>) -> Result<()> {
-    let (socket_reader, mut socket_writer) = unix_stream.split();
+async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStream<TransportMessage>) -> Result<()> {
+    let (socket_reader, mut socket_writer) = unix_stream.into_split();
     let mut pending_response_txs = BTreeMap::default();
     let mut subscription_txs = BTreeMap::default();
 
-    let mut socket_reader = reader_stream(socket_reader);
+    let mut socket_reader = ReaderStream::new(socket_reader);
     let mut messages_rx = messages_rx.fuse();
     let mut read_buffer = vec![];
     let mut closed = false;
@@ -274,7 +282,7 @@ fn notify(
 }
 
 fn respond(
-    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
+    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Output>>,
     response: rpc::Response,
 ) -> std::result::Result<(), ()> {
     let outputs = match response {
@@ -290,14 +298,10 @@ fn respond(
 }
 
 fn respond_output(
-    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Value>>,
+    pending_response_txs: &mut BTreeMap<RequestId, oneshot::Sender<rpc::Output>>,
     output: rpc::Output,
 ) -> std::result::Result<(), ()> {
     let id = output.id().clone();
-
-    let value = helpers::to_result_from_output(output).map_err(|err| {
-        log::warn!("Unable to parse output into rpc::Value: {:?}", err);
-    })?;
 
     let id = match id {
         rpc::Id::Num(num) => num as usize,
@@ -311,7 +315,7 @@ fn respond_output(
         log::warn!("Got response for unknown request (id: {:?})", id);
     })?;
 
-    response_tx.send(value).map_err(|err| {
+    response_tx.send(output).map_err(|err| {
         log::warn!("Sending a response to deallocated channel: {:?}", err);
     })
 }
@@ -332,10 +336,7 @@ impl From<oneshot::error::RecvError> for Error {
 mod test {
     use super::*;
     use serde_json::json;
-    use tokio::{
-        io::{reader_stream, AsyncWriteExt},
-        net::UnixStream,
-    };
+    use tokio::{io::AsyncWriteExt, net::UnixStream};
 
     #[tokio::test]
     async fn works_for_single_requests() {
@@ -372,7 +373,7 @@ mod test {
     async fn eth_node_single(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
 
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         if let Some(Ok(bytes)) = rx.next().await {
             let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
@@ -436,7 +437,7 @@ mod test {
     async fn eth_node_batch(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
 
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         if let Some(Ok(bytes)) = rx.next().await {
             let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
@@ -491,11 +492,11 @@ mod test {
     async fn eth_node_partial_batches(stream: UnixStream) {
         let (rx, mut tx) = stream.into_split();
         let mut buf = vec![];
-        let mut rx = reader_stream(rx);
+        let mut rx = ReaderStream::new(rx);
         while let Some(Ok(bytes)) = rx.next().await {
             buf.extend(bytes);
 
-            let requests: std::result::Result<Vec<rpc::Call>, serde_json::Error> =
+            let requests: std::result::Result<Vec<serde_json::Value>, serde_json::Error> =
                 serde_json::Deserializer::from_slice(&buf).into_iter().collect();
 
             if let Ok(requests) = requests {

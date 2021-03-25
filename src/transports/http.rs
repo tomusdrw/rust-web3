@@ -93,9 +93,7 @@ impl Http {
                 let mut proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
 
                 if username != "" {
-                    let credentials =
-                        typed_headers::Credentials::basic(&username, &password).map_err(|_| Error::Internal)?;
-
+                    let credentials = headers::Authorization::basic(&username, &password);
                     proxy.set_authorization(credentials);
                 }
 
@@ -190,8 +188,8 @@ impl BatchTransport for Http {
 
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<rpc::Value> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
-
+    let response =
+        helpers::to_response_from_slice(&*response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
     match response {
         rpc::Response::Single(output) => helpers::to_result_from_output(output),
         _ => Err(Error::InvalidResponse("Expected single, got batch.".into())),
@@ -200,8 +198,8 @@ fn single_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<rpc::V
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<Vec<error::Result<rpc::Value>>> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
-
+    let response =
+        helpers::to_response_from_slice(&*response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
     match response {
         rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
         _ => Err(Error::InvalidResponse("Expected batch, got single.".into())),

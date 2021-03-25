@@ -41,6 +41,12 @@ jobs:
           command:                 test
           toolchain:               stable
           args:                    --all  --verbose
+      - name:                      Testing rust-stable with arbitrary_precision
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 test
+          toolchain:               stable
+          args:                    --all  --verbose --features arbitrary_precision
 
 ## Build Stage
       - name:                      Building rust-stable
