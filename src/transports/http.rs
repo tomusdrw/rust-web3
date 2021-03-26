@@ -46,7 +46,14 @@ enum Client {
     NoProxy(hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>),
 }
 
-#[cfg(not(feature = "http-tls"))]
+#[cfg(feature = "http-rustls")]
+#[derive(Debug, Clone)]
+enum Client {
+    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>>),
+    NoProxy(hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>),
+}
+
+#[cfg(not(any(feature = "http-tls", feature = "http-rustls")))]
 #[derive(Debug, Clone)]
 enum Client {
     Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper::client::HttpConnector>>),
@@ -76,7 +83,14 @@ impl Http {
     pub fn new(url: &str) -> error::Result<Self> {
         #[cfg(feature = "http-tls")]
         let (proxy_env, connector) = { (env::var("HTTPS_PROXY"), hyper_tls::HttpsConnector::new()) };
-        #[cfg(not(feature = "http-tls"))]
+        #[cfg(feature = "http-rustls")]
+        let (proxy_env, connector) = {
+            (
+                env::var("HTTPS_PROXY"),
+                hyper_rustls::HttpsConnector::with_webpki_roots(),
+            )
+        };
+        #[cfg(not(any(feature = "http-tls", feature = "http-rustls")))]
         let (proxy_env, connector) = { (env::var("HTTP_PROXY"), hyper::client::HttpConnector::new()) };
 
         let client = match proxy_env {
