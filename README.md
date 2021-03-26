@@ -113,11 +113,20 @@ To compile, you need to disable the IPC feature:
 web3 = { version = "0.14.0", default-features = false, features = ["http"] }
 ```
 
+# Avoiding OpenSSL dependency
+
+On Linux, `native-tls` is implemented using OpenSSL. To avoid that dependency
+for HTTPS use the corresponding feature.
+```
+web3 = { version = "0.14.0", default-features = false, features = ["http-rustls"] }
+```
+
 # Cargo Features
 
 The library supports following features:
 - `http` - Enables `http` transport.
-- `http-tls` - Enables `http` over TLS (`https`) transport support. Implies `http`.
+- `http-tls` - Enables `http` over TLS (`https`) transport support using OS-native TLS. Implies `http`.
+- `http-rustls` - Enables `http` over TLS (`https`) transport support using rustls. Implies `http`.
 - `ipc-tokio` - Enables `ipc` transport (`tokio` runtime). *NIX only!
 - `ws-tokio` - Enables `ws` tranport (`tokio` runtime).
 - `ws-tls-tokio` - Enables `wss` tranport (`tokio` runtime).

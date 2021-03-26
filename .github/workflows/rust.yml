@@ -122,6 +122,12 @@ jobs:
           command:                 check
           toolchain:               stable
           args:                    --no-default-features --features http-tls
+      - name:                      Checking http-rustls
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               stable
+          args:                    --no-default-features --features http-rustls
       - name:                      Checking ws-tokio
         uses:                      actions-rs/cargo@master
         with:
