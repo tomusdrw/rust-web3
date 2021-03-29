@@ -1,4 +1,4 @@
-use crate::types::{Address, Bytes, U256};
+use crate::types::{AccessList, Address, Bytes, U256, U64};
 use serde::{Deserialize, Serialize};
 
 /// Call contract request (eth_call / eth_estimateGas)
@@ -27,6 +27,12 @@ pub struct CallRequest {
     /// Data (None for empty data)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Bytes>,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub transaction_type: Option<U64>,
+    /// Access list
+    #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
+    pub access_list: Option<AccessList>,
 }
 
 /// Send Transaction Parameters
@@ -56,6 +62,12 @@ pub struct TransactionRequest {
     /// Min block inclusion (None for include immediately)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub condition: Option<TransactionCondition>,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub transaction_type: Option<U64>,
+    /// Access list
+    #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
+    pub access_list: Option<AccessList>,
 }
 
 /// Represents condition on minimum block number or block timestamp.
@@ -85,6 +97,8 @@ mod tests {
             gas_price: None,
             value: Some(5_000_000.into()),
             data: Some(hex!("010203").into()),
+            transaction_type: None,
+            access_list: None,
         };
 
         // when
@@ -132,6 +146,8 @@ mod tests {
             data: Some(hex!("010203").into()),
             nonce: None,
             condition: Some(TransactionCondition::Block(5)),
+            transaction_type: None,
+            access_list: None,
         };
 
         // when

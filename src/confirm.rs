@@ -141,6 +141,8 @@ mod tests {
             data: None,
             nonce: None,
             condition: None,
+            transaction_type: None,
+            access_list: None,
         };
 
         let transaction_receipt = TransactionReceipt {
@@ -155,6 +157,7 @@ mod tests {
             status: Some(1.into()),
             root: Some(H256::zero()),
             logs_bloom: Default::default(),
+            transaction_type: None,
         };
 
         let poll_interval = Duration::from_secs(0);

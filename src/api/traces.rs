@@ -216,6 +216,7 @@ mod tests {
     from: None, to: Some(Address::from_low_u64_be(0x123)),
     gas: None, gas_price: None,
     value: Some(0x1.into()), data: None,
+    transaction_type: None, access_list: None,
     }, vec![TraceType::Trace], None
     =>
     "trace_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#"["trace"]"#, r#""latest""#];

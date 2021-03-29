@@ -43,6 +43,12 @@ pub struct Transaction {
     /// Raw transaction data
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw: Option<Bytes>,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub transaction_type: Option<U64>,
+    /// Access list
+    #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
+    pub access_list: Option<AccessList>,
 }
 
 /// "Receipt" of an executed transaction: details of its execution.
@@ -80,6 +86,9 @@ pub struct Receipt {
     /// Logs bloom
     #[serde(rename = "logsBloom")]
     pub logs_bloom: H2048,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub transaction_type: Option<U64>,
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
@@ -89,6 +98,19 @@ pub struct RawTransaction {
     pub raw: Bytes,
     /// Transaction details
     pub tx: Transaction,
+}
+
+/// Access list
+pub type AccessList = Vec<AccessListItem>;
+
+/// Access list item
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessListItem {
+    /// Accessed address
+    pub address: H160,
+    /// Accessed storage keys
+    pub storage_keys: Vec<H256>,
 }
 
 #[cfg(test)]
