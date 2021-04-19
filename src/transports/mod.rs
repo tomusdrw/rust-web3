@@ -5,9 +5,9 @@ pub use self::batch::Batch;
 pub mod either;
 pub use self::either::Either;
 
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-rustls"))]
 pub mod http;
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-rustls"))]
 pub use self::http::Http;
 
 #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
