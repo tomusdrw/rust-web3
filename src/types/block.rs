@@ -1,5 +1,5 @@
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -13,8 +13,7 @@ pub struct BlockHeader {
     #[serde(rename = "sha3Uncles")]
     pub uncles_hash: H256,
     /// Miner/author's address.
-    #[serde(rename = "miner")]
-    #[serde(default)]
+    #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
     pub author: H160,
     /// State root hash
     #[serde(rename = "stateRoot")]
@@ -63,8 +62,7 @@ pub struct Block<TX> {
     #[serde(rename = "sha3Uncles")]
     pub uncles_hash: H256,
     /// Miner/author's address.
-    #[serde(rename = "miner")]
-    #[serde(default)]
+    #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
     pub author: H160,
     /// State root hash
     #[serde(rename = "stateRoot")]
@@ -110,6 +108,15 @@ pub struct Block<TX> {
     pub mix_hash: Option<H256>,
     /// Nonce
     pub nonce: Option<H64>,
+}
+
+fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    let option = Option::deserialize(deserializer)?;
+    Ok(option.unwrap_or_default())
 }
 
 /// Block Number
@@ -191,10 +198,13 @@ impl From<H256> for BlockId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     #[test]
-    fn block_without_miner() {
-        const EXAMPLE_BLOCK: &str = r#"{
+    fn block_miner() {
+        let mut json = serde_json::json!(
+        {
+            "miner": "0x0000000000000000000000000000000000000001",
             "number": "0x1b4",
             "hash": "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
             "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
@@ -219,10 +229,22 @@ mod tests {
             "timestamp": "0x54e34e8e",
             "transactions": [],
             "uncles": []
-          }"#;
+          }
+        );
 
-        let block: Block<()> = serde_json::from_str(&EXAMPLE_BLOCK).unwrap();
+        let block: Block<()> = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(block.author, H160::from_low_u64_be(1));
 
+        // Null miner
+        // We test this too because it was observed that Infura nodes behave this way even though it
+        // goes against the ethrpc documentation.
+        json.as_object_mut().unwrap().insert("miner".to_string(), Value::Null);
+        let block: Block<()> = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(block.author, Default::default());
+
+        // No miner
+        json.as_object_mut().unwrap().remove("miner");
+        let block: Block<()> = serde_json::from_value(json).unwrap();
         assert_eq!(block.author, Default::default());
     }
 }
