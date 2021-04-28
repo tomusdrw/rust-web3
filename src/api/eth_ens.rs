@@ -12,6 +12,8 @@ use crate::{
 type ContractError = crate::contract::Error;
 type EthError = crate::ethabi::Error;
 
+use hex::ToHex;
+
 use idna::Config;
 
 const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
@@ -308,9 +310,27 @@ impl<T: Transport> Ens<T> {
         let resolver_addr = self.registry.get_resolver(node).await?;
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
-        //TODO check hash is valid multicodec
+        //TODO check hash is valid
+        //https://eips.ethereum.org/EIPS/eip-1577
 
         resolver.set_content_hash(from, node, hash).await
+    }
+
+    /// Returns the canonical ENS name associated with the provided address.
+    pub async fn get_canonical_name(&self, from: Address) -> Result<String, ContractError> {
+        let mut hex: String = from.encode_hex();
+        hex.push_str(".addr.reverse");
+
+        let node = namehash(&hex);
+
+        let resolver_addr = self.registry.get_resolver(node).await?;
+        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
+
+        if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
+        resolver.get_canonical_name(node).await
     }
 
     /// Returns true if the related Resolver does support the given interfaceId.
