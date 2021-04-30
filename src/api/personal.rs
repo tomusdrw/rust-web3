@@ -142,6 +142,7 @@ mod tests {
         gas: None, gas_price: Some(0x1.into()),
         value: Some(0x1.into()), data: None,
         nonce: None, condition: None,
+        transaction_type: None, access_list: None,
       }, "hunter2"
       =>
       "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
@@ -158,6 +159,8 @@ mod tests {
         data: Some(hex!("603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360").into()),
         nonce: Some(0x0.into()),
         condition: None,
+        transaction_type: None,
+        access_list: None,
       }, "hunter2"
       =>
       "personal_signTransaction", vec![r#"{"data":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360","from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1","gas":"0x7f110","gasPrice":"0x9184e72a000","nonce":"0x0","to":"0x853f43d8a49eeb85d32cf465507dd71d507100c1","value":"0x7f110"}"#, r#""hunter2""#];

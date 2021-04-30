@@ -486,6 +486,7 @@ mod tests {
         from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
+        transaction_type: None, access_list: None,
       }, None
       =>
       "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
@@ -517,6 +518,7 @@ mod tests {
         from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
+        transaction_type: None, access_list: None,
       }, None
       =>
       "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
@@ -528,6 +530,7 @@ mod tests {
         from: None, to: None,
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
+        transaction_type: None, access_list: None,
       }, None
       =>
       "eth_estimateGas", vec![r#"{"value":"0x1"}"#];
@@ -539,6 +542,7 @@ mod tests {
         from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
         value: Some(0x1.into()), data: None,
+        transaction_type: None, access_list: None,
       }, Some(0x123.into())
       =>
       "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""0x123""#];
@@ -776,6 +780,7 @@ mod tests {
         gas: None, gas_price: Some(0x1.into()),
         value: Some(0x1.into()), data: None,
         nonce: None, condition: None,
+        transaction_type: None, access_list: None,
       }
       =>
       "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];

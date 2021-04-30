@@ -137,6 +137,8 @@ impl<T: Transport> Builder<T> {
                     .data
                     .expect("Tried to deploy a contract but transaction data wasn't set"),
                 chain_id,
+                transaction_type: tx.transaction_type,
+                access_list: tx.access_list,
             };
             let signed_tx = crate::api::Accounts::new(transport.clone())
                 .sign_transaction(tx, from)
@@ -204,6 +206,8 @@ impl<T: Transport> Builder<T> {
             nonce: options.nonce,
             data: Some(Bytes(data)),
             condition: options.condition,
+            transaction_type: options.transaction_type,
+            access_list: options.access_list,
         };
         let receipt = send(tx).await?;
         match receipt.status {

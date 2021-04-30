@@ -1,4 +1,4 @@
-use crate::types::{Address, Bytes, CallRequest, H256, U256};
+use crate::types::{AccessList, Address, Bytes, CallRequest, H256, U256, U64};
 use serde::{Deserialize, Serialize};
 
 /// Struct representing signed data returned from `Accounts::sign` method.
@@ -53,6 +53,10 @@ pub struct TransactionParameters {
     pub data: Bytes,
     /// The chain ID (None for network ID)
     pub chain_id: Option<u64>,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    pub transaction_type: Option<U64>,
+    /// Access list
+    pub access_list: Option<AccessList>,
 }
 
 /// The default fas for transactions.
@@ -73,6 +77,8 @@ impl Default for TransactionParameters {
             value: U256::zero(),
             data: Bytes::default(),
             chain_id: None,
+            transaction_type: None,
+            access_list: None,
         }
     }
 }
@@ -87,6 +93,8 @@ impl From<CallRequest> for TransactionParameters {
             value: call.value.unwrap_or_default(),
             data: call.data.unwrap_or_default(),
             chain_id: None,
+            transaction_type: call.transaction_type,
+            access_list: call.access_list,
         }
     }
 }
@@ -100,6 +108,8 @@ impl Into<CallRequest> for TransactionParameters {
             gas_price: self.gas_price,
             value: Some(self.value),
             data: Some(self.data),
+            transaction_type: self.transaction_type,
+            access_list: self.access_list,
         }
     }
 }

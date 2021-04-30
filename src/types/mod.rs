@@ -40,7 +40,7 @@ pub use self::{
         AccountDiff, BlockTrace, ChangedType, Diff, MemoryDiff, StateDiff, StorageDiff, TraceType, TransactionTrace,
         VMExecutedOperation, VMOperation, VMTrace,
     },
-    transaction::{RawTransaction, Receipt as TransactionReceipt, Transaction},
+    transaction::{AccessList, AccessListItem, RawTransaction, Receipt as TransactionReceipt, Transaction},
     transaction_id::TransactionId,
     transaction_request::{CallRequest, TransactionCondition, TransactionRequest},
     txpool::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus},
