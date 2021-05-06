@@ -99,7 +99,7 @@ impl<T: Transport> Personal<T> {
   pub fn sign(&self, address: Address, data: Bytes) -> CallFuture<H520, T::Out> {
     let address = helpers::serialize(&address);
     let data = helpers::serialize(&data);
-    CallFuture::new(self.transport.execute("eth_sign", vec![address, data]))
+    CallFuture::new(self.transport.execute("personal_sign", vec![address, data]))
   }
 }
 
