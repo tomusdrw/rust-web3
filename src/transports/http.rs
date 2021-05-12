@@ -1,15 +1,18 @@
 //! HTTP Transport
 
 use crate::{error, helpers, rpc, BatchTransport, Error, RequestId, Transport};
+#[cfg(not(feature = "wasm"))]
+use futures::future::BoxFuture;
+#[cfg(feature = "wasm")]
+use futures::future::LocalBoxFuture as BoxFuture;
 use futures::{
     self,
-    future::BoxFuture,
     task::{Context, Poll},
     Future, FutureExt,
 };
 use reqwest::header::HeaderValue;
 use std::{
-    env, fmt,
+    fmt,
     ops::Deref,
     pin::Pin,
     sync::{
@@ -45,9 +48,8 @@ pub struct Http {
 
 impl Http {
     /// Create new HTTP transport connecting to given URL.
+    #[allow(unused_mut)]
     pub fn new(url: &str) -> error::Result<Self> {
-        let proxy_env = env::var("HTTPS_PROXY");
-
         let mut client_builder = reqwest::Client::builder();
 
         #[cfg(feature = "http-native-tls")]
@@ -60,13 +62,17 @@ impl Http {
             client_builder = client_builder.use_rustls_tls();
         }
 
-        client_builder = match proxy_env {
-            Ok(proxy_scheme) => {
-                let proxy = reqwest::Proxy::all(proxy_scheme.as_str())?;
-                client_builder.proxy(proxy)
-            }
-            Err(_) => client_builder.no_proxy(),
-        };
+        #[cfg(not(feature = "wasm"))]
+        {
+            let proxy_env = std::env::var("HTTPS_PROXY");
+            client_builder = match proxy_env {
+                Ok(proxy_scheme) => {
+                    let proxy = reqwest::Proxy::all(proxy_scheme.as_str())?;
+                    client_builder.proxy(proxy)
+                }
+                Err(_) => client_builder.no_proxy(),
+            };
+        }
 
         let client = client_builder.build()?;
 
