@@ -3,9 +3,9 @@
 use crate::{error, helpers, rpc, BatchTransport, Error, RequestId, Transport};
 use futures::{
     self,
+    future::BoxFuture,
     task::{Context, Poll},
     Future, FutureExt,
-    future::BoxFuture,
 };
 use reqwest::header::HeaderValue;
 use std::{
@@ -50,11 +50,13 @@ impl Http {
 
         let mut client_builder = reqwest::Client::builder();
 
-        #[cfg(feature = "http-native-tls")] {
+        #[cfg(feature = "http-native-tls")]
+        {
             client_builder = client_builder.use_native_tls();
         }
 
-        #[cfg(feature = "http-rustls-tls")] {
+        #[cfg(feature = "http-rustls-tls")]
+        {
             client_builder = client_builder.use_rustls_tls();
         }
 
@@ -63,7 +65,7 @@ impl Http {
                 let proxy = reqwest::Proxy::all(proxy_scheme.as_str())?;
                 client_builder.proxy(proxy)
             }
-            Err(_) => client_builder.no_proxy()
+            Err(_) => client_builder.no_proxy(),
         };
 
         let client = client_builder.build()?;
@@ -95,8 +97,13 @@ impl Http {
         log::debug!("[{}] Sending: {} to {}", id, request, self.url);
         let len = request.len();
 
-        let mut request_builder = self.client.post(self.url.clone())
-            .header(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"))
+        let mut request_builder = self
+            .client
+            .post(self.url.clone())
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            )
             .header(reqwest::header::USER_AGENT, HeaderValue::from_static("web3.rs"))
             .body(request);
 
