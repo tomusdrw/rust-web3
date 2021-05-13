@@ -48,8 +48,8 @@ pub struct Http {
 
 impl Http {
     /// Create new HTTP transport connecting to given URL.
-    #[allow(unused_mut)]
     pub fn new(url: &str) -> error::Result<Self> {
+        #[allow(unused_mut)]
         let mut client_builder = reqwest::Client::builder();
 
         #[cfg(feature = "http-native-tls")]

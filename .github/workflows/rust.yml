@@ -81,6 +81,12 @@ jobs:
           command:                 check
           toolchain:               stable
           args:                    --target wasm32-unknown-unknown --no-default-features --features eip-1193
+      - name:                      Checking wasm32 with http
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               stable
+          args:                    --target wasm32-unknown-unknown --no-default-features --features http,wasm
       - name:                      Testing wasm32
         uses:                      actions-rs/cargo@master
         with:
@@ -122,12 +128,18 @@ jobs:
           command:                 check
           toolchain:               stable
           args:                    --no-default-features --features http-tls
-      - name:                      Checking http-rustls
+      - name:                      Checking http-native-tls
         uses:                      actions-rs/cargo@master
         with:
           command:                 check
           toolchain:               stable
-          args:                    --no-default-features --features http-rustls
+          args:                    --no-default-features --features http-native-tls
+      - name:                      Checking http-rustls-tls
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               stable
+          args:                    --no-default-features --features http-rustls-tls
       - name:                      Checking ws-tokio
         uses:                      actions-rs/cargo@master
         with:
