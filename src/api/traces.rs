@@ -38,6 +38,17 @@ impl<T: Transport> Traces<T> {
         CallFuture::new(self.transport.execute("trace_call", vec![req, trace_type, block]))
     }
 
+    /// Performs multiple call traces on top of the same block. Allows to trace dependent transactions.
+    pub fn call_many(
+        &self,
+        reqs_with_trace_types: Vec<(CallRequest, Vec<TraceType>)>,
+        block: Option<BlockNumber>,
+    ) -> CallFuture<Vec<BlockTrace>, T::Out> {
+        let reqs_with_trace_types = helpers::serialize(&reqs_with_trace_types);
+        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        CallFuture::new(self.transport.execute("trace_callMany", vec![reqs_with_trace_types, block]))
+    }
+
     /// Traces a call to `eth_sendRawTransaction` without making the call, returning the traces
     pub fn raw_transaction(&self, data: Bytes, trace_type: Vec<TraceType>) -> CallFuture<BlockTrace, T::Out> {
         let data = helpers::serialize(&data);
