@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.15.0"
+version = "0.16.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -31,10 +31,8 @@ pin-project = "1.0"
 # Optional deps
 ## HTTP
 base64 = { version = "0.13", optional = true }
-hyper = { version = "0.14", optional = true, default-features = false, features = ["client", "http1", "stream", "tcp"] }
-hyper-tls = { version = "0.5", optional = true }
-hyper-proxy = {version = "0.9.0", default-features = false, optional = true }
-hyper-rustls = { version = "0.22.1", default-features = false, features = ["webpki-tokio"], optional = true }
+bytes = { version = "1.0", optional = true }
+reqwest = { version = "0.11", optional = true, default-features = false }
 headers = { version = "0.3", optional = true }
 ## WS
 async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
@@ -66,11 +64,13 @@ tokio-stream = { version = "0.1", features = ["net"] }
 
 [features]
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
-eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
-_http_base = ["hyper", "url", "base64", "headers"]
-http = ["_http_base", "hyper-proxy/tls"]
-http-tls = ["hyper-tls", "http"]
-http-rustls = ["hyper-rustls", "_http_base", "hyper-proxy/rustls-webpki"]
+wasm = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
+eip-1193 = ["wasm"]
+_http_base = ["reqwest", "bytes", "url", "base64", "headers"]
+http = ["_http_base"]
+http-tls = ["http", "reqwest/default-tls"]
+http-native-tls = ["http", "reqwest/native-tls"]
+http-rustls-tls = ["http", "reqwest/rustls-tls"]
 signing = ["secp256k1"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
