@@ -1,7 +1,7 @@
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
-    types::{BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256},
+    types::{BlockId, BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256},
     Transport,
 };
 
@@ -36,6 +36,20 @@ impl<T: Transport> Traces<T> {
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
         let trace_type = helpers::serialize(&trace_type);
         CallFuture::new(self.transport.execute("trace_call", vec![req, trace_type, block]))
+    }
+
+    /// Performs multiple call traces on top of the same block. Allows to trace dependent transactions.
+    pub fn call_many(
+        &self,
+        reqs_with_trace_types: Vec<(CallRequest, Vec<TraceType>)>,
+        block: Option<BlockId>,
+    ) -> CallFuture<Vec<BlockTrace>, T::Out> {
+        let reqs_with_trace_types = helpers::serialize(&reqs_with_trace_types);
+        let block = helpers::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
+        CallFuture::new(
+            self.transport
+                .execute("trace_callMany", vec![reqs_with_trace_types, block]),
+        )
     }
 
     /// Traces a call to `eth_sendRawTransaction` without making the call, returning the traces
