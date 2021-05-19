@@ -1,14 +1,18 @@
 //! HTTP Transport
 
 use crate::{error, helpers, rpc, BatchTransport, Error, RequestId, Transport};
+#[cfg(not(feature = "wasm"))]
+use futures::future::BoxFuture;
+#[cfg(feature = "wasm")]
+use futures::future::LocalBoxFuture as BoxFuture;
 use futures::{
     self,
     task::{Context, Poll},
-    Future, FutureExt, StreamExt,
+    Future, FutureExt,
 };
-use hyper::header::HeaderValue;
+use reqwest::header::HeaderValue;
 use std::{
-    env, fmt,
+    fmt,
     ops::Deref,
     pin::Pin,
     sync::{
@@ -18,20 +22,14 @@ use std::{
 };
 use url::Url;
 
-impl From<hyper::Error> for Error {
-    fn from(err: hyper::Error) -> Self {
+impl From<reqwest::Error> for Error {
+    fn from(err: reqwest::Error) -> Self {
         Error::Transport(format!("{:?}", err))
     }
 }
 
-impl From<hyper::http::uri::InvalidUri> for Error {
-    fn from(err: hyper::http::uri::InvalidUri) -> Self {
-        Error::Transport(format!("{:?}", err))
-    }
-}
-
-impl From<hyper::header::InvalidHeaderValue> for Error {
-    fn from(err: hyper::header::InvalidHeaderValue) -> Self {
+impl From<reqwest::header::InvalidHeaderValue> for Error {
+    fn from(err: reqwest::header::InvalidHeaderValue) -> Self {
         Error::Transport(format!("{}", err))
     }
 }
@@ -39,84 +37,44 @@ impl From<hyper::header::InvalidHeaderValue> for Error {
 // The max string length of a request without transfer-encoding: chunked.
 const MAX_SINGLE_CHUNK: usize = 256;
 
-#[cfg(feature = "http-tls")]
-#[derive(Debug, Clone)]
-enum Client {
-    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>>),
-    NoProxy(hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>),
-}
-
-#[cfg(feature = "http-rustls")]
-#[derive(Debug, Clone)]
-enum Client {
-    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>>),
-    NoProxy(hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>),
-}
-
-#[cfg(not(any(feature = "http-tls", feature = "http-rustls")))]
-#[derive(Debug, Clone)]
-enum Client {
-    Proxy(hyper::Client<hyper_proxy::ProxyConnector<hyper::client::HttpConnector>>),
-    NoProxy(hyper::Client<hyper::client::HttpConnector>),
-}
-
-impl Client {
-    pub fn request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture {
-        match self {
-            Client::Proxy(client) => client.request(req),
-            Client::NoProxy(client) => client.request(req),
-        }
-    }
-}
-
 /// HTTP Transport (synchronous)
 #[derive(Debug, Clone)]
 pub struct Http {
     id: Arc<AtomicUsize>,
-    url: hyper::Uri,
+    url: reqwest::Url,
     basic_auth: Option<HeaderValue>,
-    client: Client,
+    client: reqwest::Client,
 }
 
 impl Http {
     /// Create new HTTP transport connecting to given URL.
     pub fn new(url: &str) -> error::Result<Self> {
-        #[cfg(feature = "http-tls")]
-        let (proxy_env, connector) = { (env::var("HTTPS_PROXY"), hyper_tls::HttpsConnector::new()) };
-        #[cfg(feature = "http-rustls")]
-        let (proxy_env, connector) = {
-            (
-                env::var("HTTPS_PROXY"),
-                hyper_rustls::HttpsConnector::with_webpki_roots(),
-            )
-        };
-        #[cfg(not(any(feature = "http-tls", feature = "http-rustls")))]
-        let (proxy_env, connector) = { (env::var("HTTP_PROXY"), hyper::client::HttpConnector::new()) };
+        #[allow(unused_mut)]
+        let mut client_builder = reqwest::Client::builder();
 
-        let client = match proxy_env {
-            Ok(proxy) => {
-                let mut url = url::Url::parse(&proxy)?;
-                let username = String::from(url.username());
-                let password = String::from(url.password().unwrap_or_default());
+        #[cfg(feature = "http-native-tls")]
+        {
+            client_builder = client_builder.use_native_tls();
+        }
 
-                url.set_username("").map_err(|_| Error::Internal)?;
-                url.set_password(None).map_err(|_| Error::Internal)?;
+        #[cfg(feature = "http-rustls-tls")]
+        {
+            client_builder = client_builder.use_rustls_tls();
+        }
 
-                let uri = url.to_string().parse()?;
-
-                let mut proxy = hyper_proxy::Proxy::new(hyper_proxy::Intercept::All, uri);
-
-                if username != "" {
-                    let credentials = headers::Authorization::basic(&username, &password);
-                    proxy.set_authorization(credentials);
+        #[cfg(not(feature = "wasm"))]
+        {
+            let proxy_env = std::env::var("HTTPS_PROXY");
+            client_builder = match proxy_env {
+                Ok(proxy_scheme) => {
+                    let proxy = reqwest::Proxy::all(proxy_scheme.as_str())?;
+                    client_builder.proxy(proxy)
                 }
+                Err(_) => client_builder.no_proxy(),
+            };
+        }
 
-                let proxy_connector = hyper_proxy::ProxyConnector::from_proxy(connector, proxy)?;
-
-                Client::Proxy(hyper::Client::builder().build(proxy_connector))
-            }
-            Err(_) => Client::NoProxy(hyper::Client::builder().build(connector)),
-        };
+        let client = client_builder.build()?;
 
         let basic_auth = {
             let url = Url::parse(url)?;
@@ -144,29 +102,29 @@ impl Http {
         let request = helpers::to_string(&request);
         log::debug!("[{}] Sending: {} to {}", id, request, self.url);
         let len = request.len();
-        let mut req = hyper::Request::new(hyper::Body::from(request));
-        *req.method_mut() = hyper::Method::POST;
-        *req.uri_mut() = self.url.clone();
-        req.headers_mut().insert(
-            hyper::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
-        req.headers_mut()
-            .insert(hyper::header::USER_AGENT, HeaderValue::from_static("web3.rs"));
+
+        let mut request_builder = self
+            .client
+            .post(self.url.clone())
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            )
+            .header(reqwest::header::USER_AGENT, HeaderValue::from_static("web3.rs"))
+            .body(request);
 
         // Don't send chunked request
         if len < MAX_SINGLE_CHUNK {
-            req.headers_mut().insert(hyper::header::CONTENT_LENGTH, len.into());
+            request_builder = request_builder.header(reqwest::header::CONTENT_LENGTH, len.to_string());
         }
 
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut()
-                .insert(hyper::header::AUTHORIZATION, basic_auth.clone());
+            request_builder = request_builder.header(reqwest::header::AUTHORIZATION, basic_auth.clone());
         }
-        let result = self.client.request(req);
 
-        Response::new(id, result, extract)
+        let result = request_builder.send();
+        Response::new(id, Box::pin(result), extract)
     }
 }
 
@@ -220,9 +178,11 @@ fn batch_response<T: Deref<Target = [u8]>>(response: T) -> error::Result<Vec<err
     }
 }
 
+type ResponseFuture = BoxFuture<'static, reqwest::Result<reqwest::Response>>;
+type BodyFuture = BoxFuture<'static, reqwest::Result<bytes::Bytes>>;
 enum ResponseState {
-    Waiting(hyper::client::ResponseFuture),
-    Reading(Vec<u8>, hyper::Body),
+    Waiting(ResponseFuture),
+    Reading(BodyFuture),
 }
 
 /// A future representing a response to a pending request.
@@ -234,7 +194,7 @@ pub struct Response<T> {
 
 impl<T> Response<T> {
     /// Creates a new `Response`
-    pub fn new(id: RequestId, response: hyper::client::ResponseFuture, extract: T) -> Self {
+    pub fn new(id: RequestId, response: ResponseFuture, extract: T) -> Self {
         log::trace!("[{}] Request pending.", id);
         Response {
             id,
@@ -267,24 +227,18 @@ where
                             response.status()
                         ))));
                     }
-                    self.state = ResponseState::Reading(Default::default(), response.into_body());
+                    self.state = ResponseState::Reading(Box::pin(response.bytes()));
                 }
-                ResponseState::Reading(ref mut content, ref mut body) => {
+                ResponseState::Reading(ref mut body) => {
                     log::trace!("[{}] Reading body.", id);
-                    match ready!(body.poll_next_unpin(ctx)) {
-                        Some(chunk) => {
-                            content.extend(&*chunk?);
-                        }
-                        None => {
-                            let response = std::mem::take(content);
-                            log::trace!(
-                                "[{}] Extracting result from:\n{}",
-                                self.id,
-                                std::str::from_utf8(&response).unwrap_or("<invalid utf8>")
-                            );
-                            return Poll::Ready((self.extract)(response));
-                        }
-                    }
+                    let chunk = ready!(body.poll_unpin(ctx))?;
+                    let response = chunk.to_vec();
+                    log::trace!(
+                        "[{}] Extracting result from:\n{}",
+                        self.id,
+                        std::str::from_utf8(&response).unwrap_or("<invalid utf8>")
+                    );
+                    return Poll::Ready((self.extract)(response));
                 }
             }
         }
