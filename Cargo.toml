@@ -35,7 +35,9 @@ bytes = { version = "1.0", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false }
 headers = { version = "0.3", optional = true }
 ## WS
-async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
+# async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
+# Temporarily use forked version released to crates.io
+async-native-tls = { package = "web3-async-native-tls", version = "0.4", optional = true, default-features = false }
 async-std = { version = "1.6", optional = true }
 tokio = { version = "1.0", optional = true, features = ["full"] }
 tokio-stream = { version = "0.1", optional = true }
