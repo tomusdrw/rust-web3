@@ -8,7 +8,6 @@ use crate::{
 use futures::future::BoxFuture;
 #[cfg(feature = "wasm")]
 use futures::future::LocalBoxFuture as BoxFuture;
-use headers::HeaderValue;
 use jsonrpc_core::types::{Call, Output, Request, Value};
 use reqwest::{Client, Url};
 use serde::de::DeserializeOwned;
@@ -45,7 +44,7 @@ impl Http {
         let mut builder = Client::builder();
         #[cfg(not(feature = "wasm"))]
         {
-            builder = builder.user_agent(HeaderValue::from_static("web3.rs"));
+            builder = builder.user_agent(headers::HeaderValue::from_static("web3.rs"));
         }
         let client = builder
             .build()
