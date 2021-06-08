@@ -6,6 +6,7 @@ use futures::{
     Future,
 };
 use pin_project::pin_project;
+use serde::de::DeserializeOwned;
 use std::{marker::PhantomData, pin::Pin};
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
@@ -70,12 +71,19 @@ pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::C
 /// Parse bytes slice into JSON-RPC response.
 /// It looks for arbitrary_precision feature as a temporary workaround for https://github.com/tomusdrw/rust-web3/issues/460.
 pub fn to_response_from_slice(response: &[u8]) -> error::Result<rpc::Response> {
+    arbitrary_precision_deserialize_workaround(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+}
+
+/// Deserialize bytes into T.
+/// It looks for arbitrary_precision feature as a temporary workaround for https://github.com/tomusdrw/rust-web3/issues/460.
+pub fn arbitrary_precision_deserialize_workaround<T>(bytes: &[u8]) -> Result<T, serde_json::Error>
+where
+    T: DeserializeOwned,
+{
     if cfg!(feature = "arbitrary_precision") {
-        let val: serde_json::Value =
-            serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))?;
-        serde_json::from_value(val).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+        serde_json::from_value(serde_json::from_slice(bytes)?)
     } else {
-        serde_json::from_slice(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
+        serde_json::from_slice(bytes)
     }
 }
 

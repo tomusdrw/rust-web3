@@ -32,7 +32,7 @@ pin-project = "1.0"
 ## HTTP
 base64 = { version = "0.13", optional = true }
 bytes = { version = "1.0", optional = true }
-reqwest = { version = "0.11", optional = true, default-features = false }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
 headers = { version = "0.3", optional = true }
 ## WS
 # async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
