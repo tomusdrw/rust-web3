@@ -150,6 +150,8 @@ mod tests {
             transaction_index: U64::zero(),
             block_hash: Some(H256::zero()),
             block_number: Some(2.into()),
+            from: Address::from_low_u64_be(0x123),
+            to: Some(Address::from_low_u64_be(0x123)),
             cumulative_gas_used: 0.into(),
             gas_used: Some(0.into()),
             contract_address: None,
