@@ -67,8 +67,14 @@ pub struct Receipt {
     #[serde(rename = "blockNumber")]
     pub block_number: Option<U64>,
     /// Sender
+    /// Note: default address if the client did not return this value
+    /// (maintains backwards compatibility for <= 0.7.0 when this field was missing)
+    #[serde(default)]
     pub from: Address,
     /// Recipient (None when contract creation)
+    /// Note: Also `None` if the client did not return this value
+    /// (maintains backwards compatibility for <= 0.7.0 when this field was missing)
+    #[serde(default)]
     pub to: Option<Address>,
     /// Cumulative gas used within the block after this was executed.
     #[serde(rename = "cumulativeGasUsed")]
@@ -124,6 +130,25 @@ mod tests {
     #[test]
     fn test_deserialize_receipt() {
         let receipt_str = "{\"blockHash\":\"0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5\",\"blockNumber\":\"0x38\",\"contractAddress\":\"0x03d8c4566478a6e1bf75650248accce16a98509f\",\"from\":\"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"to\":\"0x853f43d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0x927c0\",\"gasUsed\":\"0x927c0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26\",\"transactionIndex\":\"0x0\"}";
+
+        let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+    }
+
+    #[test]
+    fn should_deserialize_receipt_without_from_to() {
+        let receipt_str = r#"{
+        "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+        "blockNumber": "0x38",
+        "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "cumulativeGasUsed": "0x927c0",
+        "gasUsed": "0x927c0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "root": null,
+        "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+        "transactionIndex": "0x0",
+        "status": "0x1"
+        }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
     }
