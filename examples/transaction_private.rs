@@ -24,7 +24,7 @@ async fn main() -> web3::Result {
         ..Default::default()
     };
 
-    // Send the tx to infura
+    // Send the tx to localhost
     let result = web3
         .eth()
         .send_transaction(tx_object)
