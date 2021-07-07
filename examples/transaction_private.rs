@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
-use web3::ethabi::ethereum_types::U256;
-use web3::types::{Address, TransactionRequest};
+use web3::{
+    ethabi::ethereum_types::U256,
+    types::{Address, TransactionRequest},
+};
 
 /// Below sends a transaction to a local node that stores private keys (eg Ganache)
 /// For generating and signing a transaction offline, before transmitting it to a public node (eg Infura) see transaction_public
