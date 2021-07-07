@@ -25,10 +25,7 @@ async fn main() -> web3::Result {
     };
 
     // Send the tx to localhost
-    let result = web3
-        .eth()
-        .send_transaction(tx_object)
-        .await?;
+    let result = web3.eth().send_transaction(tx_object).await?;
 
     println!("Tx succeeded with hash: {}", result);
 

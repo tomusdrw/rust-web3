@@ -11,9 +11,7 @@ use web3::types::{Address, TransactionParameters};
 async fn main() -> web3::Result {
     // Sign up at infura > choose the desired network (eg Rinkeby) > copy the endpoint url into the below
     // If you need test ether use a faucet, eg https://faucet.rinkeby.io/
-    let transport = web3::transports::Http::new(
-        "https://rinkeby.infura.io/v3/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    )?;
+    let transport = web3::transports::Http::new("https://rinkeby.infura.io/v3/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")?;
     let web3 = web3::Web3::new(transport);
 
     // Insert the 20-byte "to" address in hex format (prefix with 0x)
@@ -30,16 +28,10 @@ async fn main() -> web3::Result {
     };
 
     // Sign the tx (can be done offline)
-    let signed = web3
-        .accounts()
-        .sign_transaction(tx_object, &prvk)
-        .await?;
+    let signed = web3.accounts().sign_transaction(tx_object, &prvk).await?;
 
     // Send the tx to infura
-    let result = web3
-        .eth()
-        .send_raw_transaction(signed.raw_transaction)
-        .await?;
+    let result = web3.eth().send_raw_transaction(signed.raw_transaction).await?;
 
     println!("Tx succeeded with hash: {}", result);
 
