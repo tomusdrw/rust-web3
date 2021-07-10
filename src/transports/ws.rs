@@ -102,13 +102,17 @@ impl WsServerTask {
             s if s == "ws" || s == "wss" => s,
             s => return Err(error::Error::Transport(format!("Wrong scheme: {}", s))),
         };
+
         let host = match url.host_str() {
             Some(s) => s,
             None => return Err(error::Error::Transport("Wrong host name".to_string())),
         };
+
         let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
+
         let addrs = format!("{}:{}", host, port);
 
+        log::trace!("Connecting TcpStream with address: {}", addrs);
         let stream = compat::raw_tcp_stream(addrs).await?;
         stream.set_nodelay(true)?;
         let socket = if scheme == "wss" {
@@ -124,7 +128,17 @@ impl WsServerTask {
             MaybeTlsStream::Plain(stream)
         };
 
-        let mut client = Client::new(socket, host, url.path());
+        let resource = match url.query() {
+            Some(q) => format!("{}?{}", url.path(), q),
+            None => url.path().to_owned(),
+        };
+
+        log::trace!(
+            "Connecting websocket client with host: {} and resource: {}",
+            host,
+            resource
+        );
+        let mut client = Client::new(socket, host, &resource);
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
