@@ -15,11 +15,13 @@ use std::{
 };
 use tokio::{
     io::AsyncWriteExt,
-    net::UnixStream,
     sync::{mpsc, oneshot},
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::io::ReaderStream;
+
+#[cfg(unix)]
+use tokio::net::UnixStream;
 
 /// Unix Domain Sockets (IPC) transport.
 #[derive(Debug, Clone)]
