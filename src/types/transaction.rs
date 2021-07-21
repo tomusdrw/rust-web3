@@ -1,4 +1,4 @@
-use crate::types::{Bytes, Index, Log, H160, H2048, H256, U256, U64};
+use crate::types::{Address, Bytes, Index, Log, H2048, H256, U256, U64};
 use serde::{Deserialize, Serialize};
 
 /// Description of a Transaction, pending or in the chain.
@@ -19,9 +19,9 @@ pub struct Transaction {
     pub transaction_index: Option<Index>,
     /// Sender
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from: Option<H160>,
+    pub from: Option<Address>,
     /// Recipient (None when contract creation)
-    pub to: Option<H160>,
+    pub to: Option<Address>,
     /// Transfered value
     pub value: U256,
     /// Gas Price
@@ -66,6 +66,16 @@ pub struct Receipt {
     /// Number of the block this transaction was included within.
     #[serde(rename = "blockNumber")]
     pub block_number: Option<U64>,
+    /// Sender
+    /// Note: default address if the client did not return this value
+    /// (maintains backwards compatibility for <= 0.7.0 when this field was missing)
+    #[serde(default)]
+    pub from: Address,
+    /// Recipient (None when contract creation)
+    /// Note: Also `None` if the client did not return this value
+    /// (maintains backwards compatibility for <= 0.7.0 when this field was missing)
+    #[serde(default)]
+    pub to: Option<Address>,
     /// Cumulative gas used within the block after this was executed.
     #[serde(rename = "cumulativeGasUsed")]
     pub cumulative_gas_used: U256,
@@ -76,7 +86,7 @@ pub struct Receipt {
     pub gas_used: Option<U256>,
     /// Contract address created, or `None` if not a deployment.
     #[serde(rename = "contractAddress")]
-    pub contract_address: Option<H160>,
+    pub contract_address: Option<Address>,
     /// Logs generated within this transaction.
     pub logs: Vec<Log>,
     /// Status: either 1 (success) or 0 (failure).
@@ -108,7 +118,7 @@ pub type AccessList = Vec<AccessListItem>;
 #[serde(rename_all = "camelCase")]
 pub struct AccessListItem {
     /// Accessed address
-    pub address: H160,
+    pub address: Address,
     /// Accessed storage keys
     pub storage_keys: Vec<H256>,
 }
@@ -119,7 +129,26 @@ mod tests {
 
     #[test]
     fn test_deserialize_receipt() {
-        let receipt_str = "{\"blockHash\":\"0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5\",\"blockNumber\":\"0x38\",\"contractAddress\":\"0x03d8c4566478a6e1bf75650248accce16a98509f\",\"cumulativeGasUsed\":\"0x927c0\",\"gasUsed\":\"0x927c0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26\",\"transactionIndex\":\"0x0\"}";
+        let receipt_str = "{\"blockHash\":\"0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5\",\"blockNumber\":\"0x38\",\"contractAddress\":\"0x03d8c4566478a6e1bf75650248accce16a98509f\",\"from\":\"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"to\":\"0x853f43d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0x927c0\",\"gasUsed\":\"0x927c0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26\",\"transactionIndex\":\"0x0\"}";
+
+        let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+    }
+
+    #[test]
+    fn should_deserialize_receipt_without_from_to() {
+        let receipt_str = r#"{
+        "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+        "blockNumber": "0x38",
+        "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "cumulativeGasUsed": "0x927c0",
+        "gasUsed": "0x927c0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "root": null,
+        "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+        "transactionIndex": "0x0",
+        "status": "0x1"
+        }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
     }
@@ -130,6 +159,8 @@ mod tests {
         "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
         "blockNumber": "0x38",
         "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "to": "0x853f43d8a49eeb85d32cf465507dd71d507100c1",
         "cumulativeGasUsed": "0x927c0",
         "gasUsed": "0x927c0",
         "logs": [],
@@ -144,11 +175,34 @@ mod tests {
     }
 
     #[test]
+    fn should_deserialize_receipt_without_to() {
+        let receipt_str = r#"{
+        "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+        "blockNumber": "0x38",
+        "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "to": null,
+        "cumulativeGasUsed": "0x927c0",
+        "gasUsed": "0x927c0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "root": null,
+        "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+        "transactionIndex": "0x0",
+        "status": "0x1"
+        }"#;
+
+        let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+    }
+
+    #[test]
     fn should_deserialize_receipt_without_gas() {
         let receipt_str = r#"{
         "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
         "blockNumber": "0x38",
         "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "to": "0x853f43d8a49eeb85d32cf465507dd71d507100c1",
         "cumulativeGasUsed": "0x927c0",
         "gasUsed": null,
         "logs": [],

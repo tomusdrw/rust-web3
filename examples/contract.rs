@@ -29,6 +29,8 @@ async fn main() -> web3::contract::Result<()> {
         .await?;
 
     let result = contract.query("balanceOf", (my_account,), None, Options::default(), None);
+    // Make sure to specify the expected return type, to prevent ambiguous compiler
+    // errors about `Detokenize` missing for `()`.
     let balance_of: U256 = result.await?;
     assert_eq!(balance_of, 1_000_000.into());
 
