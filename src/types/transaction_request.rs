@@ -35,6 +35,60 @@ pub struct CallRequest {
     pub access_list: Option<AccessList>,
 }
 
+impl CallRequest{
+    pub fn builder() -> CallRequestBuilder{
+        CallRequestBuilder::default()
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct CallRequestBuilder{
+    pub call_request:CallRequest,
+}
+
+impl CallRequestBuilder{
+    pub fn new() -> CallRequestBuilder{
+        CallRequestBuilder{
+            call_request:CallRequest::default(),
+        }
+    }
+    pub fn from(mut self, from: Address) -> Self{
+        self.call_request.from = Some(from);
+        self
+    }
+    pub fn to(mut self, to: Address)-> Self{
+        self.call_request.to = Some(to);
+        self
+    }
+    pub fn gas(mut self, gas: U256)-> Self{
+        self.call_request.gas = Some(gas);
+        self
+    }
+    pub fn gas_price(mut self, gas_price: U256)-> Self{
+        self.call_request.gas_price = Some(gas_price);
+        self
+    }
+    pub fn value(mut self, value: U256)-> Self{
+        self.call_request.value = Some(value);
+        self
+    }
+    pub fn data(mut self, data: Bytes)-> Self{
+        self.call_request.data = Some(data);
+        self
+    }
+    pub fn transaction_type(mut self, transaction_type: U64)-> Self{
+        self.call_request.transaction_type = Some(transaction_type);
+        self
+    }
+    pub fn access_list(mut self, access_list:AccessList)-> Self{
+        self.call_request.access_list = Some(access_list);
+        self
+    }
+    pub fn build(&self)->CallRequest{
+        self.call_request.clone()
+    }
+}
+
 /// Send Transaction Parameters
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct TransactionRequest {
@@ -84,7 +138,7 @@ pub enum TransactionCondition {
 
 #[cfg(test)]
 mod tests {
-    use super::{Address, CallRequest, TransactionCondition, TransactionRequest};
+    use super::{Address, CallRequest, TransactionCondition, TransactionRequest, CallRequestBuilder};
     use hex_literal::hex;
 
     #[test]
@@ -189,5 +243,28 @@ mod tests {
         assert_eq!(deserialized.data, Some(hex!("010203").into()));
         assert_eq!(deserialized.nonce, None);
         assert_eq!(deserialized.condition, Some(TransactionCondition::Block(5)));
+    }
+    #[test]
+    fn should_build_default_call_request(){
+        let call_request = CallRequest::default();
+        let call_request_builder = CallRequestBuilder::new();
+        assert_eq!(call_request_builder.build(),call_request);
+    }
+
+    #[test]
+    fn should_build_call_request(){
+        let call_request = CallRequest {
+            from: None,
+            to: Some(Address::from_low_u64_be(5)),
+            gas: Some(21_000.into()),
+            gas_price: None,
+            value: Some(5_000_000.into()),
+            data: Some(hex!("010203").into()),
+            transaction_type: None,
+            access_list: None,
+        };
+
+        let call_request_builder = CallRequestBuilder::new().to(Address::from_low_u64_be(5)).gas(21_000.into()).value(5_000_000.into()).data(hex!("010203").into()).build();
+        assert_eq!(call_request_builder,call_request);
     }
 }
