@@ -12,7 +12,7 @@ async fn main() -> web3::contract::Result<()> {
 
     let my_account = hex!("d028d24f16a8893bd078259d413372ac01580769").into();
     // Get the contract bytecode for instance from Solidity compiler
-    let bytecode = include_str!("./res/contract_token.code");
+    let bytecode = include_str!("./res/contract_token.code").trim_end();
     // Deploying a contract
     let contract = Contract::deploy(web3.eth(), include_bytes!("../src/contract/res/token.json"))?
         .confirmations(0)
