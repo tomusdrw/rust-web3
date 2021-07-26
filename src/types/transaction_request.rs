@@ -35,68 +35,77 @@ pub struct CallRequest {
     pub access_list: Option<AccessList>,
 }
 
-impl CallRequest{
+impl CallRequest {
     /// Funtion to return a builder for a Call Request
-    pub fn builder() -> CallRequestBuilder{
+    pub fn builder() -> CallRequestBuilder {
         CallRequestBuilder::default()
     }
 }
 
 /// Call Request Builder
 #[derive(Default, Clone, Debug)]
-pub struct CallRequestBuilder{
-    pub call_request:CallRequest,
+pub struct CallRequestBuilder {
+    call_request: CallRequest,
 }
 
 impl CallRequestBuilder{
     /// Retuns a Builder with the Call Request set to default
-    pub fn new() -> CallRequestBuilder{
+    pub fn new() -> CallRequestBuilder {
         CallRequestBuilder{
             call_request:CallRequest::default(),
         }
     }
+
     /// Set sender address (None for arbitrary address)
-    pub fn from(mut self, from: Address) -> Self{
+    pub fn from(mut self, from: Address) -> Self {
         self.call_request.from = Some(from);
         self
     }
+
     /// Set to address (None allowed for eth_estimateGas)
-    pub fn to(mut self, to: Address)-> Self{
+    pub fn to(mut self, to: Address) -> Self {
         self.call_request.to = Some(to);
         self
     }
+
     /// Set supplied gas (None for sensible default)
-    pub fn gas(mut self, gas: U256)-> Self{
+    pub fn gas(mut self, gas: U256) -> Self {
         self.call_request.gas = Some(gas);
         self
     }
+
     /// Set transfered value (None for no transfer)
-    pub fn gas_price(mut self, gas_price: U256)-> Self{
+    pub fn gas_price(mut self, gas_price: U256) -> Self {
         self.call_request.gas_price = Some(gas_price);
         self
     }
+
     /// Set transfered value (None for no transfer)
-    pub fn value(mut self, value: U256)-> Self{
+    pub fn value(mut self, value: U256) -> Self {
         self.call_request.value = Some(value);
         self
     }
+
     /// Set data (None for empty data)
-    pub fn data(mut self, data: Bytes)-> Self{
+    pub fn data(mut self, data: Bytes) -> Self {
         self.call_request.data = Some(data);
         self
     }
+
     /// Set transaction type, Some(1) for AccessList transaction, None for Legacy
-    pub fn transaction_type(mut self, transaction_type: U64)-> Self{
+    pub fn transaction_type(mut self, transaction_type: U64) -> Self {
         self.call_request.transaction_type = Some(transaction_type);
         self
     }
+
     /// Set access list
-    pub fn access_list(mut self, access_list:AccessList)-> Self{
+    pub fn access_list(mut self, access_list:AccessList) -> Self {
         self.call_request.access_list = Some(access_list);
         self
     }
+
     /// build the Call Request
-    pub fn build(&self)->CallRequest{
+    pub fn build(&self) -> CallRequest {
         self.call_request.clone()
     }
 }
