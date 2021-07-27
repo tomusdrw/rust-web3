@@ -45,7 +45,7 @@ impl CallRequest {
 /// Call Request Builder
 #[derive(Clone, Debug)]
 pub struct CallRequestBuilder {
-    call_request: CallRequest
+    call_request: CallRequest,
 }
 
 impl CallRequestBuilder {
