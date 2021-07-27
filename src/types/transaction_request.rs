@@ -143,7 +143,7 @@ pub struct TransactionRequest {
     pub access_list: Option<AccessList>,
 }
 
-impl  TransactionRequest {
+impl TransactionRequest {
     /// Funtion to return a builder for a Transaction Request
     pub fn builder() -> TransactionRequestBuilder {
         TransactionRequestBuilder::new()
