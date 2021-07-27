@@ -51,7 +51,9 @@ pub struct CallRequestBuilder {
 impl CallRequestBuilder {
     /// Retuns a Builder with the Call Request set to default
     pub fn new() -> CallRequestBuilder {
-        CallRequestBuilder { call_request: CallRequest::default() }
+        CallRequestBuilder {
+            call_request: CallRequest::default(),
+        }
     }
 
     /// Set sender address (None for arbitrary address)
@@ -153,13 +155,15 @@ impl TransactionRequest {
 /// Transaction Request Builder
 #[derive(Clone, Debug)]
 pub struct TransactionRequestBuilder {
-    transaction_request: TransactionRequest
+    transaction_request: TransactionRequest,
 }
 
 impl TransactionRequestBuilder {
     /// Retuns a Builder with the Transaction Request set to default
     pub fn new() -> TransactionRequestBuilder {
-        TransactionRequestBuilder { transaction_request: TransactionRequest::default() }
+        TransactionRequestBuilder {
+            transaction_request: TransactionRequest::default(),
+        }
     }
 
     /// Set sender address
@@ -236,7 +240,9 @@ pub enum TransactionCondition {
 
 #[cfg(test)]
 mod tests {
-    use super::{Address, CallRequest, TransactionCondition, TransactionRequest, CallRequestBuilder, TransactionRequestBuilder};
+    use super::{
+        Address, CallRequest, CallRequestBuilder, TransactionCondition, TransactionRequest, TransactionRequestBuilder,
+    };
     use hex_literal::hex;
 
     #[test]
@@ -344,17 +350,17 @@ mod tests {
     }
 
     #[test]
-    fn should_build_default_call_request(){
+    fn should_build_default_call_request() {
         //given
         let call_request = CallRequest::default();
         //when
         let call_request_builder = CallRequestBuilder::new();
         //then
-        assert_eq!(call_request_builder.build(),call_request);
+        assert_eq!(call_request_builder.build(), call_request);
     }
 
     #[test]
-    fn should_build_call_request(){
+    fn should_build_call_request() {
         //given
         let call_request = CallRequest {
             from: None,
@@ -367,23 +373,28 @@ mod tests {
             access_list: None,
         };
         //when
-        let call_request_builder = CallRequestBuilder::new().to(Address::from_low_u64_be(5)).gas(21_000.into()).value(5_000_000.into()).data(hex!("010203").into()).build();
+        let call_request_builder = CallRequestBuilder::new()
+            .to(Address::from_low_u64_be(5))
+            .gas(21_000.into())
+            .value(5_000_000.into())
+            .data(hex!("010203").into())
+            .build();
         //then
-        assert_eq!(call_request_builder,call_request);
+        assert_eq!(call_request_builder, call_request);
     }
 
     #[test]
-    fn should_build_default_transaction_request(){
+    fn should_build_default_transaction_request() {
         //given
         let tx_request = TransactionRequest::default();
         //when
         let tx_request_builder = TransactionRequestBuilder::new();
         //then
-        assert_eq!(tx_request_builder.build(),tx_request);
+        assert_eq!(tx_request_builder.build(), tx_request);
     }
 
     #[test]
-    fn should_build_transaction_request(){
+    fn should_build_transaction_request() {
         // given
         let tx_request = TransactionRequest {
             from: Address::from_low_u64_be(5),
@@ -398,9 +409,13 @@ mod tests {
             access_list: None,
         };
         //when
-        let tx_request_builder = TransactionRequestBuilder::new().from(Address::from_low_u64_be(5)).gas(21_000.into()).value(5_000_000.into()).data(hex!("010203").into()).condition(TransactionCondition::Block(5));
+        let tx_request_builder = TransactionRequestBuilder::new()
+            .from(Address::from_low_u64_be(5))
+            .gas(21_000.into())
+            .value(5_000_000.into())
+            .data(hex!("010203").into())
+            .condition(TransactionCondition::Block(5));
         //then
-        assert_eq!(tx_request_builder.build(),tx_request);
+        assert_eq!(tx_request_builder.build(), tx_request);
     }
-
 }
