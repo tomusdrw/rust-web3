@@ -33,7 +33,7 @@ pub struct BlockHeader {
     #[serde(rename = "gasLimit")]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
-    #[serde(rename = "baseFeePerGas")]
+    #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
     pub base_fee_per_gas: Option<U256>,
     /// Extra data
     #[serde(rename = "extraData")]
@@ -50,9 +50,6 @@ pub struct BlockHeader {
     pub mix_hash: Option<H256>,
     /// Nonce
     pub nonce: Option<H64>,
-    /// Base fee
-    #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
-    pub base_fee_per_gas: Option<U256>,
 }
 
 /// The block type returned from RPC calls.
@@ -88,7 +85,7 @@ pub struct Block<TX> {
     #[serde(rename = "gasLimit")]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
-    #[serde(rename = "baseFeePerGas")]
+    #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
     pub base_fee_per_gas: Option<U256>,
     /// Extra data
     #[serde(rename = "extraData")]
@@ -108,9 +105,6 @@ pub struct Block<TX> {
     pub seal_fields: Vec<Bytes>,
     /// Uncles' hashes
     pub uncles: Vec<H256>,
-    /// Base fee
-    #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
-    pub base_fee_per_gas: Option<U256>,
     /// Transactions
     pub transactions: Vec<TX>,
     /// Size in bytes
