@@ -387,6 +387,8 @@ mod tests {
             data: Some(hex!("010203").into()),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
         //when
         let call_request_builder = CallRequestBuilder::new()
@@ -423,6 +425,8 @@ mod tests {
             condition: Some(TransactionCondition::Block(5)),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
         //when
         let tx_request_builder = TransactionRequestBuilder::new()
