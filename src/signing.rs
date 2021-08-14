@@ -30,12 +30,15 @@ pub use feature_gated::*;
 mod feature_gated {
     use super::*;
     use crate::types::Address;
+    use once_cell::sync::Lazy;
     pub(crate) use secp256k1::SecretKey;
     use secp256k1::{
         recovery::{RecoverableSignature, RecoveryId},
-        Message, PublicKey, Secp256k1,
+        Message, PublicKey, Secp256k1, VerifyOnly,
     };
     use std::ops::Deref;
+
+    static CONTEXT: Lazy<Secp256k1<VerifyOnly>> = Lazy::new(Secp256k1::verification_only);
 
     /// A trait representing ethereum-compatible key with signing capabilities.
     ///
@@ -125,7 +128,7 @@ mod feature_gated {
         let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let signature =
             RecoverableSignature::from_compact(&signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
-        let public_key = Secp256k1::verification_only()
+        let public_key = CONTEXT
             .recover(&message, &signature)
             .map_err(|_| RecoveryError::InvalidSignature)?;
 
