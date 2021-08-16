@@ -182,6 +182,7 @@ mod accounts_signing {
         }
     }
     /// A transaction used for RLP encoding, hashing and signing.
+    #[derive(Debug)]
     pub struct Transaction {
         pub to: Option<Address>,
         pub nonce: U256,
@@ -388,12 +389,25 @@ mod accounts_signing {
         /// Sign and return a raw signed transaction.
         pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
 
+            println!("sign: {:?}", self);
+            let adjust_v_value = match self.transaction_type.map(|t| t.as_u64()) {
+                Some(0) | None => true,
+                _ => false
+            };
+
             let encoded = self.encode(chain_id, None);
 
             let hash = signing::keccak256(encoded.as_ref());
-            let signature = sign
-                .sign(&hash, Some(chain_id))
-                .expect("hash is non-zero 32-bytes; qed");
+
+            let signature = if adjust_v_value {
+                sign
+                    .sign(&hash, Some(chain_id))
+                    .expect("hash is non-zero 32-bytes; qed")
+            } else {
+                sign
+                    .sign_message(&hash)
+                    .expect("hash is non-zero 32-bytes; qed")
+            };
 
             let signed = self.encode(chain_id, Some(&signature));
             let transaction_hash = signing::keccak256(signed.as_ref()).into();
