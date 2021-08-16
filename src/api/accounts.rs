@@ -1,6 +1,11 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::{api::Namespace, signing, types::{H256, U64, AccessList}, Transport};
+use crate::{
+    api::Namespace,
+    signing,
+    types::{AccessList, H256, U64},
+    Transport,
+};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -84,8 +89,7 @@ mod accounts_signing {
             let from = key.address();
 
             let gas_price = match tx.transaction_type {
-                Some(tx_type) if tx_type == U64::from(2) && tx.max_fee_per_gas.is_some() => 
-                    tx.max_fee_per_gas,
+                Some(tx_type) if tx_type == U64::from(2) && tx.max_fee_per_gas.is_some() => tx.max_fee_per_gas,
                 _ => tx.gas_price,
             };
 
@@ -196,42 +200,6 @@ mod accounts_signing {
     }
 
     impl Transaction {
-        /// RLP encode an unsigned transaction for the specified chain ID.
-        fn rlp_append_unsigned(&self, rlp: &mut RlpStream, chain_id: u64) {
-            rlp.begin_list(9);
-            rlp.append(&self.nonce);
-            rlp.append(&self.gas_price);
-            rlp.append(&self.gas);
-            if let Some(to) = self.to {
-                rlp.append(&to);
-            } else {
-                rlp.append(&"");
-            }
-            rlp.append(&self.value);
-            rlp.append(&self.data);
-            rlp.append(&chain_id);
-            rlp.append(&0u8);
-            rlp.append(&0u8);
-        }
-
-        /// RLP encode a signed transaction with the specified signature.
-        fn rlp_append_signed(&self, rlp: &mut RlpStream, signature: &Signature) {
-            rlp.begin_list(9);
-            rlp.append(&self.nonce);
-            rlp.append(&self.gas_price);
-            rlp.append(&self.gas);
-            if let Some(to) = self.to {
-                rlp.append(&to);
-            } else {
-                rlp.append(&"");
-            }
-            rlp.append(&self.value);
-            rlp.append(&self.data);
-            rlp.append(&signature.v);
-            rlp.append(&U256::from_big_endian(signature.r.as_bytes()));
-            rlp.append(&U256::from_big_endian(signature.s.as_bytes()));
-        }
-
         fn rlp_append_legacy(&self, stream: &mut RlpStream) {
             stream.append(&self.nonce);
             stream.append(&self.gas_price);
@@ -245,12 +213,7 @@ mod accounts_signing {
             stream.append(&self.data);
         }
 
-        fn encode_legacy(
-            &self,
-            chain_id: u64,
-            signature: Option<&Signature>,
-        ) -> RlpStream {
-
+        fn encode_legacy(&self, chain_id: u64, signature: Option<&Signature>) -> RlpStream {
             let mut stream = RlpStream::new();
             stream.begin_list(9);
 
@@ -267,11 +230,7 @@ mod accounts_signing {
             stream
         }
 
-        fn encode_access_list_payload(
-            &self,
-            chain_id: u64,
-            signature: Option<&Signature>,
-        ) -> RlpStream {
+        fn encode_access_list_payload(&self, chain_id: u64, signature: Option<&Signature>) -> RlpStream {
             let mut stream = RlpStream::new();
 
             let list_size = if signature.is_some() { 11 } else { 8 };
@@ -290,12 +249,7 @@ mod accounts_signing {
             stream
         }
 
-        fn encode_eip1559_payload(
-            &self,
-            chain_id: u64,
-            signature: Option<&Signature>,
-        ) -> RlpStream {
-
+        fn encode_eip1559_payload(&self, chain_id: u64, signature: Option<&Signature>) -> RlpStream {
             let mut stream = RlpStream::new();
 
             let list_size = if signature.is_some() { 12 } else { 9 };
@@ -306,7 +260,7 @@ mod accounts_signing {
 
             stream.append(&self.nonce);
             stream.append(&self.max_priority_fee_per_gas);
-            stream.append(&self.gas_price); 
+            stream.append(&self.gas_price);
             stream.append(&self.gas);
             if let Some(to) = self.to {
                 stream.append(&to);
@@ -325,20 +279,13 @@ mod accounts_signing {
             stream
         }
 
-        fn rlp_append_signature(
-            &self,
-            stream: &mut RlpStream,
-            signature: &Signature,
-        ) -> () {
+        fn rlp_append_signature(&self, stream: &mut RlpStream, signature: &Signature) -> () {
             stream.append(&signature.v);
             stream.append(&U256::from_big_endian(signature.r.as_bytes()));
             stream.append(&U256::from_big_endian(signature.s.as_bytes()));
         }
 
-        fn rlp_append_access_list(
-            &self,
-            stream: &mut RlpStream,
-        ) -> () {
+        fn rlp_append_access_list(&self, stream: &mut RlpStream) -> () {
             stream.begin_list(self.access_list.len());
             for access in self.access_list.iter() {
                 stream.begin_list(2);
@@ -350,15 +297,9 @@ mod accounts_signing {
             }
         }
 
-        fn encode(
-            &self, 
-            chain_id: u64,
-            signature: Option<&Signature>,
-        ) -> Vec<u8> {
-
+        fn encode(&self, chain_id: u64, signature: Option<&Signature>) -> Vec<u8> {
             match self.transaction_type.map(|t| t.as_u64()) {
-
-                // type 0: Legacy 
+                // type 0: Legacy
                 Some(0) | None => {
                     let stream = self.encode_legacy(chain_id, signature);
                     stream.out().to_vec()
@@ -381,18 +322,14 @@ mod accounts_signing {
                 _ => {
                     panic!("Unsupported transaction type");
                 }
-
             }
-
         }
 
         /// Sign and return a raw signed transaction.
         pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
-
-            println!("sign: {:?}", self);
             let adjust_v_value = match self.transaction_type.map(|t| t.as_u64()) {
                 Some(0) | None => true,
-                _ => false
+                _ => false,
             };
 
             let encoded = self.encode(chain_id, None);
@@ -400,13 +337,10 @@ mod accounts_signing {
             let hash = signing::keccak256(encoded.as_ref());
 
             let signature = if adjust_v_value {
-                sign
-                    .sign(&hash, Some(chain_id))
+                sign.sign(&hash, Some(chain_id))
                     .expect("hash is non-zero 32-bytes; qed")
             } else {
-                sign
-                    .sign_message(&hash)
-                    .expect("hash is non-zero 32-bytes; qed")
+                sign.sign_message(&hash).expect("hash is non-zero 32-bytes; qed")
             };
 
             let signed = self.encode(chain_id, Some(&signature));
@@ -422,7 +356,6 @@ mod accounts_signing {
             }
         }
     }
-
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
