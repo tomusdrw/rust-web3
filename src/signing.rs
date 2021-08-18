@@ -34,11 +34,11 @@ mod feature_gated {
     pub(crate) use secp256k1::SecretKey;
     use secp256k1::{
         recovery::{RecoverableSignature, RecoveryId},
-        Message, PublicKey, Secp256k1, VerifyOnly,
+        All, Message, PublicKey, Secp256k1,
     };
     use std::ops::Deref;
 
-    static CONTEXT: Lazy<Secp256k1<VerifyOnly>> = Lazy::new(Secp256k1::verification_only);
+    static CONTEXT: Lazy<Secp256k1<All>> = Lazy::new(Secp256k1::new);
 
     /// A trait representing ethereum-compatible key with signing capabilities.
     ///
@@ -97,9 +97,7 @@ mod feature_gated {
     impl<T: Deref<Target = SecretKey>> Key for T {
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
             let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
-            let (recovery_id, signature) = Secp256k1::signing_only()
-                .sign_recoverable(&message, self)
-                .serialize_compact();
+            let (recovery_id, signature) = CONTEXT.sign_recoverable(&message, self).serialize_compact();
 
             let standard_v = recovery_id.to_i32() as u64;
             let v = if let Some(chain_id) = chain_id {
@@ -153,8 +151,8 @@ mod feature_gated {
 
     /// Gets the public address of a private key.
     pub(crate) fn secret_key_address(key: &SecretKey) -> Address {
-        let secp = Secp256k1::signing_only();
-        let public_key = PublicKey::from_secret_key(&secp, key);
+        let secp = &*CONTEXT;
+        let public_key = PublicKey::from_secret_key(secp, key);
         public_key_address(&public_key)
     }
 }
