@@ -26,7 +26,7 @@ pub struct Transaction {
     pub value: U256,
     /// Gas Price
     #[serde(rename = "gasPrice")]
-    pub gas_price: U256,
+    pub gas_price: Option<U256>,
     /// Gas amount
     pub gas: U256,
     /// Input data
