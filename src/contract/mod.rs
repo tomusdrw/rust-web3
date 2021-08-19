@@ -39,6 +39,10 @@ pub struct Options {
     pub transaction_type: Option<U64>,
     /// Access list
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 impl Options {
@@ -133,6 +137,8 @@ impl<T: Transport> Contract<T> {
             condition,
             transaction_type,
             access_list,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
         } = options;
         self.eth
             .send_transaction(TransactionRequest {
@@ -146,6 +152,8 @@ impl<T: Transport> Contract<T> {
                 condition,
                 transaction_type,
                 access_list,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
             })
             .await
             .map_err(Error::from)
@@ -180,6 +188,8 @@ impl<T: Transport> Contract<T> {
             condition: options.condition,
             transaction_type: options.transaction_type,
             access_list: options.access_list,
+            max_fee_per_gas: options.max_fee_per_gas,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
         };
         confirm::send_transaction_with_confirmation(
             self.eth.transport().clone(),
@@ -207,6 +217,8 @@ impl<T: Transport> Contract<T> {
                     data: Some(Bytes(data)),
                     transaction_type: options.transaction_type,
                     access_list: options.access_list,
+                    max_fee_per_gas: options.max_fee_per_gas,
+                    max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                 },
                 None,
             )
@@ -248,6 +260,8 @@ impl<T: Transport> Contract<T> {
                         data: Some(Bytes(call)),
                         transaction_type: options.transaction_type,
                         access_list: options.access_list,
+                        max_fee_per_gas: options.max_fee_per_gas,
+                        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                     },
                     block.into(),
                 );

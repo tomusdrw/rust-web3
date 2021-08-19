@@ -33,6 +33,12 @@ pub struct CallRequest {
     /// Access list
     #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    #[serde(rename = "maxFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    #[serde(rename = "maxPriorityFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 impl CallRequest {
@@ -143,6 +149,12 @@ pub struct TransactionRequest {
     /// Access list
     #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    #[serde(rename = "maxFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    #[serde(rename = "maxPriorityFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 impl TransactionRequest {
@@ -257,6 +269,8 @@ mod tests {
             data: Some(hex!("010203").into()),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
 
         // when
@@ -306,6 +320,8 @@ mod tests {
             condition: Some(TransactionCondition::Block(5)),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
 
         // when
@@ -371,6 +387,8 @@ mod tests {
             data: Some(hex!("010203").into()),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
         //when
         let call_request_builder = CallRequestBuilder::new()
@@ -407,6 +425,8 @@ mod tests {
             condition: Some(TransactionCondition::Block(5)),
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
         //when
         let tx_request_builder = TransactionRequestBuilder::new()

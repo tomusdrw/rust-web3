@@ -61,6 +61,10 @@ mod feature_gated {
         /// 'Electrum' notation.
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
 
+        /// Sign given message without manipulating V-value; used for typed transactions
+        /// (AccessList and EIP-1559)
+        fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError>;
+
         /// Get public address that this key represents.
         fn address(&self) -> Address;
     }
@@ -107,6 +111,17 @@ mod feature_gated {
                 // Otherwise, convert to 'Electrum' notation.
                 standard_v + 27
             };
+            let r = H256::from_slice(&signature[..32]);
+            let s = H256::from_slice(&signature[32..]);
+
+            Ok(Signature { v, r, s })
+        }
+
+        fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
+            let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
+            let (recovery_id, signature) = CONTEXT.sign_recoverable(&message, self).serialize_compact();
+
+            let v = recovery_id.to_i32() as u64;
             let r = H256::from_slice(&signature[..32]);
             let s = H256::from_slice(&signature[32..]);
 

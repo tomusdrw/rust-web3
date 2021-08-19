@@ -143,6 +143,8 @@ mod tests {
             condition: None,
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         };
 
         let transaction_receipt = TransactionReceipt {
@@ -160,6 +162,7 @@ mod tests {
             root: Some(H256::zero()),
             logs_bloom: Default::default(),
             transaction_type: None,
+            effective_gas_price: Default::default(),
         };
 
         let poll_interval = Duration::from_secs(0);

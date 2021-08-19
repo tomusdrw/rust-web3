@@ -26,7 +26,7 @@ pub struct Transaction {
     pub value: U256,
     /// Gas Price
     #[serde(rename = "gasPrice")]
-    pub gas_price: U256,
+    pub gas_price: Option<U256>,
     /// Gas amount
     pub gas: U256,
     /// Input data
@@ -49,6 +49,12 @@ pub struct Transaction {
     /// Access list
     #[serde(rename = "accessList", default, skip_serializing_if = "Option::is_none")]
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    #[serde(rename = "maxFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    #[serde(rename = "maxPriorityFeePerGas", skip_serializing_if = "Option::is_none")]
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 /// "Receipt" of an executed transaction: details of its execution.
@@ -99,6 +105,9 @@ pub struct Receipt {
     /// Transaction type, Some(1) for AccessList transaction, None for Legacy
     #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
     pub transaction_type: Option<U64>,
+    /// Effective gas price
+    #[serde(rename = "effectiveGasPrice")]
+    pub effective_gas_price: U256,
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
@@ -129,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_receipt() {
-        let receipt_str = "{\"blockHash\":\"0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5\",\"blockNumber\":\"0x38\",\"contractAddress\":\"0x03d8c4566478a6e1bf75650248accce16a98509f\",\"from\":\"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"to\":\"0x853f43d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0x927c0\",\"gasUsed\":\"0x927c0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26\",\"transactionIndex\":\"0x0\"}";
+        let receipt_str = "{\"blockHash\":\"0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5\",\"blockNumber\":\"0x38\",\"contractAddress\":\"0x03d8c4566478a6e1bf75650248accce16a98509f\",\"from\":\"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"to\":\"0x853f43d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0x927c0\",\"gasUsed\":\"0x927c0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26\",\"transactionIndex\":\"0x0\",\"effectiveGasPrice\": \"0x100\"}";
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
     }
@@ -147,7 +156,8 @@ mod tests {
         "root": null,
         "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
         "transactionIndex": "0x0",
-        "status": "0x1"
+        "status": "0x1",
+        "effectiveGasPrice": "0x100"
         }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
@@ -168,7 +178,8 @@ mod tests {
         "root": null,
         "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
         "transactionIndex": "0x0",
-        "status": "0x1"
+        "status": "0x1",
+        "effectiveGasPrice": "0x100"
     }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
@@ -189,7 +200,8 @@ mod tests {
         "root": null,
         "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
         "transactionIndex": "0x0",
-        "status": "0x1"
+        "status": "0x1",
+        "effectiveGasPrice": "0x100"
         }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
@@ -210,7 +222,8 @@ mod tests {
         "root": null,
         "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
         "transactionIndex": "0x0",
-        "status": "0x1"
+        "status": "0x1",
+        "effectiveGasPrice": "0x100"
     }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();

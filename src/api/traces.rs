@@ -231,6 +231,7 @@ mod tests {
     gas: None, gas_price: None,
     value: Some(0x1.into()), data: None,
     transaction_type: None, access_list: None,
+    max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }, vec![TraceType::Trace], None
     =>
     "trace_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#"["trace"]"#, r#""latest""#];
