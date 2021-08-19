@@ -23,12 +23,14 @@ jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.11.0"
 rlp = "0.5"
-secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
+secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
+once_cell = { version = "1.8.0", optional = true }
+
 ## HTTP
 base64 = { version = "0.13", optional = true }
 bytes = { version = "1.0", optional = true }
@@ -73,7 +75,7 @@ http = ["_http_base"]
 http-tls = ["http", "reqwest/default-tls"]
 http-native-tls = ["http", "reqwest/native-tls"]
 http-rustls-tls = ["http", "reqwest/rustls-tls"]
-signing = ["secp256k1"]
+signing = ["secp256k1", "once_cell"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]

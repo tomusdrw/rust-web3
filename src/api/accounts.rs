@@ -59,6 +59,10 @@ mod accounts_signing {
     use rlp::RlpStream;
     use std::convert::TryInto;
 
+    const LEGACY_TX_ID: u64 = 0;
+    const ACCESSLISTS_TX_ID: u64 = 1;
+    const EIP1559_TX_ID: u64 = 2;
+
     impl<T: Transport> Accounts<T> {
         /// Gets the parent `web3` namespace
         fn web3(&self) -> Web3<T> {
@@ -89,7 +93,9 @@ mod accounts_signing {
             let from = key.address();
 
             let gas_price = match tx.transaction_type {
-                Some(tx_type) if tx_type == U64::from(2) && tx.max_fee_per_gas.is_some() => tx.max_fee_per_gas,
+                Some(tx_type) if tx_type == U64::from(EIP1559_TX_ID) && tx.max_fee_per_gas.is_some() => {
+                    tx.max_fee_per_gas
+                }
                 _ => tx.gas_price,
             };
 
@@ -102,7 +108,9 @@ mod accounts_signing {
             let chain_id = chain_id.as_u64();
 
             let max_priority_fee_per_gas = match tx.transaction_type {
-                Some(tx_type) if tx_type == U64::from(2) => tx.max_priority_fee_per_gas.unwrap_or(gas_price),
+                Some(tx_type) if tx_type == U64::from(EIP1559_TX_ID) => {
+                    tx.max_priority_fee_per_gas.unwrap_or(gas_price)
+                }
                 _ => gas_price,
             };
 
@@ -299,22 +307,19 @@ mod accounts_signing {
 
         fn encode(&self, chain_id: u64, signature: Option<&Signature>) -> Vec<u8> {
             match self.transaction_type.map(|t| t.as_u64()) {
-                // type 0: Legacy
-                Some(0) | None => {
+                Some(LEGACY_TX_ID) | None => {
                     let stream = self.encode_legacy(chain_id, signature);
                     stream.out().to_vec()
                 }
 
-                // type 1: AccessListTx
-                Some(1) => {
-                    let tx_id: u8 = 1;
+                Some(ACCESSLISTS_TX_ID) => {
+                    let tx_id: u8 = ACCESSLISTS_TX_ID as u8;
                     let stream = self.encode_access_list_payload(chain_id, signature);
                     [&[tx_id], stream.as_raw()].concat()
                 }
 
-                // type 2: EIP1559
-                Some(2) => {
-                    let tx_id: u8 = 2;
+                Some(EIP1559_TX_ID) => {
+                    let tx_id: u8 = EIP1559_TX_ID as u8;
                     let stream = self.encode_eip1559_payload(chain_id, signature);
                     [&[tx_id], stream.as_raw()].concat()
                 }
@@ -328,7 +333,7 @@ mod accounts_signing {
         /// Sign and return a raw signed transaction.
         pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
             let adjust_v_value = match self.transaction_type.map(|t| t.as_u64()) {
-                Some(0) | None => true,
+                Some(LEGACY_TX_ID) | None => true,
                 _ => false,
             };
 
