@@ -187,6 +187,7 @@ pub struct Call {
     /// Gas
     pub gas: U256,
     /// Input data
+    #[serde(default)]
     pub input: Bytes,
     /// The type of the call.
     #[serde(rename = "callType")]
