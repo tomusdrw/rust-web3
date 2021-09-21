@@ -160,6 +160,7 @@ pub struct CallResult {
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
     /// Output bytes
+    #[serde(default)]
     pub output: Bytes,
 }
 
