@@ -6,8 +6,8 @@ use crate::{
     contract::tokens::{Detokenize, Tokenize},
     futures::Future,
     types::{
-        Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
-        TransactionRequest, H256, U256,
+        AccessList, Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
+        TransactionRequest, H256, U256, U64,
     },
     Transport,
 };
@@ -35,6 +35,14 @@ pub struct Options {
     pub nonce: Option<U256>,
     /// A condition to satisfy before including transaction.
     pub condition: Option<TransactionCondition>,
+    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
+    pub transaction_type: Option<U64>,
+    /// Access list
+    pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 impl Options {
@@ -127,6 +135,10 @@ impl<T: Transport> Contract<T> {
             value,
             nonce,
             condition,
+            transaction_type,
+            access_list,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
         } = options;
         self.eth
             .send_transaction(TransactionRequest {
@@ -138,6 +150,10 @@ impl<T: Transport> Contract<T> {
                 nonce,
                 data: Some(Bytes(data)),
                 condition,
+                transaction_type,
+                access_list,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
             })
             .await
             .map_err(Error::from)
@@ -170,6 +186,10 @@ impl<T: Transport> Contract<T> {
             nonce: options.nonce,
             data: Some(Bytes(fn_data)),
             condition: options.condition,
+            transaction_type: options.transaction_type,
+            access_list: options.access_list,
+            max_fee_per_gas: options.max_fee_per_gas,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
         };
         confirm::send_transaction_with_confirmation(
             self.eth.transport().clone(),
@@ -195,6 +215,10 @@ impl<T: Transport> Contract<T> {
                     gas_price: options.gas_price,
                     value: options.value,
                     data: Some(Bytes(data)),
+                    transaction_type: options.transaction_type,
+                    access_list: options.access_list,
+                    max_fee_per_gas: options.max_fee_per_gas,
+                    max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                 },
                 None,
             )
@@ -234,6 +258,10 @@ impl<T: Transport> Contract<T> {
                         gas_price: options.gas_price,
                         value: options.value,
                         data: Some(Bytes(call)),
+                        transaction_type: options.transaction_type,
+                        access_list: options.access_list,
+                        max_fee_per_gas: options.max_fee_per_gas,
+                        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                     },
                     block.into(),
                 );

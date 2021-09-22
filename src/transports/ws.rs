@@ -102,13 +102,17 @@ impl WsServerTask {
             s if s == "ws" || s == "wss" => s,
             s => return Err(error::Error::Transport(format!("Wrong scheme: {}", s))),
         };
+
         let host = match url.host_str() {
             Some(s) => s,
             None => return Err(error::Error::Transport("Wrong host name".to_string())),
         };
+
         let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
+
         let addrs = format!("{}:{}", host, port);
 
+        log::trace!("Connecting TcpStream with address: {}", addrs);
         let stream = compat::raw_tcp_stream(addrs).await?;
         stream.set_nodelay(true)?;
         let socket = if scheme == "wss" {
@@ -124,7 +128,17 @@ impl WsServerTask {
             MaybeTlsStream::Plain(stream)
         };
 
-        let mut client = Client::new(socket, host, url.path());
+        let resource = match url.query() {
+            Some(q) => format!("{}?{}", url.path(), q),
+            None => url.path().to_owned(),
+        };
+
+        log::trace!(
+            "Connecting websocket client with host: {} and resource: {}",
+            host,
+            resource
+        );
+        let mut client = Client::new(socket, host, &resource);
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
@@ -166,7 +180,7 @@ impl WsServerTask {
             select! {
                 msg = requests.next() => match msg {
                     Some(TransportMessage::Request { id, request, sender: tx }) => {
-                        if pending.insert(id.clone(), tx).is_some() {
+                        if pending.insert(id, tx).is_some() {
                             log::warn!("Replacing a pending request with id {:?}", id);
                         }
                         let res = sender.send_text(request).await;
@@ -459,6 +473,10 @@ pub mod compat {
 /// Compatibility layer between async-std and tokio
 #[cfg(feature = "ws-tokio")]
 pub mod compat {
+    use std::io;
+    use tokio::io::AsyncRead;
+    use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
+
     /// async-std compatible TcpStream.
     pub type TcpStream = Compat<tokio::net::TcpStream>;
     /// async-std compatible TcpListener.
@@ -470,62 +488,14 @@ pub mod compat {
     #[cfg(not(feature = "ws-tls-tokio"))]
     pub type TlsStream = TcpStream;
 
-    use std::{
-        io,
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
     /// Create new TcpStream object.
     pub async fn raw_tcp_stream(addrs: String) -> io::Result<tokio::net::TcpStream> {
         Ok(tokio::net::TcpStream::connect(addrs).await?)
     }
 
     /// Wrap given argument into compatibility layer.
-    pub fn compat<T>(t: T) -> Compat<T> {
-        Compat(t)
-    }
-
-    /// Compatibility layer.
-    pub struct Compat<T>(T);
-    impl<T: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for Compat<T> {
-        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
-            tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
-        }
-
-        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-            tokio::io::AsyncWrite::poll_flush(Pin::new(&mut self.0), cx)
-        }
-
-        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-            tokio::io::AsyncWrite::poll_shutdown(Pin::new(&mut self.0), cx)
-        }
-    }
-
-    impl<T: tokio::io::AsyncWrite + Unpin> futures::AsyncWrite for Compat<T> {
-        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-            tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.0), cx, buf)
-        }
-
-        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-            tokio::io::AsyncWrite::poll_flush(Pin::new(&mut self.0), cx)
-        }
-
-        fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-            tokio::io::AsyncWrite::poll_shutdown(Pin::new(&mut self.0), cx)
-        }
-    }
-
-    impl<T: tokio::io::AsyncRead + Unpin> futures::AsyncRead for Compat<T> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-            tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
-        }
-    }
-
-    impl<T: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for Compat<T> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-            tokio::io::AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
-        }
+    pub fn compat<T: AsyncRead>(t: T) -> Compat<T> {
+        TokioAsyncReadCompatExt::compat(t)
     }
 }
 
@@ -538,6 +508,7 @@ mod tests {
         StreamExt,
     };
     use soketto::handshake;
+    use tokio_stream::wrappers::TcpListenerStream;
 
     #[test]
     fn bounds_matching() {
@@ -566,8 +537,8 @@ mod tests {
         assert_eq!(res.await, Ok(rpc::Value::String("x".into())));
     }
 
-    async fn server(mut listener: compat::TcpListener, addr: &str) {
-        let mut incoming = listener.incoming();
+    async fn server(listener: compat::TcpListener, addr: &str) {
+        let mut incoming = TcpListenerStream::new(listener);
         println!("Listening on: {}", addr);
         while let Some(Ok(socket)) = incoming.next().await {
             let socket = compat::compat(socket);

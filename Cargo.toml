@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.15.0"
+version = "0.17.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -14,34 +14,38 @@ edition = "2018"
 [dependencies]
 arrayvec = "0.5.0"
 derive_more = "0.99.1"
-ethabi = "13.0.0"
-ethereum-types = "0.10.0"
+ethabi = "14.0.0"
+ethereum-types = "0.11.0"
 futures = "0.3.5"
 futures-timer = "3.0.2"
 hex = "0.4"
 idna = "0.2"
-jsonrpc-core = "17.0.0"
+jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.11.0"
 rlp = "0.5"
-secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
 serde = { version = "1.0.90", features = ["derive"] }
 serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
+secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
+once_cell = { version = "1.8.0", optional = true }
+
 ## HTTP
 base64 = { version = "0.13", optional = true }
-hyper = { version = "0.13", optional = true, default-features = false, features = ["stream", "tcp"] }
-hyper-tls = { version = "0.4", optional = true }
-hyper-proxy = {version = "0.8.0", optional = true }
-typed-headers = { version = "0.2.0", optional = true }
+bytes = { version = "1.0", optional = true }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
+headers = { version = "0.3", optional = true }
 ## WS
-async-native-tls = { version = "0.3", optional = true, default-features = false }
+# async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
+# Temporarily use forked version released to crates.io
+async-native-tls = { package = "web3-async-native-tls", version = "0.4", optional = true, default-features = false }
 async-std = { version = "1.6", optional = true }
-tokio = { version = "0.2", optional = true, features = ["full"] }
-tokio-util = { version = "0.6", optional = true, features = ["compat"] }
-soketto = { version = "0.4.1", optional = true }
+tokio = { version = "1.0", optional = true, features = ["full"] }
+tokio-stream = { version = "0.1", optional = true }
+tokio-util = { version = "0.6", optional = true, features = ["compat", "io"] }
+soketto = { version = "0.5.0", optional = true }
 ## Shared (WS, HTTP)
 url = { version = "2.1", optional = true }
 ## EIP-1193
@@ -54,24 +58,30 @@ wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
 [dev-dependencies]
 # For examples
-env_logger = "0.8"
+env_logger = "0.9"
 hex-literal = "0.3"
 wasm-bindgen-test = "0.3.19"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "0.2", features = ["full"] }
+hyper = { version = "0.14", default-features = false, features = ["server"] }
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 
 [features]
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
-eip-1193 = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
-http = ["hyper", "hyper-proxy", "url", "base64", "typed-headers"]
-http-tls = ["hyper-tls", "http"]
-signing = ["secp256k1"]
+wasm = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
+eip-1193 = ["wasm"]
+_http_base = ["reqwest", "bytes", "url", "base64", "headers"]
+http = ["_http_base"]
+http-tls = ["http", "reqwest/default-tls"]
+http-native-tls = ["http", "reqwest/native-tls"]
+http-rustls-tls = ["http", "reqwest/rustls-tls"]
+signing = ["secp256k1", "once_cell"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util"]
 ws-async-std = ["soketto", "url", "async-std"]
 ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
-ipc-tokio = ["tokio"]
+ipc-tokio = ["tokio", "tokio-stream", "tokio-util"]
 arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]
 test = []
 

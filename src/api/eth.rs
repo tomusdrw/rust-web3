@@ -470,18 +470,20 @@ mod tests {
   }"#;
 
   // taken from RPC docs.
+  // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
   const EXAMPLE_RECEIPT: &str = r#"{
-    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
-    "index": "0x1",
     "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
     "transactionIndex": "0x1",
+    "from": "0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
     "blockNumber": "0xb",
     "blockHash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
     "cumulativeGasUsed": "0x33bc",
     "gasUsed": "0x4dc",
     "contractAddress": "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
     "logsBloom":  "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-    "logs": []
+    "logs": [],
+    "status": "0x1",
+    "effectiveGasPrice": "0x100"
   }"#;
 
   rpc_test! (
@@ -499,6 +501,8 @@ mod tests {
       from: None, to: Some(Address::from_low_u64_be(0x123)),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
+      transaction_type: None, access_list: None,
+      max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }, None
     =>
     "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
@@ -530,6 +534,8 @@ mod tests {
       from: None, to: Some(Address::from_low_u64_be(0x123)),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
+      transaction_type: None, access_list: None,
+      max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }, None
     =>
     "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
@@ -541,6 +547,8 @@ mod tests {
       from: None, to: None,
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
+      transaction_type: None, access_list: None,
+      max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }, None
     =>
     "eth_estimateGas", vec![r#"{"value":"0x1"}"#];
@@ -552,6 +560,8 @@ mod tests {
       from: None, to: Some(Address::from_low_u64_be(0x123)),
       gas: None, gas_price: None,
       value: Some(0x1.into()), data: None,
+      transaction_type: None, access_list: None,
+      max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }, Some(0x123.into())
     =>
     "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""0x123""#];
@@ -789,6 +799,8 @@ mod tests {
       gas: None, gas_price: Some(0x1.into()),
       value: Some(0x1.into()), data: None,
       nonce: None, condition: None,
+      transaction_type: None, access_list: None,
+      max_fee_per_gas: None, max_priority_fee_per_gas: None,
     }
     =>
     "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];

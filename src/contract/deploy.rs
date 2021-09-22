@@ -8,6 +8,8 @@ use crate::{
     types::{Address, Bytes, TransactionReceipt, TransactionRequest},
     Transport,
 };
+#[cfg(feature = "signing")]
+use crate::{signing::Key, types::TransactionParameters};
 use futures::{Future, TryFutureExt};
 use std::{collections::HashMap, time};
 
@@ -94,6 +96,66 @@ impl<T: Transport> Builder<T> {
         .await
     }
 
+    /// Execute deployment passing code and constructor parameters.
+    ///
+    /// Unlike the above `sign_and_execute`, this method allows the
+    /// caller to pass in a private key to sign the transaction with
+    /// and therefore allows deploying from an account that the
+    /// ethereum node doesn't need to know the private key for.
+    ///
+    /// An optional `chain_id` parameter can be passed to provide
+    /// replay protection for transaction signatures. Passing `None`
+    /// would create a transaction WITHOUT replay protection and
+    /// should be avoided.
+    /// You can obtain `chain_id` of the network you are connected
+    /// to using `web3.eth().chain_id()` method.
+    #[cfg(feature = "signing")]
+    pub async fn sign_with_key_and_execute<P, V, K>(
+        self,
+        code: V,
+        params: P,
+        from: K,
+        chain_id: Option<u64>,
+    ) -> Result<Contract<T>, Error>
+    where
+        P: Tokenize,
+        V: AsRef<str>,
+        K: Key,
+    {
+        let transport = self.eth.transport().clone();
+        let poll_interval = self.poll_interval;
+        let confirmations = self.confirmations;
+
+        self.do_execute(code, params, from.address(), move |tx| async move {
+            let tx = TransactionParameters {
+                nonce: tx.nonce,
+                to: tx.to,
+                gas: tx.gas.unwrap_or(1_000_000.into()),
+                gas_price: tx.gas_price,
+                value: tx.value.unwrap_or(0.into()),
+                data: tx
+                    .data
+                    .expect("Tried to deploy a contract but transaction data wasn't set"),
+                chain_id,
+                transaction_type: tx.transaction_type,
+                access_list: tx.access_list,
+                max_fee_per_gas: tx.max_fee_per_gas,
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            };
+            let signed_tx = crate::api::Accounts::new(transport.clone())
+                .sign_transaction(tx, from)
+                .await?;
+            confirm::send_raw_transaction_with_confirmation(
+                transport,
+                signed_tx.raw_transaction,
+                poll_interval,
+                confirmations,
+            )
+            .await
+        })
+        .await
+    }
+
     async fn do_execute<P, V, Ft>(
         self,
         code: V,
@@ -146,6 +208,10 @@ impl<T: Transport> Builder<T> {
             nonce: options.nonce,
             data: Some(Bytes(data)),
             condition: options.condition,
+            transaction_type: options.transaction_type,
+            access_list: options.access_list,
+            max_fee_per_gas: options.max_fee_per_gas,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
         };
         let receipt = send(tx).await?;
         match receipt.status {
@@ -191,8 +257,8 @@ mod tests {
         )]));
         // receipt
         let receipt = ::serde_json::from_str::<rpc::Value>(
-        "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\", \"status\": \"0x1\"}"
-      ).unwrap();
+            "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"from\": \"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\", \"status\": \"0x1\", \"effectiveGasPrice\": \"0x100\"}"
+        ).unwrap();
         transport.add_response(receipt.clone());
         // block number
         transport.add_response(rpc::Value::String("0x25a".into()));
@@ -240,7 +306,7 @@ mod tests {
         use serde_json::{to_string, to_vec};
         let mut transport = TestTransport::default();
         let receipt = ::serde_json::from_str::<rpc::Value>(
-        "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\", \"status\": \"0x1\"}"
+        "{\"blockHash\":\"0xd5311584a9867d8e129113e1ec9db342771b94bd4533aeab820a5bcc2c54878f\",\"blockNumber\":\"0x256\",\"contractAddress\":\"0x600515dfe465f600f0c9793fa27cd2794f3ec0e1\",\"from\":\"0x407d73d8a49eeb85d32cf465507dd71d507100c1\",\"cumulativeGasUsed\":\"0xe57e0\",\"gasUsed\":\"0xe57e0\",\"logs\":[],\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"root\":null,\"transactionHash\":\"0x70ae45a5067fdf3356aa615ca08d925a38c7ff21b486a61e79d5af3969ebc1a1\",\"transactionIndex\":\"0x0\", \"status\": \"0x1\", \"effectiveGasPrice\": \"0x100\"}"
         ).unwrap();
 
         for _ in 0..2 {
