@@ -230,7 +230,7 @@ extern "C" {
 
 impl Provider {
     /// Get the provider at `window.ethereum`.
-    pub fn default() -> Result<Self, JsValue> {
+    pub fn default() -> Result<Option<Self>, JsValue> {
         get_provider_js()
     }
 
@@ -278,7 +278,7 @@ impl Drop for ProviderAndListeners {
 #[wasm_bindgen(inline_js = "export function get_provider_js() {return window.ethereum}")]
 extern "C" {
     #[wasm_bindgen(catch)]
-    fn get_provider_js() -> Result<Provider, JsValue>;
+    fn get_provider_js() -> Result<Option<Provider>, JsValue>;
 }
 
 #[wasm_bindgen]
