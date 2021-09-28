@@ -11,7 +11,10 @@ use crate::{
     DuplexTransport, Error, RequestId, Transport,
 };
 use futures::{channel::mpsc, future::LocalBoxFuture, Stream};
-use jsonrpc_core::types::request::{Call, MethodCall};
+use jsonrpc_core::{
+    error::{Error as RPCError, ErrorCode as RPCErrorCode},
+    types::request::{Call, MethodCall}
+};
 use serde::{
     de::{value::StringDeserializer, IntoDeserializer},
     Deserialize,
@@ -235,11 +238,35 @@ impl Provider {
     }
 
     async fn request_wrapped(&self, args: RequestArguments) -> error::Result<serde_json::value::Value> {
+        // Fix #544
+        #[derive(Debug, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        pub struct RPCErrorExtra {
+            /// Code
+            pub code: RPCErrorCode,
+            /// Message
+            pub message: String,
+            /// Optional data
+            pub data: Option<serde_json::value::Value>,
+            /// Optional stack
+            pub stack: Option<serde_json::value::Value>
+        }
+
+        impl Into<RPCError> for RPCErrorExtra {
+            fn into(self) -> RPCError {
+                RPCError {
+                    code: self.code,
+                    message: self.message,
+                    data: self.data
+                }
+            }
+        }
+
         let js_result = self.request(args).await;
-        let parsed_value = js_result.map(|res| res.into_serde()).map_err(|err| err.into_serde());
+        let parsed_value = js_result.map(|res| res.into_serde()).map_err(|err| err.into_serde::<RPCErrorExtra>());
         match parsed_value {
             Ok(Ok(res)) => Ok(res),
-            Err(Ok(err)) => Err(Error::Rpc(err)),
+            Err(Ok(err)) => Err(Error::Rpc(err.into())),
             err => unreachable!("Unable to parse request response: {:?}", err),
         }
     }
