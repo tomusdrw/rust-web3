@@ -13,7 +13,7 @@ use crate::{
 use futures::{channel::mpsc, future::LocalBoxFuture, Stream};
 use jsonrpc_core::{
     error::{Error as RPCError, ErrorCode as RPCErrorCode},
-    types::request::{Call, MethodCall}
+    types::request::{Call, MethodCall},
 };
 use serde::{
     de::{value::StringDeserializer, IntoDeserializer},
@@ -249,7 +249,7 @@ impl Provider {
             /// Optional data
             pub data: Option<serde_json::value::Value>,
             /// Optional stack
-            pub stack: Option<serde_json::value::Value>
+            pub stack: Option<serde_json::value::Value>,
         }
 
         impl Into<RPCError> for RPCErrorExtra {
@@ -257,12 +257,14 @@ impl Provider {
                 RPCError {
                     code: self.code,
                     message: self.message,
-                    data: self.data
+                    data: self.data,
                 }
             }
         }
 
-        let parsed_value = resp.map(|res| res.into_serde()).map_err(|err| err.into_serde::<RPCErrorExtra>());
+        let parsed_value = resp
+            .map(|res| res.into_serde())
+            .map_err(|err| err.into_serde::<RPCErrorExtra>());
         match parsed_value {
             Ok(Ok(res)) => Ok(res),
             Err(Ok(err)) => Err(Error::Rpc(err.into())),
