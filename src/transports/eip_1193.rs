@@ -237,7 +237,7 @@ impl Provider {
         get_provider_js()
     }
 
-    async fn request_wrapped(&self, args: RequestArguments) -> error::Result<serde_json::value::Value> {
+    fn parse_response(resp: Result<JsValue, JsValue>) -> error::Result<serde_json::value::Value> {
         // Fix #544
         #[derive(Debug, Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -262,13 +262,17 @@ impl Provider {
             }
         }
 
-        let js_result = self.request(args).await;
-        let parsed_value = js_result.map(|res| res.into_serde()).map_err(|err| err.into_serde::<RPCErrorExtra>());
+        let parsed_value = resp.map(|res| res.into_serde()).map_err(|err| err.into_serde::<RPCErrorExtra>());
         match parsed_value {
             Ok(Ok(res)) => Ok(res),
             Err(Ok(err)) => Err(Error::Rpc(err.into())),
-            err => unreachable!("Unable to parse request response: {:?}", err),
+            err => Err(Error::InvalidResponse(format!("{:?}", err))),
         }
+    }
+
+    async fn request_wrapped(&self, args: RequestArguments) -> error::Result<serde_json::value::Value> {
+        let response = self.request(args).await;
+        Self::parse_response(response)
     }
 }
 
@@ -324,5 +328,49 @@ impl RequestArguments {
     #[wasm_bindgen(getter)]
     pub fn params(&self) -> js_sys::Array {
         self.params.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    fn json_to_js(json: &str) -> JsValue {
+        let json_value = serde_json::from_str::<serde_json::Value>(json).unwrap();
+        let js_value = JsValue::from_serde(&json_value).unwrap();
+        js_value
+    }
+
+    #[wasm_bindgen_test]
+    fn parses_valid_response_correctly() {
+        let value = serde_json::from_str::<serde_json::Value>(r#"[1, false, null, "string"]"#).unwrap();
+        let response = Ok(JsValue::from_serde(&value).unwrap());
+        let expected_result = Ok(value);
+        assert_eq!(Provider::parse_response(response), expected_result);
+
+        let response = Err(json_to_js(r#"{"code": 15, "message": "string1", "data": "string2", "stack": "string3"}"#));
+        let expected_result = Err(Error::Rpc(RPCError {
+            code: RPCErrorCode::from(15),
+            message: "string1".to_string(),
+            data: Some(serde_json::Value::String("string2".to_string())),
+        }));
+        assert_eq!(Provider::parse_response(response), expected_result);
+    }
+
+    #[wasm_bindgen_test]
+    fn returns_error_on_invalid_response() {
+        assert!(matches!(
+            Provider::parse_response(Err(json_to_js(r#"{"code": "red", "message": ""}"#))),
+            Err(Error::InvalidResponse(_))
+        ));
+        assert!(matches!(
+            Provider::parse_response(Err(json_to_js(r#"{"code": 0, "message": "", "extra": true}"#))),
+            Err(Error::InvalidResponse(_))
+        ));
+        assert!(matches!(
+            Provider::parse_response(Err(json_to_js(r#"{}"#))),
+            Err(Error::InvalidResponse(_))
+        ));
     }
 }
