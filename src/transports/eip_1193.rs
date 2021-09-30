@@ -351,7 +351,9 @@ mod tests {
         let expected_result = Ok(value);
         assert_eq!(Provider::parse_response(response), expected_result);
 
-        let response = Err(json_to_js(r#"{"code": 15, "message": "string1", "data": "string2", "stack": "string3"}"#));
+        let response = Err(json_to_js(
+            r#"{"code": 15, "message": "string1", "data": "string2", "stack": "string3"}"#,
+        ));
         let expected_result = Err(Error::Rpc(RPCError {
             code: RPCErrorCode::from(15),
             message: "string1".to_string(),
