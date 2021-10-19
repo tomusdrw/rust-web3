@@ -1,5 +1,5 @@
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -154,6 +154,24 @@ impl Serialize for BlockNumber {
             BlockNumber::Latest => serializer.serialize_str("latest"),
             BlockNumber::Earliest => serializer.serialize_str("earliest"),
             BlockNumber::Pending => serializer.serialize_str("pending"),
+        }
+    }
+}
+
+impl<'a> Deserialize<'a> for BlockNumber {
+    fn deserialize<D>(deserializer: D) -> Result<BlockNumber, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "latest" => Ok(BlockNumber::Latest),
+            "earliest" => Ok(BlockNumber::Earliest),
+            "pending" => Ok(BlockNumber::Pending),
+            _ if value.starts_with("0x") => U64::from_str_radix(&value[2..], 16)
+                .map(BlockNumber::Number)
+                .map_err(|e| D::Error::custom(format!("invalid block number: {}", e))),
+            _ => Err(D::Error::custom("invalid block number: missing 0x prefix".to_string())),
         }
     }
 }
