@@ -3,6 +3,7 @@
 mod block;
 mod bytes;
 mod bytes_array;
+mod fee_history;
 mod log;
 mod parity_peers;
 mod parity_pending_transaction;
@@ -22,6 +23,7 @@ pub use self::{
     block::{Block, BlockHeader, BlockId, BlockNumber},
     bytes::Bytes,
     bytes_array::BytesArray,
+    fee_history::FeeHistory,
     log::{Filter, FilterBuilder, Log},
     parity_peers::{
         EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,

@@ -4,8 +4,9 @@ use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
     types::{
-        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, Filter, Index, Log, SyncState,
-        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
+        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FeeHistory, Filter, Index, Log,
+        SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
+        U64,
     },
     Transport,
 };
@@ -86,6 +87,24 @@ impl<T: Transport> Eth<T> {
     /// Get current recommended gas price
     pub fn gas_price(&self) -> CallFuture<U256, T::Out> {
         CallFuture::new(self.transport.execute("eth_gasPrice", vec![]))
+    }
+
+    /// Returns a collection of historical gas information. This can be used for evaluating the max_fee_per_gas
+    /// and max_priority_fee_per_gas to send the future transactions.
+    pub fn fee_history(
+        &self,
+        block_count: U256,
+        newest_block: BlockNumber,
+        reward_percentiles: Option<Vec<f64>>,
+    ) -> CallFuture<FeeHistory, T::Out> {
+        let block_count = helpers::serialize(&block_count);
+        let newest_block = helpers::serialize(&newest_block);
+        let reward_percentiles = helpers::serialize(&reward_percentiles);
+
+        CallFuture::new(
+            self.transport
+                .execute("eth_feeHistory", vec![block_count, newest_block, reward_percentiles]),
+        )
     }
 
     /// Get balance of given address
@@ -356,8 +375,8 @@ mod tests {
         api::Namespace,
         rpc::Value,
         types::{
-            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FilterBuilder, Log, SyncInfo, SyncState,
-            Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FeeHistory, FilterBuilder, Log, SyncInfo,
+            SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
         },
     };
     use hex_literal::hex;
@@ -473,6 +492,25 @@ mod tests {
     "effectiveGasPrice": "0x100"
   }"#;
 
+    const EXAMPLE_FEE_HISTORY: &str = r#"{
+      "baseFeePerGas": [
+          "0x15f794d04b",
+          "0x1730fe199f",
+          "0x176212b802",
+          "0x165bce08cb",
+          "0x16c6235c9d",
+          "0x1539ff7ccd"
+      ],
+      "gasUsedRatio": [
+          0.722926465013414,
+          0.53306761204479,
+          0.32474768127264964,
+          0.574309529134573,
+          0.2282121795900929
+      ],
+      "oldestBlock": "0xcd1df9"
+  }"#;
+
     rpc_test! (
       Eth:accounts => "eth_accounts";
       Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![Address::from_low_u64_be(0x123)]
@@ -558,6 +596,12 @@ mod tests {
     rpc_test! (
       Eth:gas_price => "eth_gasPrice";
       Value::String("0x123".into()) => 0x123
+    );
+
+    rpc_test! (
+      Eth:fee_history, 0x3, BlockNumber::Latest, None => "eth_feeHistory", vec![r#""0x3""#, r#""latest""#, r#"null"#];
+      ::serde_json::from_str(EXAMPLE_FEE_HISTORY).unwrap()
+      => ::serde_json::from_str::<FeeHistory>(EXAMPLE_FEE_HISTORY).unwrap()
     );
 
     rpc_test! (
