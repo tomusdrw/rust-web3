@@ -309,4 +309,36 @@ mod tests {
         let block: Block<()> = serde_json::from_value(json.clone()).unwrap();
         assert_eq!(block.base_fee_per_gas, Some(U256::from(7)));
     }
+
+    #[test]
+    fn serialize_deserialize_block_number() {
+        // BlockNumber::Latest
+        let serialized = serde_json::to_value(BlockNumber::Latest).unwrap();
+        assert_eq!(serialized, "latest");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Latest);
+
+        // BlockNumber::Earliest
+        let serialized = serde_json::to_value(BlockNumber::Earliest).unwrap();
+        assert_eq!(serialized, "earliest");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Earliest);
+
+        // BlockNumber::Pending
+        let serialized = serde_json::to_value(BlockNumber::Pending).unwrap();
+        assert_eq!(serialized, "pending");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Pending);
+
+        // BlockNumber::Number
+        let serialized = serde_json::to_value(BlockNumber::Number(100.into())).unwrap();
+        assert_eq!(serialized, "0x64");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Number(100.into()));
+        let deserialized = serde_json::from_value::<BlockNumber>("64".into());
+        assert_eq!(
+            deserialized.unwrap_err().to_string(),
+            "invalid block number: missing 0x prefix"
+        );
+    }
 }

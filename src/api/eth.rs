@@ -89,7 +89,8 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_gasPrice", vec![]))
     }
 
-    /// Get fee history
+    /// Returns a collection of historical gas information. This can be used for evaluating the max_fee_per_gas
+    /// and max_priority_fee_per_gas to send the future transactions.
     pub fn fee_history(
         &self,
         block_count: U256,
@@ -97,12 +98,12 @@ impl<T: Transport> Eth<T> {
         reward_percentiles: Option<Vec<f64>>,
     ) -> CallFuture<FeeHistory, T::Out> {
         let block_count = helpers::serialize(&block_count);
-        let oldest_block = helpers::serialize(&oldest_block);
-        let reward = helpers::serialize(&reward);
-        
+        let newest_block = helpers::serialize(&newest_block);
+        let reward_percentiles = helpers::serialize(&reward_percentiles);
+
         CallFuture::new(
             self.transport
-                .execute("eth_feeHistory", vec![block_count, oldest_block, reward]),
+                .execute("eth_feeHistory", vec![block_count, newest_block, reward_percentiles]),
         )
     }
 
