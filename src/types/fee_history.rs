@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeHistory {
-    /// Oldest block
+    /// Lowest number block of the returned range.
     pub oldest_block: BlockNumber,
     /// Base fee per gas
     pub base_fee_per_gas: Vec<U256>,
