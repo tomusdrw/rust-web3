@@ -21,9 +21,9 @@ const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
 const ADDR_INTERFACE_ID: &[u8; 4] = &[0x3b, 0x3b, 0x57, 0xde];
 const BLOCKCHAIN_ADDR_INTERFACE_ID: &[u8; 4] = &[0xf1, 0xcb, 0x7e, 0x06];
 const NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
-const ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
+const _ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
 const PUBKEY_INTERFACE_ID: &[u8; 4] = &[0xc8, 0x69, 0x02, 0x33];
-const TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
+const _TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
 const CONTENTHASH_INTERFACE_ID: &[u8; 4] = &[0xbc, 0x1c, 0x58, 0xd1];
 
 /// `Eth` namespace, ens
@@ -34,8 +34,6 @@ pub struct Ens<T: Transport> {
     idna: Config,
     transport: T,
 }
-
-//TODO fix initialization mess
 
 impl<T: Transport> Namespace<T> for Ens<T> {
     fn new(transport: T) -> Self
@@ -310,8 +308,18 @@ impl<T: Transport> Ens<T> {
         let resolver_addr = self.registry.get_resolver(node).await?;
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
-        //TODO check hash is valid
+        if !resolver.check_interface_support(*CONTENTHASH_INTERFACE_ID).await? {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
         //https://eips.ethereum.org/EIPS/eip-1577
+        if !(hash[0] == 0xe3 || hash[0] == 0xe4) {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
+        if hash[1] != 0x01 {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
 
         resolver.set_content_hash(from, node, hash).await
     }
@@ -354,8 +362,8 @@ impl<T: Transport> Registry<T> {
     fn new(eth: Eth<T>) -> Self {
         let address = ENS_REGISTRY_ADDRESS.parse().expect("Parsing Address Failed");
 
-        let contract =
-            Contract::from_json(eth, address, REGISTRY_CONTRACT.as_bytes()).expect("Contract Creation Failed");
+        let contract = Contract::from_json(eth, address, include_bytes!("../contract/res/ENSRegistry.json"))
+            .expect("Contract Creation Failed");
 
         Self { contract }
     }
@@ -518,8 +526,12 @@ struct Resolver<T: Transport> {
 
 impl<T: Transport> Resolver<T> {
     fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
-        let contract =
-            Contract::from_json(eth, resolver_addr, RESOLVER_CONTRACT.as_bytes()).expect("Contract Creation Failed");
+        let contract = Contract::from_json(
+            eth,
+            resolver_addr,
+            include_bytes!("../contract/res/PublicResolver.json"),
+        )
+        .expect("Contract Creation Failed");
 
         Self { contract }
     }
@@ -529,7 +541,7 @@ impl<T: Transport> Resolver<T> {
     // https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-contract-abi
-    async fn get_abi(&self, node: [u8; 32], content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
+    async fn _get_abi(&self, node: [u8; 32], content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
         let options = Options::default();
 
         self.contract
@@ -577,7 +589,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-text-data
-    async fn get_text_data(&self, node: [u8; 32], key: String) -> Result<String, ContractError> {
+    async fn _get_text_data(&self, node: [u8; 32], key: String) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("text", (node, key), None, options, None).await
@@ -586,7 +598,7 @@ impl<T: Transport> Resolver<T> {
     //interfaceImplementer
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-contract-abi
-    async fn set_contract_abi(
+    async fn _set_contract_abi(
         &self,
         from: Address,
         node: [u8; 32],
@@ -655,7 +667,7 @@ impl<T: Transport> Resolver<T> {
     //setDnsrr
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
-    async fn set_canonical_name(
+    async fn _set_canonical_name(
         &self,
         from: Address,
         node: [u8; 32],
@@ -684,7 +696,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-text-data
-    async fn set_text_data(
+    async fn _set_text_data(
         &self,
         from: Address,
         node: [u8; 32],
@@ -711,769 +723,3 @@ impl<T: Transport> Resolver<T> {
 
     //multicall
 }
-
-const REGISTRY_CONTRACT: &str = r#"[
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "resolver",
-        "outputs": [
-            {
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "owner",
-        "outputs": [
-            {
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "label",
-                "type": "bytes32"
-            },
-            {
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "setSubnodeOwner",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "ttl",
-                "type": "uint64"
-            }
-        ],
-        "name": "setTTL",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "ttl",
-        "outputs": [
-            {
-                "name": "",
-                "type": "uint64"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "resolver",
-                "type": "address"
-            }
-        ],
-        "name": "setResolver",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "setOwner",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "Transfer",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "name": "label",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "NewOwner",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "resolver",
-                "type": "address"
-            }
-        ],
-        "name": "NewResolver",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "ttl",
-                "type": "uint64"
-            }
-        ],
-        "name": "NewTTL",
-        "type": "event"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "resolver",
-                "type": "address"
-            },
-            {
-                "internalType": "uint64",
-                "name": "ttl",
-                "type": "uint64"
-            }
-        ],
-        "name": "setRecord",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-            },
-            {
-                "internalType": "bool",
-                "name": "approved",
-                "type": "bool"
-            }
-        ],
-        "name": "setApprovalForAll",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "bool",
-                "name": "approved",
-                "type": "bool"
-            }
-        ],
-        "name": "ApprovalForAll",
-        "type": "event"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-            }
-        ],
-        "name": "isApprovedForAll",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "recordExists",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "bytes32",
-                "name": "label",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "resolver",
-                "type": "address"
-            },
-            {
-                "internalType": "uint64",
-                "name": "ttl",
-                "type": "uint64"
-            }
-        ],
-        "name": "setSubnodeRecord",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-]"#;
-
-const RESOLVER_CONTRACT: &str = r#"[
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "interfaceID",
-                "type": "bytes4"
-            }
-        ],
-        "name": "supportsInterface",
-        "outputs": [
-            {
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "contentTypes",
-                "type": "uint256"
-            }
-        ],
-        "name": "ABI",
-        "outputs": [
-            {
-                "name": "contentType",
-                "type": "uint256"
-            },
-            {
-                "name": "data",
-                "type": "bytes"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "hash",
-                "type": "bytes"
-            }
-        ],
-        "name": "setMultihash",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "multihash",
-        "outputs": [
-            {
-                "name": "",
-                "type": "bytes"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "x",
-                "type": "bytes32"
-            },
-            {
-                "name": "y",
-                "type": "bytes32"
-            }
-        ],
-        "name": "setPubkey",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "content",
-        "outputs": [
-            {
-                "name": "ret",
-                "type": "bytes32"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "addr",
-        "outputs": [
-            {
-                "name": "ret",
-                "type": "address"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "contentType",
-                "type": "uint256"
-            },
-            {
-                "name": "data",
-                "type": "bytes"
-            }
-        ],
-        "name": "setABI",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "name",
-        "outputs": [
-            {
-                "name": "ret",
-                "type": "string"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "name",
-                "type": "string"
-            }
-        ],
-        "name": "setName",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "hash",
-                "type": "bytes32"
-            }
-        ],
-        "name": "setContent",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "pubkey",
-        "outputs": [
-            {
-                "name": "x",
-                "type": "bytes32"
-            },
-            {
-                "name": "y",
-                "type": "bytes32"
-            }
-        ],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "addr",
-                "type": "address"
-            }
-        ],
-        "name": "setAddr",
-        "outputs": [],
-        "payable": false,
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "name": "ensAddr",
-                "type": "address"
-            }
-        ],
-        "payable": false,
-        "type": "constructor"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "a",
-                "type": "address"
-            }
-        ],
-        "name": "AddrChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "hash",
-                "type": "bytes32"
-            }
-        ],
-        "name": "ContentChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "name",
-                "type": "string"
-            }
-        ],
-        "name": "NameChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": true,
-                "name": "contentType",
-                "type": "uint256"
-            }
-        ],
-        "name": "ABIChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "x",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "y",
-                "type": "bytes32"
-            }
-        ],
-        "name": "PubkeyChanged",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "indexed": false,
-                "name": "hash",
-                "type": "bytes"
-            }
-        ],
-        "name": "ContenthashChanged",
-        "type": "event"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            }
-        ],
-        "name": "contenthash",
-        "outputs": [
-            {
-                "name": "",
-                "type": "bytes"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "name": "node",
-                "type": "bytes32"
-            },
-            {
-                "name": "hash",
-                "type": "bytes"
-            }
-        ],
-        "name": "setContenthash",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-]"#;
