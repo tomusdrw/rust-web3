@@ -94,7 +94,7 @@ impl<T: Transport> Eth<T> {
         &self,
         block_count: U256,
         newest_block: BlockNumber,
-        reward: Option<Vec<f64>>,
+        reward_percentiles: Option<Vec<f64>>,
     ) -> CallFuture<FeeHistory, T::Out> {
         let block_count = helpers::serialize(&block_count);
         let oldest_block = helpers::serialize(&oldest_block);
