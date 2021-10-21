@@ -545,12 +545,9 @@ mod tests {
             let mut server = handshake::Server::new(BufReader::new(BufWriter::new(socket)));
             let key = {
                 let req = server.receive_request().await.unwrap();
-                req.into_key()
+                req.key()
             };
-            let accept = handshake::server::Response::Accept {
-                key: &key,
-                protocol: None,
-            };
+            let accept = handshake::server::Response::Accept { key, protocol: None };
             server.send_response(&accept).await.unwrap();
             let (mut sender, mut receiver) = server.into_builder().finish();
             loop {
