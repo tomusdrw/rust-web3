@@ -1,7 +1,7 @@
 use crate::types::{BlockNumber, U256};
 use serde::{Deserialize, Serialize};
 
-/// The fee history type returned from RPC calls.
+/// The fee history type returned from `eth_feeHistory` call.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeHistory {
