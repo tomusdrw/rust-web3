@@ -1,5 +1,5 @@
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -158,6 +158,24 @@ impl Serialize for BlockNumber {
     }
 }
 
+impl<'a> Deserialize<'a> for BlockNumber {
+    fn deserialize<D>(deserializer: D) -> Result<BlockNumber, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "latest" => Ok(BlockNumber::Latest),
+            "earliest" => Ok(BlockNumber::Earliest),
+            "pending" => Ok(BlockNumber::Pending),
+            _ if value.starts_with("0x") => U64::from_str_radix(&value[2..], 16)
+                .map(BlockNumber::Number)
+                .map_err(|e| D::Error::custom(format!("invalid block number: {}", e))),
+            _ => Err(D::Error::custom("invalid block number: missing 0x prefix".to_string())),
+        }
+    }
+}
+
 /// Block Identifier
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockId {
@@ -290,5 +308,37 @@ mod tests {
 
         let block: Block<()> = serde_json::from_value(json.clone()).unwrap();
         assert_eq!(block.base_fee_per_gas, Some(U256::from(7)));
+    }
+
+    #[test]
+    fn serialize_deserialize_block_number() {
+        // BlockNumber::Latest
+        let serialized = serde_json::to_value(BlockNumber::Latest).unwrap();
+        assert_eq!(serialized, "latest");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Latest);
+
+        // BlockNumber::Earliest
+        let serialized = serde_json::to_value(BlockNumber::Earliest).unwrap();
+        assert_eq!(serialized, "earliest");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Earliest);
+
+        // BlockNumber::Pending
+        let serialized = serde_json::to_value(BlockNumber::Pending).unwrap();
+        assert_eq!(serialized, "pending");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Pending);
+
+        // BlockNumber::Number
+        let serialized = serde_json::to_value(BlockNumber::Number(100.into())).unwrap();
+        assert_eq!(serialized, "0x64");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Number(100.into()));
+        let deserialized = serde_json::from_value::<BlockNumber>("64".into());
+        assert_eq!(
+            deserialized.unwrap_err().to_string(),
+            "invalid block number: missing 0x prefix"
+        );
     }
 }
