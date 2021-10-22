@@ -23,7 +23,7 @@ const BLOCKCHAIN_ADDR_INTERFACE_ID: &[u8; 4] = &[0xf1, 0xcb, 0x7e, 0x06];
 const NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
 const _ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
 const PUBKEY_INTERFACE_ID: &[u8; 4] = &[0xc8, 0x69, 0x02, 0x33];
-const _TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
+const TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
 const CONTENTHASH_INTERFACE_ID: &[u8; 4] = &[0xbc, 0x1c, 0x58, 0xd1];
 
 /// `Eth` namespace, ens
@@ -317,14 +317,46 @@ impl<T: Transport> Ens<T> {
             return Err(ContractError::Abi(EthError::InvalidData));
         }
 
-        if hash[1] != 0x01 {
-            return Err(ContractError::Abi(EthError::InvalidData));
-        }
-
         resolver.set_content_hash(from, node, hash).await
     }
 
-    /// Returns the canonical ENS name associated with the provided address.
+    /// Returns the text record for a given key for the current ENS name.
+    pub async fn get_text(&self, domain: &str, key: String) -> Result<String, ContractError> {
+        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let node = namehash(&domain);
+
+        let resolver_addr = self.registry.get_resolver(node).await?;
+        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
+
+        if !resolver.check_interface_support(*TEXT_INTERFACE_ID).await? {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
+        resolver.get_text_data(node, key).await
+    }
+
+    /// Sets the text record for a given key for the current ENS name.
+    pub async fn set_text(
+        &self,
+        from: Address,
+        domain: &str,
+        key: String,
+        value: String,
+    ) -> Result<TransactionId, ContractError> {
+        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let node = namehash(&domain);
+
+        let resolver_addr = self.registry.get_resolver(node).await?;
+        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
+
+        if !resolver.check_interface_support(*TEXT_INTERFACE_ID).await? {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
+        resolver.set_text_data(from, node, key, value).await
+    }
+
+    /// Returns the reverse record for a particular Ethereum address.
     pub async fn get_canonical_name(&self, from: Address) -> Result<String, ContractError> {
         let mut hex: String = from.encode_hex();
         hex.push_str(".addr.reverse");
@@ -339,6 +371,26 @@ impl<T: Transport> Ens<T> {
         }
 
         resolver.get_canonical_name(node).await
+    }
+
+    /// Sets the reverse record for the current Ethereum address
+    pub async fn set_canonical_name(
+        &self,
+        from: Address,
+        domain: &str,
+        name: String,
+    ) -> Result<TransactionId, ContractError> {
+        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let node = namehash(&domain);
+
+        let resolver_addr = self.registry.get_resolver(node).await?;
+        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
+
+        if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
+            return Err(ContractError::Abi(EthError::InvalidData));
+        }
+
+        resolver.set_canonical_name(from, node, name).await
     }
 
     /// Returns true if the related Resolver does support the given interfaceId.
@@ -362,6 +414,7 @@ impl<T: Transport> Registry<T> {
     fn new(eth: Eth<T>) -> Self {
         let address = ENS_REGISTRY_ADDRESS.parse().expect("Parsing Address Failed");
 
+        //https://github.com/ensdomains/ens-contracts/tree/master/deployments
         let contract = Contract::from_json(eth, address, include_bytes!("../contract/res/ENSRegistry.json"))
             .expect("Contract Creation Failed");
 
@@ -520,12 +573,13 @@ impl<T: Transport> Registry<T> {
 }
 
 #[derive(Debug, Clone)]
-struct Resolver<T: Transport> {
+pub struct Resolver<T: Transport> {
     contract: Contract<T>,
 }
 
 impl<T: Transport> Resolver<T> {
-    fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
+    pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
+        //https://github.com/ensdomains/ens-contracts/tree/master/deployments
         let contract = Contract::from_json(
             eth,
             resolver_addr,
@@ -589,7 +643,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-text-data
-    async fn _get_text_data(&self, node: [u8; 32], key: String) -> Result<String, ContractError> {
+    async fn get_text_data(&self, node: [u8; 32], key: String) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("text", (node, key), None, options, None).await
@@ -667,7 +721,7 @@ impl<T: Transport> Resolver<T> {
     //setDnsrr
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
-    async fn _set_canonical_name(
+    async fn set_canonical_name(
         &self,
         from: Address,
         node: [u8; 32],
@@ -696,7 +750,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-text-data
-    async fn _set_text_data(
+    async fn set_text_data(
         &self,
         from: Address,
         node: [u8; 32],
