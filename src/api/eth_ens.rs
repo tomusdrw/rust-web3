@@ -361,12 +361,18 @@ impl<T: Transport> Ens<T> {
         let mut hex: String = from.encode_hex();
         hex.push_str(".addr.reverse");
 
+        return Err(ContractError::Abi(EthError::InvalidName(hex)));
+
         let node = namehash(&hex);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
+
+        println!("Addrs: {}", resolver_addr.to_string());
+
         let resolver = Resolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
+            println!("Unsupported Interface");
             return Err(ContractError::Abi(EthError::InvalidData));
         }
 
