@@ -20,7 +20,7 @@ const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
 
 const ADDR_INTERFACE_ID: &[u8; 4] = &[0x3b, 0x3b, 0x57, 0xde];
 const BLOCKCHAIN_ADDR_INTERFACE_ID: &[u8; 4] = &[0xf1, 0xcb, 0x7e, 0x06];
-const NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
+const _NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
 const _ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
 const PUBKEY_INTERFACE_ID: &[u8; 4] = &[0xc8, 0x69, 0x02, 0x33];
 const TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
@@ -361,20 +361,14 @@ impl<T: Transport> Ens<T> {
         let mut hex: String = from.encode_hex();
         hex.push_str(".addr.reverse");
 
-        return Err(ContractError::Abi(EthError::InvalidName(hex)));
-
         let node = namehash(&hex);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
+        let resolver = ReverseResolver::new(self.web3.eth(), resolver_addr);
 
-        println!("Addrs: {}", resolver_addr.to_string());
-
-        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
-
-        if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
-            println!("Unsupported Interface");
+        /* if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
             return Err(ContractError::Abi(EthError::InvalidData));
-        }
+        } */
 
         resolver.get_canonical_name(node).await
     }
@@ -390,11 +384,11 @@ impl<T: Transport> Ens<T> {
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
-        let resolver = Resolver::new(self.web3.eth(), resolver_addr);
+        let resolver = ReverseResolver::new(self.web3.eth(), resolver_addr);
 
-        if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
+        /* if !resolver.check_interface_support(*NAME_INTERFACE_ID).await? {
             return Err(ContractError::Abi(EthError::InvalidData));
-        }
+        } */
 
         resolver.set_canonical_name(from, node, name).await
     }
@@ -635,7 +629,7 @@ impl<T: Transport> Resolver<T> {
     //dnsrr???
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-canonical-name
-    async fn get_canonical_name(&self, node: [u8; 32]) -> Result<String, ContractError> {
+    async fn _get_canonical_name(&self, node: [u8; 32]) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("name", node, None, options, None).await
@@ -727,7 +721,7 @@ impl<T: Transport> Resolver<T> {
     //setDnsrr
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
-    async fn set_canonical_name(
+    async fn _set_canonical_name(
         &self,
         from: Address,
         node: [u8; 32],
@@ -782,4 +776,46 @@ impl<T: Transport> Resolver<T> {
     }
 
     //multicall
+}
+
+#[derive(Debug, Clone)]
+pub struct ReverseResolver<T: Transport> {
+    contract: Contract<T>,
+}
+
+impl<T: Transport> ReverseResolver<T> {
+    pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
+        //https://github.com/ensdomains/ens-contracts/tree/master/deployments
+        let contract = Contract::from_json(
+            eth,
+            resolver_addr,
+            include_bytes!("../contract/res/DefaultReverseResolver.json"),
+        )
+        .expect("Contract Creation Failed");
+
+        Self { contract }
+    }
+}
+
+impl<T: Transport> ReverseResolver<T> {
+    // https://docs.ens.domains/contract-api-reference/publicresolver#get-canonical-name
+    async fn get_canonical_name(&self, node: [u8; 32]) -> Result<String, ContractError> {
+        let options = Options::default();
+
+        self.contract.query("name", node, None, options, None).await
+    }
+
+    // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
+    async fn set_canonical_name(
+        &self,
+        from: Address,
+        node: [u8; 32],
+        name: String,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self.contract.call("setName", (node, name), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
+    }
 }
