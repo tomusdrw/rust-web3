@@ -2,6 +2,7 @@
 
 mod accounts;
 mod eth;
+mod eth_ens;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
