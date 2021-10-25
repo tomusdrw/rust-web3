@@ -78,6 +78,11 @@ impl<T: Transport> Web3<T> {
         self.api()
     }
 
+    /// Access methods from `eth` namespace
+    pub fn ens(&self) -> eth_ens::Ens<T> {
+        self.api()
+    }
+
     /// Access methods from `net` namespace
     pub fn net(&self) -> net::Net<T> {
         self.api()
