@@ -62,6 +62,13 @@ impl<T: Transport> Namespace<T> for Ens<T> {
 }
 
 impl<T: Transport> Ens<T> {
+    //https://docs.ens.domains/contract-api-reference/name-processing#normalising-names
+    fn normalize_name(&self, domain: &str) -> Result<String, ContractError> {
+        self.idna
+            .to_ascii(domain)
+            .map_err(|_| ContractError::Abi(EthError::InvalidData))
+    }
+
     /// Sets the resolver contract address of a name.
     pub async fn set_resolver(
         &self,
@@ -69,7 +76,7 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         address: Address,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.set_resolver(from, node, address).await
@@ -77,7 +84,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the owner of a name.
     pub async fn get_owner(&self, domain: &str) -> Result<Address, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.get_owner(node).await
@@ -85,7 +92,7 @@ impl<T: Transport> Ens<T> {
 
     /// Sets the owner of the given name.
     pub async fn set_owner(&self, from: Address, domain: &str, owner: Address) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.set_owner(from, node, owner).await
@@ -93,7 +100,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the caching TTL (time-to-live) of a name.
     pub async fn get_ttl(&self, domain: &str) -> Result<u64, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.get_ttl(node).await
@@ -101,7 +108,7 @@ impl<T: Transport> Ens<T> {
 
     /// Sets the caching TTL (time-to-live) of a name.
     pub async fn set_ttl(&self, from: Address, domain: &str, ttl: u64) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.set_ttl(from, node, ttl).await
@@ -115,10 +122,10 @@ impl<T: Transport> Ens<T> {
         label: &str,
         owner: Address,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
-        let label = self.idna.to_ascii(label).expect("Cannot Normalize"); //Do we have to normalize here?
+        let label = self.normalize_name(label)?;
         let label = crate::signing::keccak256(label.as_bytes());
 
         self.registry.set_subnode_owner(from, node, label, owner).await
@@ -133,7 +140,7 @@ impl<T: Transport> Ens<T> {
         resolver: Address,
         ttl: u64,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.set_record(from, node, owner, resolver, ttl).await
@@ -149,10 +156,10 @@ impl<T: Transport> Ens<T> {
         resolver: Address,
         ttl: u64,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
-        let label = self.idna.to_ascii(label).expect("Cannot Normalize"); //Do we have to normalize here?
+        let label = self.normalize_name(label)?;
         let label = crate::signing::keccak256(label.as_bytes());
 
         self.registry
@@ -179,7 +186,7 @@ impl<T: Transport> Ens<T> {
     /// Returns true if node exists in this ENS registry.
     /// This will return false for records that are in the legacy ENS registry but have not yet been migrated to the new one.
     pub async fn record_exists(&self, domain: &str) -> Result<bool, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         self.registry.check_record_existence(node).await
@@ -187,7 +194,7 @@ impl<T: Transport> Ens<T> {
 
     /// Resolves an ENS name to an Ethereum address.
     pub async fn get_eth_address(&self, domain: &str) -> Result<Address, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -207,7 +214,7 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         address: Address,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -218,7 +225,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the Blockchain address associated with the provided node and coinType, or 0 if none.
     pub async fn get_blockchain_address(&self, domain: &str, coin_type: U256) -> Result<Vec<u8>, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -239,7 +246,7 @@ impl<T: Transport> Ens<T> {
         coin_type: U256,
         a: Vec<u8>,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -250,7 +257,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the X and Y coordinates of the curve point for the public key.
     pub async fn get_pubkey(&self, domain: &str) -> Result<([u8; 32], [u8; 32]), ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -271,7 +278,7 @@ impl<T: Transport> Ens<T> {
         x: [u8; 32],
         y: [u8; 32],
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -282,7 +289,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the content hash object associated with an ENS node.
     pub async fn get_content_hash(&self, domain: &str) -> Result<Vec<u8>, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -302,7 +309,7 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         hash: Vec<u8>,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -322,7 +329,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns the text record for a given key for the current ENS name.
     pub async fn get_text(&self, domain: &str, key: String) -> Result<String, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -343,7 +350,7 @@ impl<T: Transport> Ens<T> {
         key: String,
         value: String,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -380,7 +387,7 @@ impl<T: Transport> Ens<T> {
         domain: &str,
         name: String,
     ) -> Result<TransactionId, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
@@ -395,7 +402,7 @@ impl<T: Transport> Ens<T> {
 
     /// Returns true if the related Resolver does support the given interfaceId.
     pub async fn supports_interface(&self, domain: &str, interface_id: [u8; 4]) -> Result<bool, ContractError> {
-        let domain = self.idna.to_ascii(domain).expect("Cannot Normalize");
+        let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
         let resolver_addr = self.registry.get_resolver(node).await?;
