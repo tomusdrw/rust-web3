@@ -1,7 +1,6 @@
 //! `Eth` namespace, ens
 
 use crate::{
-    api::Eth,
     api::Namespace,
     contract::{Contract, Options},
     signing::{namehash, NameHash},
@@ -418,7 +417,7 @@ struct Registry<T: Transport> {
 }
 
 impl<T: Transport> Registry<T> {
-    fn new(eth: Eth<T>) -> Self {
+    fn new(eth: crate::api::Eth<T>) -> Self {
         let address = ENS_REGISTRY_ADDRESS.parse().expect("Parsing Address Failed");
 
         //https://github.com/ensdomains/ens-contracts/tree/master/deployments
@@ -585,7 +584,7 @@ pub struct Resolver<T: Transport> {
 }
 
 impl<T: Transport> Resolver<T> {
-    pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
+    pub fn new(eth: crate::api::Eth<T>, resolver_addr: Address) -> Self {
         //https://github.com/ensdomains/ens-contracts/tree/master/deployments
         let contract = Contract::from_json(
             eth,
@@ -791,7 +790,7 @@ pub struct ReverseResolver<T: Transport> {
 }
 
 impl<T: Transport> ReverseResolver<T> {
-    pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
+    pub fn new(eth: crate::api::Eth<T>, resolver_addr: Address) -> Self {
         //https://github.com/ensdomains/ens-contracts/tree/master/deployments
         let contract = Contract::from_json(
             eth,
