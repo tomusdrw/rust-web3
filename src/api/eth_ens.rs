@@ -4,7 +4,7 @@ use crate::{
     api::Eth,
     api::Namespace,
     contract::{Contract, Options},
-    signing::namehash,
+    signing::{namehash, NameHash},
     types::{Address, TransactionId, U256},
     Transport, Web3,
 };
@@ -436,7 +436,7 @@ impl<T: Transport> Registry<T> {
     async fn set_record(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         owner: Address,
         resolver: Address,
         ttl: u64,
@@ -455,7 +455,7 @@ impl<T: Transport> Registry<T> {
     async fn set_subnode_record(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         label: [u8; 32],
         owner: Address,
         resolver: Address,
@@ -475,7 +475,7 @@ impl<T: Transport> Registry<T> {
     async fn set_subnode_owner(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         label: [u8; 32],
         owner: Address,
     ) -> Result<TransactionId, ContractError> {
@@ -493,7 +493,7 @@ impl<T: Transport> Registry<T> {
     async fn set_resolver(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         resolver: Address,
     ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
@@ -507,7 +507,7 @@ impl<T: Transport> Registry<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-owner
-    async fn set_owner(&self, from: Address, node: [u8; 32], owner: Address) -> Result<TransactionId, ContractError> {
+    async fn set_owner(&self, from: Address, node: NameHash, owner: Address) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
         let id = self.contract.call("setOwner", (node, owner), from, options).await?;
@@ -516,7 +516,7 @@ impl<T: Transport> Registry<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#set-ttl
-    async fn set_ttl(&self, from: Address, node: [u8; 32], ttl: u64) -> Result<TransactionId, ContractError> {
+    async fn set_ttl(&self, from: Address, node: NameHash, ttl: u64) -> Result<TransactionId, ContractError> {
         let options = Options::default();
 
         let id = self.contract.call("setTTL", (node, ttl), from, options).await?;
@@ -542,28 +542,28 @@ impl<T: Transport> Registry<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#get-owner
-    async fn get_owner(&self, node: [u8; 32]) -> Result<Address, ContractError> {
+    async fn get_owner(&self, node: NameHash) -> Result<Address, ContractError> {
         let options = Options::default();
 
         self.contract.query("owner", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#get-resolver
-    async fn get_resolver(&self, node: [u8; 32]) -> Result<Address, ContractError> {
+    async fn get_resolver(&self, node: NameHash) -> Result<Address, ContractError> {
         let options = Options::default();
 
         self.contract.query("resolver", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#get-ttl
-    async fn get_ttl(&self, node: [u8; 32]) -> Result<u64, ContractError> {
+    async fn get_ttl(&self, node: NameHash) -> Result<u64, ContractError> {
         let options = Options::default();
 
         self.contract.query("ttl", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/ens#check-record-existence
-    async fn check_record_existence(&self, node: [u8; 32]) -> Result<bool, ContractError> {
+    async fn check_record_existence(&self, node: NameHash) -> Result<bool, ContractError> {
         let options = Options::default();
 
         self.contract.query("recordExists", node, None, options, None).await
@@ -602,7 +602,7 @@ impl<T: Transport> Resolver<T> {
     // https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-contract-abi
-    async fn _get_abi(&self, node: [u8; 32], content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
+    async fn _get_abi(&self, node: NameHash, content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
         let options = Options::default();
 
         self.contract
@@ -611,14 +611,14 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-ethereum-address
-    async fn get_ethereum_address(&self, node: [u8; 32]) -> Result<Address, ContractError> {
+    async fn get_ethereum_address(&self, node: NameHash) -> Result<Address, ContractError> {
         let options = Options::default();
 
         self.contract.query("addr", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-blockchain-address
-    async fn get_blockchain_address(&self, node: [u8; 32], coin_type: U256) -> Result<Vec<u8>, ContractError> {
+    async fn get_blockchain_address(&self, node: NameHash, coin_type: U256) -> Result<Vec<u8>, ContractError> {
         let options = Options::default();
 
         self.contract
@@ -627,7 +627,7 @@ impl<T: Transport> Resolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-content-hash
-    async fn get_content_hash(&self, node: [u8; 32]) -> Result<Vec<u8>, ContractError> {
+    async fn get_content_hash(&self, node: NameHash) -> Result<Vec<u8>, ContractError> {
         let options = Options::default();
 
         self.contract.query("contenthash", node, None, options, None).await
@@ -636,21 +636,21 @@ impl<T: Transport> Resolver<T> {
     //dnsrr???
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-canonical-name
-    async fn _get_canonical_name(&self, node: [u8; 32]) -> Result<String, ContractError> {
+    async fn _get_canonical_name(&self, node: NameHash) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("name", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-public-key
-    async fn get_public_key(&self, node: [u8; 32]) -> Result<([u8; 32], [u8; 32]), ContractError> {
+    async fn get_public_key(&self, node: NameHash) -> Result<([u8; 32], [u8; 32]), ContractError> {
         let options = Options::default();
 
         self.contract.query("pubkey", node, None, options, None).await
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-text-data
-    async fn get_text_data(&self, node: [u8; 32], key: String) -> Result<String, ContractError> {
+    async fn get_text_data(&self, node: NameHash, key: String) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("text", (node, key), None, options, None).await
@@ -662,7 +662,7 @@ impl<T: Transport> Resolver<T> {
     async fn _set_contract_abi(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         content_type: U256,
         data: Vec<u8>,
     ) -> Result<TransactionId, ContractError> {
@@ -680,7 +680,7 @@ impl<T: Transport> Resolver<T> {
     async fn set_ethereum_address(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         address: Address,
     ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
@@ -694,7 +694,7 @@ impl<T: Transport> Resolver<T> {
     async fn set_blockchain_address(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         coin_type: U256,
         a: Vec<u8>,
     ) -> Result<TransactionId, ContractError> {
@@ -712,7 +712,7 @@ impl<T: Transport> Resolver<T> {
     async fn set_content_hash(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         hash: Vec<u8>,
     ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
@@ -731,7 +731,7 @@ impl<T: Transport> Resolver<T> {
     async fn _set_canonical_name(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         name: String,
     ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
@@ -745,7 +745,7 @@ impl<T: Transport> Resolver<T> {
     async fn set_public_key(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         x: [u8; 32],
         y: [u8; 32],
     ) -> Result<TransactionId, ContractError> {
@@ -760,7 +760,7 @@ impl<T: Transport> Resolver<T> {
     async fn set_text_data(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         key: String,
         value: String,
     ) -> Result<TransactionId, ContractError> {
@@ -806,7 +806,7 @@ impl<T: Transport> ReverseResolver<T> {
 
 impl<T: Transport> ReverseResolver<T> {
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-canonical-name
-    async fn get_canonical_name(&self, node: [u8; 32]) -> Result<String, ContractError> {
+    async fn get_canonical_name(&self, node: NameHash) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("name", node, None, options, None).await
@@ -816,7 +816,7 @@ impl<T: Transport> ReverseResolver<T> {
     async fn set_canonical_name(
         &self,
         from: Address,
-        node: [u8; 32],
+        node: NameHash,
         name: String,
     ) -> Result<TransactionId, ContractError> {
         let options = Options::default();
