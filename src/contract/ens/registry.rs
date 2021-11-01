@@ -1,0 +1,183 @@
+use crate::{
+    api::Eth,
+    contract::{Contract, Options},
+    signing::NameHash,
+    types::{Address, TransactionId},
+    Transport,
+};
+
+type ContractError = crate::contract::Error;
+
+const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+
+// See https://github.com/ensdomains/ens/blob/master/contracts/ENS.sol for the contract interface.
+#[derive(Debug, Clone)]
+pub struct Registry<T: Transport> {
+    contract: Contract<T>,
+}
+
+impl<T: Transport> Registry<T> {
+    pub fn new(eth: Eth<T>) -> Self {
+        let address = ENS_REGISTRY_ADDRESS.parse().expect("Parsing Address");
+
+        // See https://github.com/ensdomains/ens-contracts for up to date contracts.
+        let json = include_bytes!("ENSRegistry.json");
+
+        let contract = Contract::from_json(eth, address, json).expect("Contract Creation");
+
+        Self { contract }
+    }
+}
+
+impl<T: Transport> Registry<T> {
+    // https://docs.ens.domains/contract-api-reference/ens#set-record
+    pub async fn set_record(
+        &self,
+        from: Address,
+        node: NameHash,
+        owner: Address,
+        resolver: Address,
+        ttl: u64,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self
+            .contract
+            .call("setRecord", (node, owner, resolver, ttl), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-subdomain-record
+    pub async fn set_subnode_record(
+        &self,
+        from: Address,
+        node: NameHash,
+        label: [u8; 32],
+        owner: Address,
+        resolver: Address,
+        ttl: u64,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self
+            .contract
+            .call("setSubnodeRecord", (node, label, owner, resolver, ttl), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-subdomain-owner
+    pub async fn set_subnode_owner(
+        &self,
+        from: Address,
+        node: NameHash,
+        label: [u8; 32],
+        owner: Address,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self
+            .contract
+            .call("setSubnodeOwner", (node, label, owner), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-resolver
+    pub async fn set_resolver(
+        &self,
+        from: Address,
+        node: NameHash,
+        resolver: Address,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self
+            .contract
+            .call("setResolver", (node, resolver), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-owner
+    pub async fn set_owner(
+        &self,
+        from: Address,
+        node: NameHash,
+        owner: Address,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self.contract.call("setOwner", (node, owner), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-ttl
+    pub async fn set_ttl(&self, from: Address, node: NameHash, ttl: u64) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self.contract.call("setTTL", (node, ttl), from, options).await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#set-approval
+    pub async fn set_approval_for_all(
+        &self,
+        from: Address,
+        operator: Address,
+        approved: bool,
+    ) -> Result<TransactionId, ContractError> {
+        let options = Options::default();
+
+        let id = self
+            .contract
+            .call("setApprovalForAll", (operator, approved), from, options)
+            .await?;
+
+        Ok(TransactionId::Hash(id))
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#get-owner
+    pub async fn owner(&self, node: NameHash) -> Result<Address, ContractError> {
+        let options = Options::default();
+
+        self.contract.query("owner", node, None, options, None).await
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#get-resolver
+    pub async fn resolver(&self, node: NameHash) -> Result<Address, ContractError> {
+        let options = Options::default();
+
+        self.contract.query("resolver", node, None, options, None).await
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#get-ttl
+    pub async fn ttl(&self, node: NameHash) -> Result<u64, ContractError> {
+        let options = Options::default();
+
+        self.contract.query("ttl", node, None, options, None).await
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#check-record-existence
+    pub async fn check_record_existence(&self, node: NameHash) -> Result<bool, ContractError> {
+        let options = Options::default();
+
+        self.contract.query("recordExists", node, None, options, None).await
+    }
+
+    // https://docs.ens.domains/contract-api-reference/ens#check-approval
+    pub async fn check_approval(&self, owner: Address, operator: Address) -> Result<bool, ContractError> {
+        let options = Options::default();
+
+        self.contract
+            .query("isApprovedForAll", (owner, operator), None, options, None)
+            .await
+    }
+}

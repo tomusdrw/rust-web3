@@ -2,7 +2,6 @@
 
 mod accounts;
 mod eth;
-mod eth_ens;
 mod eth_filter;
 mod eth_subscribe;
 mod net;
@@ -75,11 +74,6 @@ impl<T: Transport> Web3<T> {
 
     /// Access methods from `eth` namespace
     pub fn eth(&self) -> eth::Eth<T> {
-        self.api()
-    }
-
-    /// Access methods from `eth` namespace
-    pub fn ens(&self) -> eth_ens::Ens<T> {
         self.api()
     }
 
