@@ -1,6 +1,6 @@
 use crate::{
     api::Namespace,
-    contract::{ens::public_resolver::PublicResolver, ens::registry::Registry, ens::reverse_resolver::ReverseResolver},
+    contract::ens::{public_resolver::PublicResolver, registry::Registry, reverse_resolver::ReverseResolver},
     signing::namehash,
     types::{Address, TransactionId, U256},
     Transport, Web3,
