@@ -13,13 +13,13 @@ type EthError = crate::ethabi::Error;
 
 const ADDR_INTERFACE_ID: &[u8; 4] = &[0x3b, 0x3b, 0x57, 0xde];
 const BLOCKCHAIN_ADDR_INTERFACE_ID: &[u8; 4] = &[0xf1, 0xcb, 0x7e, 0x06];
-const _NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
-const _ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
+const NAME_INTERFACE_ID: &[u8; 4] = &[0x69, 0x1f, 0x34, 0x31];
+const ABI_INTERFACE_ID: &[u8; 4] = &[0x22, 0x03, 0xab, 0x56];
 const PUBKEY_INTERFACE_ID: &[u8; 4] = &[0xc8, 0x69, 0x02, 0x33];
 const TEXT_INTERFACE_ID: &[u8; 4] = &[0x59, 0xd1, 0xd4, 0x3c];
 const CONTENTHASH_INTERFACE_ID: &[u8; 4] = &[0xbc, 0x1c, 0x58, 0xd1];
 
-/// Ethereum Name Service contract interface
+/// Ethereum Name Service interface.
 #[derive(Clone)]
 pub struct Ens<T: Transport> {
     web3: Web3<T>,
@@ -56,7 +56,8 @@ impl<T: Transport> Namespace<T> for Ens<T> {
 
 impl<T: Transport> Ens<T> {
     /// Normalize a domain name for namehash processing.
-    // https://docs.ens.domains/contract-api-reference/name-processing#normalising-names
+    ///
+    /// [Specification](https://docs.ens.domains/contract-api-reference/name-processing#normalising-names)
     fn normalize_name(&self, domain: &str) -> Result<String, ContractError> {
         self.idna
             .to_ascii(domain)
@@ -162,6 +163,7 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Sets or clears an approval.
+    ///
     /// Approved accounts can execute all ENS registry operations on behalf of the caller.
     pub async fn set_approval_for_all(
         &self,
@@ -178,6 +180,7 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Returns true if node exists in this ENS registry.
+    ///
     /// This will return false for records that are in the legacy ENS registry but have not yet been migrated to the new one.
     pub async fn record_exists(&self, domain: &str) -> Result<bool, ContractError> {
         let domain = self.normalize_name(domain)?;

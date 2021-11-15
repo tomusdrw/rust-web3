@@ -8,7 +8,9 @@ use crate::{
 
 type ContractError = crate::contract::Error;
 
-// See https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol for resolver interface.
+/// Public Resolver contract interface.
+///
+/// [Specification](https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol)
 #[derive(Debug, Clone)]
 pub struct PublicResolver<T: Transport> {
     contract: Contract<T>,
@@ -27,7 +29,7 @@ impl<T: Transport> PublicResolver<T> {
 
 impl<T: Transport> PublicResolver<T> {
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-contract-abi
-    pub async fn _abi(&self, node: NameHash, content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
+    pub async fn abi(&self, node: NameHash, content_types: U256) -> Result<(U256, Vec<u8>), ContractError> {
         let options = Options::default();
 
         self.contract
@@ -59,7 +61,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // This function is not explained anywhere. More info needed!
-    pub async fn _ddsrr(&self, node: NameHash) -> Result<Bytes, ContractError> {
+    pub async fn ddsrr(&self, node: NameHash) -> Result<Bytes, ContractError> {
         let options = Options::default();
 
         self.contract.query("dnsrr", node, None, options, None).await
@@ -67,7 +69,7 @@ impl<T: Transport> PublicResolver<T> {
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#get-canonical-name
     // A reverse resolver is used by default and so this fucntion is not used.
-    pub async fn _canonical_name(&self, node: NameHash) -> Result<String, ContractError> {
+    pub async fn canonical_name(&self, node: NameHash) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("name", node, None, options, None).await
@@ -88,7 +90,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // This function is not explained anywhere. More info needed!
-    pub async fn _interface_implementer(&self, node: NameHash, interface: [u8; 4]) -> Result<Address, ContractError> {
+    pub async fn interface_implementer(&self, node: NameHash, interface: [u8; 4]) -> Result<Address, ContractError> {
         let options = Options::default();
 
         self.contract
@@ -97,7 +99,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-contract-abi
-    pub async fn _set_contract_abi(
+    pub async fn set_contract_abi(
         &self,
         from: Address,
         node: NameHash,
@@ -164,7 +166,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // This function is not explained anywhere. More info needed!
-    pub async fn _set_dnsrr(
+    pub async fn set_dnsrr(
         &self,
         from: Address,
         node: NameHash,
@@ -179,7 +181,7 @@ impl<T: Transport> PublicResolver<T> {
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#set-canonical-name
     // A reverse resolver is used by default and so this fucntion is not used.
-    pub async fn _set_canonical_name(
+    pub async fn set_canonical_name(
         &self,
         from: Address,
         node: NameHash,
@@ -223,7 +225,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // This function is not explained anywhere. More info needed!
-    pub async fn _set_interface(
+    pub async fn set_interface(
         &self,
         from: Address,
         node: NameHash,
@@ -250,7 +252,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     // https://docs.ens.domains/contract-api-reference/publicresolver#multicall
-    pub async fn _multicall(&self, data: Bytes) -> Result<Bytes, ContractError> {
+    pub async fn multicall(&self, data: Bytes) -> Result<Bytes, ContractError> {
         let options = Options::default();
 
         self.contract.query("multicall", data, None, options, None).await

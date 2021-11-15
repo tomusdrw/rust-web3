@@ -196,7 +196,8 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
 pub type NameHash = [u8; 32];
 
 /// Compute the hash of a domain name using the namehash algorithm.
-/// See -> https://docs.ens.domains/contract-api-reference/name-processing#hashing-names
+///
+/// [Specification](https://docs.ens.domains/contract-api-reference/name-processing#hashing-names)
 pub fn namehash(name: &str) -> NameHash {
     let mut node = [0u8; 32];
 

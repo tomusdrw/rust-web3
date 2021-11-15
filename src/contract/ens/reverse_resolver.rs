@@ -8,7 +8,9 @@ use crate::{
 
 type ContractError = crate::contract::Error;
 
-// See https://github.com/ensdomains/resolvers/blob/master/contracts/DefaultReverseResolver.sol for contract interface.
+/// Reverse Resolver contract interface
+///
+/// [Specification](https://github.com/ensdomains/resolvers/blob/master/contracts/DefaultReverseResolver.sol)
 #[derive(Debug, Clone)]
 pub struct ReverseResolver<T: Transport> {
     contract: Contract<T>,

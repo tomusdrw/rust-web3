@@ -10,7 +10,9 @@ type ContractError = crate::contract::Error;
 
 const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
 
-// See https://github.com/ensdomains/ens/blob/master/contracts/ENS.sol for the contract interface.
+/// Registry contract interface.
+///
+/// [Specification](https://github.com/ensdomains/ens/blob/master/contracts/ENS.sol)
 #[derive(Debug, Clone)]
 pub struct Registry<T: Transport> {
     contract: Contract<T>,
