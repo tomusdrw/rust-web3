@@ -28,12 +28,14 @@ impl<T: Transport> ReverseResolver<T> {
 }
 
 impl<T: Transport> ReverseResolver<T> {
+    /// Returns the canonical ENS name associated with the provided node.
     pub async fn canonical_name(&self, node: NameHash) -> Result<String, ContractError> {
         let options = Options::default();
 
         self.contract.query("name", node, None, options, None).await
     }
 
+    /// Sets the canonical ENS name for the provided node to name.
     pub async fn set_canonical_name(
         &self,
         from: Address,

@@ -64,6 +64,40 @@ impl<T: Transport> Ens<T> {
             .map_err(|_| ContractError::Abi(EthError::InvalidData))
     }
 
+    /*** Main ENS Registry Functions Below ***/
+
+    /// Returns the owner of a name.
+    pub async fn owner(&self, domain: &str) -> Result<Address, ContractError> {
+        let domain = self.normalize_name(domain)?;
+        let node = namehash(&domain);
+
+        self.registry.owner(node).await
+    }
+
+    /// Returns the address of the resolver responsible for the name specified.
+    pub async fn resolver(&self, domain: &str) -> Result<Address, ContractError> {
+        let domain = self.normalize_name(domain)?;
+        let node = namehash(&domain);
+
+        self.registry.resolver(node).await
+    }
+
+    /// Returns the caching TTL (time-to-live) of a name.
+    pub async fn ttl(&self, domain: &str) -> Result<u64, ContractError> {
+        let domain = self.normalize_name(domain)?;
+        let node = namehash(&domain);
+
+        self.registry.ttl(node).await
+    }
+
+    /// Sets the owner of the given name.
+    pub async fn set_owner(&self, from: Address, domain: &str, owner: Address) -> Result<TransactionId, ContractError> {
+        let domain = self.normalize_name(domain)?;
+        let node = namehash(&domain);
+
+        self.registry.set_owner(from, node, owner).await
+    }
+
     /// Sets the resolver contract address of a name.
     pub async fn set_resolver(
         &self,
@@ -77,30 +111,6 @@ impl<T: Transport> Ens<T> {
         self.registry.set_resolver(from, node, address).await
     }
 
-    /// Returns the owner of a name.
-    pub async fn owner(&self, domain: &str) -> Result<Address, ContractError> {
-        let domain = self.normalize_name(domain)?;
-        let node = namehash(&domain);
-
-        self.registry.owner(node).await
-    }
-
-    /// Sets the owner of the given name.
-    pub async fn set_owner(&self, from: Address, domain: &str, owner: Address) -> Result<TransactionId, ContractError> {
-        let domain = self.normalize_name(domain)?;
-        let node = namehash(&domain);
-
-        self.registry.set_owner(from, node, owner).await
-    }
-
-    /// Returns the caching TTL (time-to-live) of a name.
-    pub async fn ttl(&self, domain: &str) -> Result<u64, ContractError> {
-        let domain = self.normalize_name(domain)?;
-        let node = namehash(&domain);
-
-        self.registry.ttl(node).await
-    }
-
     /// Sets the caching TTL (time-to-live) of a name.
     pub async fn set_ttl(&self, from: Address, domain: &str, ttl: u64) -> Result<TransactionId, ContractError> {
         let domain = self.normalize_name(domain)?;
@@ -110,23 +120,27 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Creates a new subdomain of the given node, assigning ownership of it to the specified owner.
-    pub async fn set_subnode_owner(
+    ///
+    /// If the domain already exists, ownership is reassigned but the resolver and TTL are left unmodified.
+    pub async fn set_subdomain_owner(
         &self,
         from: Address,
         domain: &str,
-        label: &str,
+        subdomain: &str,
         owner: Address,
     ) -> Result<TransactionId, ContractError> {
         let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
-        let label = self.normalize_name(label)?;
+        let label = self.normalize_name(subdomain)?;
         let label = crate::signing::keccak256(label.as_bytes());
 
         self.registry.set_subnode_owner(from, node, label, owner).await
     }
 
     /// Sets the owner, resolver, and TTL for an ENS record in a single operation.
+    ///
+    /// This function is offered for convenience, and is exactly equivalent to calling set_resolver, set_ttl and set_owner in that order.
     pub async fn set_record(
         &self,
         from: Address,
@@ -142,11 +156,13 @@ impl<T: Transport> Ens<T> {
     }
 
     /// Sets the owner, resolver and TTL for a subdomain, creating it if necessary.
-    pub async fn set_subnode_record(
+    ///
+    /// This function is offered for convenience, and permits setting all three fields without first transferring ownership of the subdomain to the caller.
+    pub async fn set_subdomain_record(
         &self,
         from: Address,
         domain: &str,
-        label: &str,
+        subdomain: &str,
         owner: Address,
         resolver: Address,
         ttl: u64,
@@ -154,7 +170,7 @@ impl<T: Transport> Ens<T> {
         let domain = self.normalize_name(domain)?;
         let node = namehash(&domain);
 
-        let label = self.normalize_name(label)?;
+        let label = self.normalize_name(subdomain)?;
         let label = crate::signing::keccak256(label.as_bytes());
 
         self.registry
@@ -179,7 +195,7 @@ impl<T: Transport> Ens<T> {
         self.registry.check_approval(owner, operator).await
     }
 
-    /// Returns true if node exists in this ENS registry.
+    /// Returns true if domain exists in the ENS registry.
     ///
     /// This will return false for records that are in the legacy ENS registry but have not yet been migrated to the new one.
     pub async fn record_exists(&self, domain: &str) -> Result<bool, ContractError> {
@@ -187,6 +203,19 @@ impl<T: Transport> Ens<T> {
         let node = namehash(&domain);
 
         self.registry.check_record_existence(node).await
+    }
+
+    /*** Public Resolver Functions Below ***/
+
+    /// Returns true if the related Public Resolver does support the given interfaceId.
+    pub async fn supports_interface(&self, domain: &str, interface_id: [u8; 4]) -> Result<bool, ContractError> {
+        let domain = self.normalize_name(domain)?;
+        let node = namehash(&domain);
+
+        let resolver_addr = self.registry.resolver(node).await?;
+        let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
+
+        resolver.check_interface_support(interface_id).await
     }
 
     /// Resolves an ENS name to an Ethereum address.
@@ -397,16 +426,5 @@ impl<T: Transport> Ens<T> {
         } */
 
         resolver.set_canonical_name(from, node, name).await
-    }
-
-    /// Returns true if the related PublicResolver does support the given interfaceId.
-    pub async fn supports_interface(&self, domain: &str, interface_id: [u8; 4]) -> Result<bool, ContractError> {
-        let domain = self.normalize_name(domain)?;
-        let node = namehash(&domain);
-
-        let resolver_addr = self.registry.resolver(node).await?;
-        let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
-
-        resolver.check_interface_support(interface_id).await
     }
 }
