@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn should_fail_to_deserialize_decimals() {
+    fn should_succesfully_deserialize_decimals() {
         let deserialized1: Res = serde_json::from_str(r#""""#);
         let deserialized2: Res = serde_json::from_str(r#""0""#);
         let deserialized3: Res = serde_json::from_str(r#""10""#);
@@ -128,10 +128,10 @@ mod tests {
         let deserialized5: Res = serde_json::from_str(r#""1000000000000000000""#);
 
         assert!(deserialized1.is_err());
-        assert!(deserialized2.is_err());
-        assert!(deserialized3.is_err());
-        assert!(deserialized4.is_err());
-        assert!(deserialized5.is_err());
+        assert!(deserialized2.is_ok());
+        assert!(deserialized3.is_ok());
+        assert!(deserialized4.is_ok());
+        assert!(deserialized5.is_ok());
     }
 
     #[test]
