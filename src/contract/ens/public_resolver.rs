@@ -17,6 +17,7 @@ pub struct PublicResolver<T: Transport> {
 }
 
 impl<T: Transport> PublicResolver<T> {
+    /// Creates new instance of [`PublicResolver`] given contract address.
     pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
         // See https://github.com/ensdomains/ens-contracts for up to date contracts.
         let bytes = include_bytes!("PublicResolver.json");

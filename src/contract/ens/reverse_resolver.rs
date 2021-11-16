@@ -17,6 +17,7 @@ pub struct ReverseResolver<T: Transport> {
 }
 
 impl<T: Transport> ReverseResolver<T> {
+    /// Creates new instance of [`ReverseResolver`] given contract address.
     pub fn new(eth: Eth<T>, resolver_addr: Address) -> Self {
         // See https://github.com/ensdomains/ens-contracts for up to date contracts.
         let bytes = include_bytes!("DefaultReverseResolver.json");

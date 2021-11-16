@@ -19,6 +19,7 @@ pub struct Registry<T: Transport> {
 }
 
 impl<T: Transport> Registry<T> {
+    /// Creates new instance of [`Registry`].
     pub fn new(eth: Eth<T>) -> Self {
         let address = ENS_REGISTRY_ADDRESS.parse().expect("Parsing Address");
 
