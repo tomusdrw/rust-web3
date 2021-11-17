@@ -7,6 +7,7 @@ mod fee_history;
 mod log;
 mod parity_peers;
 mod parity_pending_transaction;
+mod proof;
 mod recovery;
 mod signed;
 mod sync_state;
@@ -31,6 +32,7 @@ pub use self::{
     parity_pending_transaction::{
         FilterCondition, ParityPendingTransactionFilter, ParityPendingTransactionFilterBuilder, ToFilter,
     },
+    proof::Proof,
     recovery::{Recovery, RecoveryMessage},
     signed::{SignedData, SignedTransaction, TransactionParameters},
     sync_state::{SyncInfo, SyncState},
