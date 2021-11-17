@@ -107,7 +107,7 @@ pub struct Receipt {
     pub transaction_type: Option<U64>,
     /// Effective gas price
     #[serde(rename = "effectiveGasPrice")]
-    pub effective_gas_price: U256,
+    pub effective_gas_price: Option<U256>,
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
