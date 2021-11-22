@@ -4,7 +4,7 @@ use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
     types::{
-        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FeeHistory, Filter, Index, Log,
+        Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FeeHistory, Filter, Index, Log, Proof,
         SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
         U64,
     },
@@ -366,6 +366,19 @@ impl<T: Transport> Eth<T> {
     pub fn syncing(&self) -> CallFuture<SyncState, T::Out> {
         CallFuture::new(self.transport.execute("eth_syncing", vec![]))
     }
+
+    /// Returns the account- and storage-values of the specified account including the Merkle-proof.
+    pub fn proof(
+        &self,
+        address: Address,
+        keys: Vec<U256>,
+        block: Option<BlockNumber>,
+    ) -> CallFuture<Option<Proof>, T::Out> {
+        let add = helpers::serialize(&address);
+        let ks = helpers::serialize(&keys);
+        let blk = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        CallFuture::new(self.transport.execute("eth_getProof", vec![add, ks, blk]))
+    }
 }
 
 #[cfg(test)]
@@ -375,8 +388,9 @@ mod tests {
         api::Namespace,
         rpc::Value,
         types::{
-            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FeeHistory, FilterBuilder, Log, SyncInfo,
-            SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64,
+            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FeeHistory, FilterBuilder, Log, Proof,
+            SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520,
+            H64, U256,
         },
     };
     use hex_literal::hex;
@@ -509,6 +523,33 @@ mod tests {
           0.2282121795900929
       ],
       "oldestBlock": "0xcd1df9"
+  }"#;
+
+    ///taken from RPC docs
+    /// https://eips.ethereum.org/EIPS/eip-1186
+    const EXAMPLE_PROOF: &str = r#"{
+    "address": "0x1234567890123456789012345678901234567890",
+    "accountProof": [
+      "0xf90211a0c3b7e484f7e3258823aee7fada1378f1667757c4a1c3bde259adb4857b481726a0d0f709bf8bd61dd176b876f250638b03e65d367aa0e13f01a122e328e6215603a0d3ca85d7f5f63a6b01d818369c656639087aed983f63906b2eba99bf71255ef3a0d168cf7cc0253337d59fa3ed11bde10744a152fcb644c77bd8babbddf878714da02d4e42471dbdbd96eb3b115877d6b6202450cebee0d96d346d650ebd73eaa96ea07c2a9fbbec5c243327961f1a5ed3ce410dd0b255e4db934e68c2df424ede2a67a00a4ae2f21873ad931752edd3b3cfeffcedf15bb070525450bde50bdce6a78faca023e61f772deb072c430adb4316b65a66d8d3cef73dae7d515938e37c0db5c2f0a0d078fc1c446572cfb172888172287dd243ec085eb54594034926c99a3051230da04182e559c0f1bd6533e52fd995760da41701d37e8e21eab59e63db07e836a80fa0968213088b84869050884d5788ae5669d7d35ac0ddbdab71cfbd241da72df9e0a0bdc9921220e3bb9b4744c1764be9a9d7c22e5007387367285dc8f7495ebc0f21a01bf9c2458bb0c5c8f477734e347fb1f940a493ff0b533fef3c0bce20a5a69628a0626a993a9f6cb9febf4ca826b5731cc2ed85066c253cea94511d28a139445699a032a58d4abc48ee971d839915b0848d26af588b23138df7b072575d2dce3cb829a01b8af404f9cc8dc1590fa6f4ed79ea93a65d1aa152854f510efaceba183c8abb80",
+      "0xf90211a0e1557a91967828ea9eaf9b4c25bb0f079857340c54fa01acf24977f5d4d12ad4a0805a5d2f0d1b8c33c6415d2df4f4d812f4abe6b2d0f9f12196d31bbe5d76e47da0882d8a3a3493a0d76c907b0c2a4c6e3f26ca67a6a37aba6105c428d98ec2f67ea0b8bb9bd971ca68a49135390b03c11e2f7c352c146be2e3f8fff2a311dda5ddf1a01ae7bbab4493b34935640f40c74d7d72079742157ad5040a23f70c64f5153ca7a0574403fc7faa3a262eae412a707a74785a1159027e5b8de9990e1e82278e9691a01edc831a2e842b4d55b009c9831774fd6f17acfdee99f097c4fb20be583911f6a044569f910709fedb1ef83ef29b508e24def8eb9cc876dac0f6fa4f5f791cd719a0ebfdbfe9538bd72dbbeb56024982502950c69d9beb5d0d6d985917120e77e0d5a02c6fdf33ef98ca85a94ac9ed1319832ca5e2b344c1b8d921e77eda35480ba9d0a0c6b20bfc93fa2167bd43fe14cb648eb53c66fd56a3c95d0bd4c0442e86f7e686a01bed6e7e4a83c9aed9b39c49bb29782d63064d5ac425734dbfe4f0367eb29d07a0dede0f30aa107e1383be0a3ac31e0083213c27e1b11912e45e974257fa1d9915a089673bee5c46e4ee86b7e68115bc34b6eb9387e7c0d7300af1c502a8ef14fdf8a07e8e4d1729077f052c82cbd6de80966666514c53072945b53afd55c40b4f3a47a024caac94dd8acbf9c88a149b728115651faebd379f92e0ecc126fb136d5289df80",
+      "0xf89180a057d3fa3f15f8c0e639b1c3ac64e623348f39c5663587003279dcd5cf261489a58080a0b65511b496c46cca3eff9484a1a1961bcf7ae59237da1ead3675eea9b3f8469fa05114cfcd51e3a3735c556d68ac28f83dd28aa1a833425090521f0b9217c2114e8080a0adaeaae85d671adf3b559aaee605156f0c4511f9aa474cbcf6a594b219d216a88080808080808080"
+    ],
+    "balance": "0x0",
+    "codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "nonce": "0x0",
+    "storageHash": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "storageProof": [
+      {
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "value": "0x0",
+        "proof": []
+      },
+      {
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "value": "0x0",
+        "proof": []
+      }
+    ]
   }"#;
 
     rpc_test! (
@@ -867,5 +908,13 @@ mod tests {
     rpc_test! {
       Eth:syncing:not_syncing => "eth_syncing";
       Value::Bool(false) => SyncState::NotSyncing
+    }
+
+    rpc_test! {
+        Eth:proof, Address::from_low_u64_be(0x123), [U256::from(0x123)], BlockNumber::Latest
+        =>
+        "eth_getProof", vec![r#""0x0000000000000000000000000000000000000123""#, r#"["0x123"]"#, r#""latest""#];
+      ::serde_json::from_str(EXAMPLE_PROOF).unwrap()
+      => Some(::serde_json::from_str::<Proof>(EXAMPLE_PROOF).unwrap())
     }
 }
