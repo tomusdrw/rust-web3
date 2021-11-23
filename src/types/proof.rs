@@ -1,5 +1,5 @@
 use crate::types::Bytes;
-use ethereum_types::{H256, U256, U64};
+use ethereum_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 
 ///Proof struct returned by eth_getProof method
@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Proof {
     /// the balance of the account. See eth_getBalance
-    pub balance: U64,
+    pub balance: U256,
     ///  hash of the code of the account
     #[serde(rename = "codeHash")]
     pub code_hash: H256,
     /// nonce of the account. See eth_getTransactionCount
-    pub nonce: U64,
+    pub nonce: U256,
     /// SHA3 of the StorageRoot.
     #[serde(rename = "storageHash")]
     pub storage_hash: H256,
