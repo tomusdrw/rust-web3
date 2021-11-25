@@ -191,3 +191,75 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     hasher.finalize(&mut output);
     output
 }
+
+/// Result of the name hash algotithm.
+pub type NameHash = [u8; 32];
+
+/// Compute the hash of a domain name using the namehash algorithm.
+///
+/// [Specification](https://docs.ens.domains/contract-api-reference/name-processing#hashing-names)
+pub fn namehash(name: &str) -> NameHash {
+    let mut node = [0u8; 32];
+
+    if name.is_empty() {
+        return node;
+    }
+
+    let mut labels: Vec<&str> = name.split('.').collect();
+
+    labels.reverse();
+
+    for label in labels.iter() {
+        let label_hash = keccak256(label.as_bytes());
+
+        node = keccak256(&[node, label_hash].concat());
+    }
+
+    node
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    //See -> https://eips.ethereum.org/EIPS/eip-137 for test cases
+
+    #[test]
+    fn name_hash_empty() {
+        let input = "";
+
+        let result = namehash(input);
+
+        let expected = [0u8; 32];
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn name_hash_eth() {
+        let input = "eth";
+
+        let result = namehash(input);
+
+        let expected = [
+            0x93, 0xcd, 0xeb, 0x70, 0x8b, 0x75, 0x45, 0xdc, 0x66, 0x8e, 0xb9, 0x28, 0x01, 0x76, 0x16, 0x9d, 0x1c, 0x33,
+            0xcf, 0xd8, 0xed, 0x6f, 0x04, 0x69, 0x0a, 0x0b, 0xcc, 0x88, 0xa9, 0x3f, 0xc4, 0xae,
+        ];
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn name_hash_foo_eth() {
+        let input = "foo.eth";
+
+        let result = namehash(input);
+
+        let expected = [
+            0xde, 0x9b, 0x09, 0xfd, 0x7c, 0x5f, 0x90, 0x1e, 0x23, 0xa3, 0xf1, 0x9f, 0xec, 0xc5, 0x48, 0x28, 0xe9, 0xc8,
+            0x48, 0x53, 0x98, 0x01, 0xe8, 0x65, 0x91, 0xbd, 0x98, 0x01, 0xb0, 0x19, 0xf8, 0x4f,
+        ];
+
+        assert_eq!(expected, result);
+    }
+}
