@@ -1,3 +1,5 @@
+//! Public Resolver ENS contract interface.
+
 use crate::{
     api::Eth,
     contract::{Contract, Options},
@@ -207,8 +209,8 @@ impl<T: Transport> PublicResolver<T> {
         Ok(TransactionId::Hash(id))
     }
 
-    // This function is not explained anywhere. More info needed!
-    pub async fn ddsrr(&self, node: NameHash) -> Result<Bytes, ContractError> {
+    /// This function is not explained anywhere. More info needed!
+    pub async fn dnsrr(&self, node: NameHash) -> Result<Bytes, ContractError> {
         let options = Options::default();
 
         self.contract.query("dnsrr", node, None, options, None).await
@@ -249,7 +251,7 @@ impl<T: Transport> PublicResolver<T> {
         self.contract.query("multicall", data, None, options, None).await
     }
 
-    // This function is not explained anywhere. More info needed!
+    /// This function is not explained anywhere. More info needed!
     pub async fn interface_implementer(&self, node: NameHash, interface: [u8; 4]) -> Result<Address, ContractError> {
         let options = Options::default();
 
@@ -258,7 +260,7 @@ impl<T: Transport> PublicResolver<T> {
             .await
     }
 
-    // This function is not explained anywhere. More info needed!
+    /// This function is not explained anywhere. More info needed!
     pub async fn set_dnsrr(
         &self,
         from: Address,
@@ -272,7 +274,7 @@ impl<T: Transport> PublicResolver<T> {
         Ok(TransactionId::Hash(id))
     }
 
-    // This function is not explained anywhere. More info needed!
+    /// This function is not explained anywhere. More info needed!
     pub async fn set_interface(
         &self,
         from: Address,

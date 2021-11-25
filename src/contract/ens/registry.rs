@@ -1,3 +1,5 @@
+//! ENS Registry contract interface.
+
 use crate::{
     api::Eth,
     contract::{Contract, Options},

@@ -1,3 +1,5 @@
+//! Reverse Resolver ENS contract interface.
+
 use crate::{
     api::Eth,
     contract::{Contract, Options},
