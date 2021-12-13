@@ -1,0 +1,11 @@
+[package]
+name = "feth"
+version = "0.1.0"
+description = "Ethereum tools for Findora Network"
+authors = ["FindoraNetwork"]
+edition = "2021"
+
+[dependencies]
+web3 = { path = "../web3"}
+tokio = { version = "1.14" }
+secp256k1 = { version = "0.20", features = ["recovery"]}
