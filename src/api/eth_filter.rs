@@ -76,8 +76,10 @@ impl FilterInterface for PendingTransactionsFilter {
 }
 
 /// Base filter handle.
-/// Uninstall filter on drop.
 /// Allows to poll the filter.
+///
+/// Note: because Rust currently doesn't support async drop, the filter has to be uninstalled manually.
+/// See [https://github.com/tomusdrw/rust-web3/issues/583](this tracking issue).
 pub struct BaseFilter<T: Transport, I> {
     // TODO [ToDr] Workaround for ganache returning 0x03 instead of 0x3
     id: String,
