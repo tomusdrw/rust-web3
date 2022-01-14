@@ -2,13 +2,18 @@
 
 use crate::{
     error::{Error, Result},
-    helpers, BatchTransport, RequestId, Transport,
+    helpers,
+    rpc::error::Error as RPCError,
+    BatchTransport, RequestId, Transport,
 };
 #[cfg(not(feature = "wasm"))]
 use futures::future::BoxFuture;
 #[cfg(feature = "wasm")]
 use futures::future::LocalBoxFuture as BoxFuture;
-use jsonrpc_core::types::{Call, Output, Request, Value};
+use jsonrpc_core::{
+    types::{Call, Output, Request, Value},
+    ErrorCode,
+};
 use reqwest::{Client, Url};
 use serde::de::DeserializeOwned;
 use std::{
@@ -86,16 +91,15 @@ async fn execute_rpc<T: DeserializeOwned>(client: &Client, url: Url, request: &R
         .bytes()
         .await
         .map_err(|err| Error::Transport(format!("failed to read response bytes: {}", err)))?;
-    log::debug!(
-        "[id:{}] received response: {:?}",
-        id,
-        String::from_utf8_lossy(&response).as_ref()
-    );
+    let decoded_response = String::from_utf8_lossy(&response);
+    log::debug!("[id:{}] received response: {:?}", id, decoded_response.as_ref());
     if !status.is_success() {
-        return Err(Error::Transport(format!(
-            "response status code is not success: {}",
-            status
-        )));
+        let code = ErrorCode::from(i64::from(status.as_u16()));
+        return Err(Error::Rpc(RPCError {
+            code,
+            message: decoded_response.to_string(),
+            data: None,
+        }));
     }
     helpers::arbitrary_precision_deserialize_workaround(&response)
         .map_err(|err| Error::Transport(format!("failed to deserialize response: {}", err)))
