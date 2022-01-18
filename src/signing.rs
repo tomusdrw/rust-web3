@@ -33,7 +33,7 @@ mod feature_gated {
     use once_cell::sync::Lazy;
     pub(crate) use secp256k1::SecretKey;
     use secp256k1::{
-        recovery::{RecoverableSignature, RecoveryId},
+        ecdsa::{RecoverableSignature, RecoveryId},
         All, Message, PublicKey, Secp256k1,
     };
     use std::ops::Deref;
@@ -101,7 +101,7 @@ mod feature_gated {
     impl<T: Deref<Target = SecretKey>> Key for T {
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
             let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
-            let (recovery_id, signature) = CONTEXT.sign_recoverable(&message, self).serialize_compact();
+            let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let standard_v = recovery_id.to_i32() as u64;
             let v = if let Some(chain_id) = chain_id {
@@ -119,7 +119,7 @@ mod feature_gated {
 
         fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
             let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
-            let (recovery_id, signature) = CONTEXT.sign_recoverable(&message, self).serialize_compact();
+            let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let v = recovery_id.to_i32() as u64;
             let r = H256::from_slice(&signature[..32]);
@@ -142,7 +142,7 @@ mod feature_gated {
         let signature =
             RecoverableSignature::from_compact(&signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let public_key = CONTEXT
-            .recover(&message, &signature)
+            .recover_ecdsa(&message, &signature)
             .map_err(|_| RecoveryError::InvalidSignature)?;
 
         Ok(public_key_address(&public_key))

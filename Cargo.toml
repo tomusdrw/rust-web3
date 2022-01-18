@@ -29,7 +29,7 @@ serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
-secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
+secp256k1 = { version = "0.21", features = ["recovery"], optional = true }
 once_cell = { version = "1.8.0", optional = true }
 
 ## HTTP
