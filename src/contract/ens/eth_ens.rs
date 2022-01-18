@@ -272,7 +272,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*ADDR_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.ethereum_address(node).await
@@ -320,7 +320,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*BLOCKCHAIN_ADDR_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.blockchain_address(node, coin_type).await
@@ -366,7 +366,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*PUBKEY_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.public_key(node).await
@@ -413,7 +413,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*CONTENTHASH_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.content_hash(node).await
@@ -442,12 +442,12 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*CONTENTHASH_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         // https://eips.ethereum.org/EIPS/eip-1577
         if !(hash[0] == 0xe3 || hash[0] == 0xe4) {
-            return Err(ContractError::Abi(EthError::Other("Invalid Content Hash".into())));
+            return Err(ContractError::Abi(EthError::InvalidData));
         }
 
         resolver.set_content_hash(from, node, hash).await
@@ -486,7 +486,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*TEXT_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.text_data(node, key).await
@@ -515,7 +515,7 @@ impl<T: Transport> Ens<T> {
         let resolver = PublicResolver::new(self.web3.eth(), resolver_addr);
 
         if !resolver.check_interface_support(*TEXT_INTERFACE_ID).await? {
-            return Err(ContractError::Abi(EthError::Other("Interface Unsupported".into())));
+            return Err(ContractError::InterfaceUnsupported);
         }
 
         resolver.set_text_data(from, node, key, value).await
