@@ -4,7 +4,7 @@
 //! With it you can resolve ethereum addresses to domain names, domain name to blockchain adresses and more!
 //!
 //! # Example
-//! ```rust
+//! ```no_run
 //! # use eth_ens::Ens;
 //! # use crate::transport::{Eip1193, Provider};
 //! #
