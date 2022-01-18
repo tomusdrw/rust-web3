@@ -184,6 +184,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     /// Returns the ECDSA SECP256k1 public key for node, as a 2-tuple (x, y).
+    /// If no public key is set, (0, 0) is returned.
     ///
     /// [Specification](https://docs.ens.domains/contract-api-reference/publicresolver#get-public-key)
     pub async fn public_key(&self, node: NameHash) -> Result<([u8; 32], [u8; 32]), ContractError> {
