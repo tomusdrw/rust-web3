@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use wasm_bindgen::*;
 
 use wasm_bindgen_test::{console_log, wasm_bindgen_test};
@@ -13,7 +15,7 @@ use web3::{
 use hex_literal::hex;
 
 fn get_ens() -> Ens<Eip1193> {
-    let provider = Provider::default().expect("Get Provider").expect("Provider is Some");
+    let provider = Provider::default().expect("Get Provider").expect("Provider is None");
     let transport = Eip1193::new(provider);
     let ens = Ens::new(transport);
 
