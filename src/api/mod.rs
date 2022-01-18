@@ -29,8 +29,8 @@ pub use self::{
 };
 
 use crate::{
-    confirm, error,
-    types::{Bytes, TransactionReceipt, TransactionRequest, U64},
+    confirm, error, signing,
+    types::{Bytes, TransactionReceipt, TransactionRequest, U64, H256},
     DuplexTransport, Transport,
 };
 use futures::Future;
@@ -162,4 +162,21 @@ impl<T: DuplexTransport> Web3<T> {
     pub fn eth_subscribe(&self) -> eth_subscribe::EthSubscribe<T> {
         self.api()
     }
+}
+
+/// Hash a message according to EIP-191.
+///
+/// The data is a UTF-8 encoded string and will enveloped as follows:
+/// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
+/// using keccak256.
+pub fn hash_message<S>(message: S) -> H256
+    where
+        S: AsRef<[u8]>,
+{
+    let message = message.as_ref();
+
+    let mut eth_message = format!("\x19Ethereum Signed Message:\n{}", message.len()).into_bytes();
+    eth_message.extend_from_slice(message);
+
+    signing::keccak256(&eth_message).into()
 }

@@ -1,7 +1,7 @@
 //! Partial implementation of the `Accounts` namespace.
 
 use crate::{
-    api::Namespace,
+    api::{hash_message, Namespace},
     signing,
     types::{AccessList, H256, U64},
     Transport,
@@ -36,12 +36,7 @@ impl<T: Transport> Accounts<T> {
     where
         S: AsRef<[u8]>,
     {
-        let message = message.as_ref();
-
-        let mut eth_message = format!("\x19Ethereum Signed Message:\n{}", message.len()).into_bytes();
-        eth_message.extend_from_slice(message);
-
-        signing::keccak256(&eth_message).into()
+        hash_message(message)
     }
 }
 
