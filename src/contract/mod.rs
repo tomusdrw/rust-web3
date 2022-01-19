@@ -368,7 +368,10 @@ mod contract_signing {
             accounts.sign_transaction(tx, key).await
         }
 
-        /// Execute a signed contract function
+        /// Submit contract call transaction to the transaction pool.
+        ///
+        /// Note this function DOES NOT wait for any confirmations, so there is no guarantees that the call is actually executed.
+        /// If you'd rather wait for block inclusion, please use [`signed_call_with_confirmations`] instead.
         pub async fn signed_call(
             &self,
             func: &str,
