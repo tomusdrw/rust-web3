@@ -5,7 +5,7 @@
 //!
 //! # Example
 //! ```no_run
-//! # use eth_ens::Ens;
+//! # use crate::contract::ens::Ens;
 //! # use crate::transport::{Eip1193, Provider};
 //! #
 //! #[tokio::main]
