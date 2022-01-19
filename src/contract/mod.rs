@@ -383,7 +383,10 @@ mod contract_signing {
             self.eth.send_raw_transaction(signed.raw_transaction).await
         }
 
-        /// Execute a signed contract function and wait for confirmations
+        /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
+        ///
+        /// This function will wait for block inclusion of the transaction before returning.
+        // If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
         pub async fn signed_call_with_confirmations(
             &self,
             func: &str,
