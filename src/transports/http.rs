@@ -1,19 +1,14 @@
 //! HTTP Transport
 
 use crate::{
-    error::{Error, Result},
-    helpers,
-    rpc::error::Error as RPCError,
-    BatchTransport, RequestId, Transport,
+    error::{Error, Result, TransportError},
+    helpers, BatchTransport, RequestId, Transport,
 };
 #[cfg(not(feature = "wasm"))]
 use futures::future::BoxFuture;
 #[cfg(feature = "wasm")]
 use futures::future::LocalBoxFuture as BoxFuture;
-use jsonrpc_core::{
-    types::{Call, Output, Request, Value},
-    ErrorCode,
-};
+use jsonrpc_core::types::{Call, Output, Request, Value};
 use reqwest::{Client, Url};
 use serde::de::DeserializeOwned;
 use std::{
@@ -53,7 +48,7 @@ impl Http {
         }
         let client = builder
             .build()
-            .map_err(|err| Error::Transport(format!("failed to build client: {}", err)))?;
+            .map_err(|err| Error::Transport(TransportError::Message(format!("failed to build client: {}", err))))?;
         Ok(Self::with_client(client, url.parse()?))
     }
 
@@ -85,24 +80,28 @@ async fn execute_rpc<T: DeserializeOwned>(client: &Client, url: Url, request: &R
         .json(request)
         .send()
         .await
-        .map_err(|err| Error::Transport(format!("failed to send request: {}", err)))?;
+        .map_err(|err| Error::Transport(TransportError::Message(format!("failed to send request: {}", err))))?;
     let status = response.status();
-    let response = response
-        .bytes()
-        .await
-        .map_err(|err| Error::Transport(format!("failed to read response bytes: {}", err)))?;
-    let decoded_response = String::from_utf8_lossy(&response);
-    log::debug!("[id:{}] received response: {:?}", id, decoded_response.as_ref());
+    let response = response.bytes().await.map_err(|err| {
+        Error::Transport(TransportError::Message(format!(
+            "failed to read response bytes: {}",
+            err
+        )))
+    })?;
+    log::debug!(
+        "[id:{}] received response: {:?}",
+        id,
+        String::from_utf8_lossy(&response)
+    );
     if !status.is_success() {
-        let code = ErrorCode::from(i64::from(status.as_u16()));
-        return Err(Error::Rpc(RPCError {
-            code,
-            message: decoded_response.to_string(),
-            data: None,
-        }));
+        return Err(Error::Transport(TransportError::Code(status.as_u16())));
     }
-    helpers::arbitrary_precision_deserialize_workaround(&response)
-        .map_err(|err| Error::Transport(format!("failed to deserialize response: {}", err)))
+    helpers::arbitrary_precision_deserialize_workaround(&response).map_err(|err| {
+        Error::Transport(TransportError::Message(format!(
+            "failed to deserialize response: {}",
+            err
+        )))
+    })
 }
 
 type RpcResult = Result<Value>;
