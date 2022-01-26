@@ -139,6 +139,20 @@ impl WsServerTask {
             resource
         );
         let mut client = Client::new(socket, host, &resource);
+        let maybe_encoded = url.password().map(|password| {
+            use headers::authorization::{Authorization, Credentials};
+            log::trace!("Basic auth username: {}", url.username());
+            log::trace!("Basic auth password: {}", password);
+            Authorization::basic(url.username(), password).0.encode().to_str().unwrap().as_bytes().to_owned()
+        });
+
+        let headers = if let Some(ref head) = maybe_encoded {
+            Some([soketto::handshake::client::Header {name: "Authorization",value: &head }])
+        } else { None };
+
+        if let Some(ref head) = headers {
+            client.set_headers(head);
+        }
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
