@@ -141,8 +141,6 @@ impl WsServerTask {
         let mut client = Client::new(socket, host, &resource);
         let maybe_encoded = url.password().map(|password| {
             use headers::authorization::{Authorization, Credentials};
-            log::trace!("Basic auth username: {}", url.username());
-            log::trace!("Basic auth password: {}", password);
             Authorization::basic(url.username(), password).0.encode().to_str().unwrap().as_bytes().to_owned()
         });
 
