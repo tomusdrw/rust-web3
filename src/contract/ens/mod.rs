@@ -7,6 +7,8 @@
 //! ```no_run
 //! ##[tokio::main]
 //! async fn main() -> web3::Result<()> {
+//!     use crate::web3::api::Namespace;
+//!
 //!     let transport = web3::transports::Http::new("http://localhost:8545")?;
 //!     
 //!     let ens = web3::contract::ens::Ens::new(transport);
