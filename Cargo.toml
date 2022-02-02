@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.17.0"
+version = "0.18.0"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -14,11 +14,12 @@ edition = "2018"
 [dependencies]
 arrayvec = "0.7.1"
 derive_more = "0.99.1"
-ethabi = "15.0.0"
+ethabi = "16.0.0"
 ethereum-types = "0.12.1"
 futures = "0.3.5"
 futures-timer = "3.0.2"
 hex = "0.4"
+idna = "0.2"
 jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.11.0"
@@ -28,7 +29,7 @@ serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
-secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
+secp256k1 = { version = "0.21", features = ["recovery"], optional = true }
 once_cell = { version = "1.8.0", optional = true }
 
 ## HTTP
