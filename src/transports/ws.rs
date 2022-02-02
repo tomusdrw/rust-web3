@@ -145,7 +145,7 @@ impl WsServerTask {
         });
 
         let headers = if let Some(ref head) = maybe_encoded {
-            Some([soketto::handshake::client::Header {name: "Authorization",value: &head }])
+            Some([soketto::handshake::client::Header {name: "Authorization", value: &head }])
         } else { None };
 
         if let Some(ref head) = headers {
