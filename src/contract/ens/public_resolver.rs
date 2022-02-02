@@ -24,7 +24,7 @@ type ContractError = crate::contract::Error;
 /// - [EIP 1577](https://eips.ethereum.org/EIPS/eip-1577) - Content hash support.
 /// - [EIP 2304](https://eips.ethereum.org/EIPS/eip-2304) - Multicoin support.
 ///
-/// While the PublicResolverprovides a convenient default implementation, many resolver implementations and versions exist.
+/// While the [`PublicResolver`] provides a convenient default implementation, many resolver implementations and versions exist.
 /// Callers must not assume that a domain uses the current version of the public resolver, or that all of the methods described here are present.
 /// To check if a resolver supports a feature, see [`check_interface_support`](#method.check_interface_support).
 ///

@@ -4,17 +4,19 @@
 //! With it you can resolve ethereum addresses to domain names, domain name to blockchain adresses and more!
 //!
 //! # Example
-//! ```ignore
-//! # use crate::contract::ens::Ens;
-//! # use crate::transport::{Eip1193, Provider};
+//! ```no_run
 //! #
-//! #[tokio::main]
-//! async fn main() {
-//!     let provider = Provider::default().unwrap().unwrap();
-//!     let transport = Eip1193::new(provider);
-//!     let ens = Ens::new(transport);
+//! [tokio::main]
+//! async fn main() -> web3::Result<()> {
+//!     let transport = web3::transports::Http::new("http://localhost:8545")?;
+//!     
+//!     let ens = web3::contract::ens::Ens::new(transport);
 //!
-//!     let addess = ens.eth_address("vitalik.eth").await.unwrap();
+//!     let address = ens.eth_address("vitalik.eth").await.unwrap();
+//!
+//!     println!("Address: {:?}", address);
+//!
+//!     Ok(())
 //! }
 //! ```
 
