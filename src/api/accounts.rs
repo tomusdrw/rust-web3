@@ -1,7 +1,7 @@
 //! Partial implementation of the `Accounts` namespace.
 
 use crate::{
-    api::{hash_message, Namespace},
+    api::Namespace,
     signing,
     types::{AccessList, H256, U64},
     Transport,
@@ -36,7 +36,7 @@ impl<T: Transport> Accounts<T> {
     where
         S: AsRef<[u8]>,
     {
-        hash_message(message)
+        signing::hash_message(message)
     }
 }
 
