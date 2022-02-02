@@ -30,7 +30,7 @@ pub use self::{
 
 use crate::{
     confirm, error, signing,
-    types::{Bytes, TransactionReceipt, TransactionRequest, U64, H256},
+    types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64},
     DuplexTransport, Transport,
 };
 use futures::Future;
@@ -170,8 +170,8 @@ impl<T: DuplexTransport> Web3<T> {
 /// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
 /// using keccak256.
 pub fn hash_message<S>(message: S) -> H256
-    where
-        S: AsRef<[u8]>,
+where
+    S: AsRef<[u8]>,
 {
     let message = message.as_ref();
 
