@@ -5,8 +5,7 @@
 //!
 //! # Example
 //! ```no_run
-//! #
-//! [tokio::main]
+//! ##[tokio::main]
 //! async fn main() -> web3::Result<()> {
 //!     let transport = web3::transports::Http::new("http://localhost:8545")?;
 //!     
@@ -20,9 +19,9 @@
 //! }
 //! ```
 
-mod eth_ens;
+/* mod eth_ens;
 pub mod public_resolver;
 pub mod registry;
 pub mod reverse_resolver;
 
-pub use eth_ens::Ens;
+pub use eth_ens::Ens; */
