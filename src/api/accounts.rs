@@ -183,7 +183,7 @@ mod accounts_signing {
             };
             let (signature, recovery_id) = recovery
                 .as_signature()
-                .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
+                .ok_or(error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
             let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
             Ok(address)
         }
