@@ -33,7 +33,7 @@ pub use self::{
         FilterCondition, ParityPendingTransactionFilter, ParityPendingTransactionFilterBuilder, ToFilter,
     },
     proof::Proof,
-    recovery::{Recovery, RecoveryMessage},
+    recovery::{ParseSignatureError, Recovery, RecoveryMessage},
     signed::{SignedData, SignedTransaction, TransactionParameters},
     sync_state::{SyncInfo, SyncState},
     trace_filtering::{

@@ -218,6 +218,23 @@ pub fn namehash(name: &str) -> NameHash {
     node
 }
 
+/// Hash a message according to EIP-191.
+///
+/// The data is a UTF-8 encoded string and will enveloped as follows:
+/// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
+/// using keccak256.
+pub fn hash_message<S>(message: S) -> H256
+where
+    S: AsRef<[u8]>,
+{
+    let message = message.as_ref();
+
+    let mut eth_message = format!("\x19Ethereum Signed Message:\n{}", message.len()).into_bytes();
+    eth_message.extend_from_slice(message);
+
+    keccak256(&eth_message).into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
