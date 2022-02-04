@@ -327,10 +327,7 @@ mod accounts_signing {
 
         /// Sign and return a raw signed transaction.
         pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
-            let adjust_v_value = match self.transaction_type.map(|t| t.as_u64()) {
-                Some(LEGACY_TX_ID) | None => true,
-                _ => false,
-            };
+            let adjust_v_value = matches!(self.transaction_type.map(|t| t.as_u64()), Some(LEGACY_TX_ID) | None);
 
             let encoded = self.encode(chain_id, None);
 
