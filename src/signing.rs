@@ -94,7 +94,7 @@ mod feature_gated {
         type Target = SecretKey;
 
         fn deref(&self) -> &Self::Target {
-            &self.key
+            self.key
         }
     }
 
