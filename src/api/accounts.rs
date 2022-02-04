@@ -36,12 +36,7 @@ impl<T: Transport> Accounts<T> {
     where
         S: AsRef<[u8]>,
     {
-        let message = message.as_ref();
-
-        let mut eth_message = format!("\x19Ethereum Signed Message:\n{}", message.len()).into_bytes();
-        eth_message.extend_from_slice(message);
-
-        signing::keccak256(&eth_message).into()
+        signing::hash_message(message)
     }
 }
 
