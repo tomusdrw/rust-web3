@@ -12,9 +12,14 @@ type ContractError = crate::contract::Error;
 
 const ENS_REGISTRY_ADDRESS: &str = "00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
 
-/// Registry contract interface.
+/// The ENS registry is the core contract that lies at the heart of ENS resolution.
 ///
-/// [Specification](https://github.com/ensdomains/ens/blob/master/contracts/ENS.sol)
+/// All ENS lookups start by querying the registry.
+/// The registry maintains a list of domains, recording the owner, resolver, and TTL for each, and allows the owner of a domain to make changes to that data.
+///
+/// The ENS registry is specified in [EIP 137](https://eips.ethereum.org/EIPS/eip-137).
+///
+/// [Source](https://github.com/ensdomains/ens/blob/master/contracts/ENS.sol)
 #[derive(Debug, Clone)]
 pub struct Registry<T: Transport> {
     contract: Contract<T>,

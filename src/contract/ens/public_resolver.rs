@@ -10,9 +10,25 @@ use crate::{
 
 type ContractError = crate::contract::Error;
 
-/// Public Resolver contract interface.
+/// [`PublicResolver`] implements a general-purpose ENS resolver that is suitable for most standard ENS use-cases.
 ///
-/// [Specification](https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol)
+/// The public resolver permits updates to ENS records by the owner of the corresponding name.
+///
+/// The public resolver implements the following EIPs:
+/// - [EIP 137](https://eips.ethereum.org/EIPS/eip-137) Contract address interface.
+/// - [EIP 165](https://eips.ethereum.org/EIPS/eip-165) Interface Detection.
+/// - [EIP 181](https://eips.ethereum.org/EIPS/eip-181) - Reverse resolution.
+/// - [EIP 205](https://eips.ethereum.org/EIPS/eip-205) - ABI support.
+/// - [EIP 619](https://github.com/ethereum/EIPs/pull/619) - SECP256k1 public keys.
+/// - [EIP 634](https://eips.ethereum.org/EIPS/eip-634) - Text records.
+/// - [EIP 1577](https://eips.ethereum.org/EIPS/eip-1577) - Content hash support.
+/// - [EIP 2304](https://eips.ethereum.org/EIPS/eip-2304) - Multicoin support.
+///
+/// While the [`PublicResolver`] provides a convenient default implementation, many resolver implementations and versions exist.
+/// Callers must not assume that a domain uses the current version of the public resolver, or that all of the methods described here are present.
+/// To check if a resolver supports a feature, see [`check_interface_support`](#method.check_interface_support).
+///
+/// [Source](https://github.com/ensdomains/resolvers/blob/master/contracts/Resolver.sol)
 #[derive(Debug, Clone)]
 pub struct PublicResolver<T: Transport> {
     contract: Contract<T>,
@@ -184,6 +200,7 @@ impl<T: Transport> PublicResolver<T> {
     }
 
     /// Returns the ECDSA SECP256k1 public key for node, as a 2-tuple (x, y).
+    /// If no public key is set, (0, 0) is returned.
     ///
     /// [Specification](https://docs.ens.domains/contract-api-reference/publicresolver#get-public-key)
     pub async fn public_key(&self, node: NameHash) -> Result<([u8; 32], [u8; 32]), ContractError> {
