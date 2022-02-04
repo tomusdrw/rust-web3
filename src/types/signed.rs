@@ -107,19 +107,19 @@ impl From<CallRequest> for TransactionParameters {
     }
 }
 
-impl Into<CallRequest> for TransactionParameters {
-    fn into(self) -> CallRequest {
+impl From<TransactionParameters> for CallRequest {
+    fn from(val: TransactionParameters) -> Self {
         CallRequest {
             from: None,
-            to: self.to,
-            gas: Some(self.gas),
-            gas_price: self.gas_price,
-            value: Some(self.value),
-            data: Some(self.data),
-            transaction_type: self.transaction_type,
-            access_list: self.access_list,
-            max_fee_per_gas: self.max_fee_per_gas,
-            max_priority_fee_per_gas: self.max_priority_fee_per_gas,
+            to: val.to,
+            gas: Some(val.gas),
+            gas_price: val.gas_price,
+            value: Some(val.value),
+            data: Some(val.data),
+            transaction_type: val.transaction_type,
+            access_list: val.access_list,
+            max_fee_per_gas: val.max_fee_per_gas,
+            max_priority_fee_per_gas: val.max_priority_fee_per_gas,
         }
     }
 }
