@@ -330,20 +330,20 @@ impl<T: Transport> Contract<T> {
 #[cfg(feature = "signing")]
 mod contract_signing {
     use super::*;
-    use crate::{api::Accounts, signing, types::TransactionParameters};
+    use crate::{
+        api::Accounts,
+        signing,
+        types::{SignedTransaction, TransactionParameters},
+    };
 
     impl<T: Transport> Contract<T> {
-        /// Execute a signed contract function and wait for confirmations
-        pub async fn signed_call_with_confirmations(
+        async fn sign(
             &self,
             func: &str,
             params: impl Tokenize,
             options: Options,
-            confirmations: usize,
             key: impl signing::Key,
-        ) -> crate::Result<TransactionReceipt> {
-            let poll_interval = time::Duration::from_secs(1);
-
+        ) -> crate::Result<SignedTransaction> {
             let fn_data = self
                 .abi
                 .function(func)
@@ -365,7 +365,39 @@ mod contract_signing {
             if let Some(value) = options.value {
                 tx.value = value;
             }
-            let signed = accounts.sign_transaction(tx, key).await?;
+            accounts.sign_transaction(tx, key).await
+        }
+
+        /// Submit contract call transaction to the transaction pool.
+        ///
+        /// Note this function DOES NOT wait for any confirmations, so there is no guarantees that the call is actually executed.
+        /// If you'd rather wait for block inclusion, please use [`signed_call_with_confirmations`] instead.
+        pub async fn signed_call(
+            &self,
+            func: &str,
+            params: impl Tokenize,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<H256> {
+            let signed = self.sign(func, params, options, key).await?;
+            self.eth.send_raw_transaction(signed.raw_transaction).await
+        }
+
+        /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
+        ///
+        /// This function will wait for block inclusion of the transaction before returning.
+        // If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        pub async fn signed_call_with_confirmations(
+            &self,
+            func: &str,
+            params: impl Tokenize,
+            options: Options,
+            confirmations: usize,
+            key: impl signing::Key,
+        ) -> crate::Result<TransactionReceipt> {
+            let poll_interval = time::Duration::from_secs(1);
+            let signed = self.sign(func, params, options, key).await?;
+
             confirm::send_raw_transaction_with_confirmation(
                 self.eth.transport().clone(),
                 signed.raw_transaction,
