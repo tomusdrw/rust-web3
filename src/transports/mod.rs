@@ -1,7 +1,6 @@
 //! Supported Ethereum JSON-RPC transports.
 
 pub mod batch;
-use crate::error::TransportError;
 
 pub use self::batch::Batch;
 pub mod either;
@@ -28,6 +27,7 @@ pub mod test;
 #[cfg(feature = "url")]
 impl From<url::ParseError> for crate::Error {
     fn from(err: url::ParseError) -> Self {
+        use crate::error::TransportError;
         crate::Error::Transport(TransportError::Message(format!("failed to parse url: {}", err)))
     }
 }
@@ -35,6 +35,7 @@ impl From<url::ParseError> for crate::Error {
 #[cfg(feature = "async-native-tls")]
 impl From<async_native_tls::Error> for crate::Error {
     fn from(err: async_native_tls::Error) -> Self {
+        use crate::error::TransportError;
         crate::Error::Transport(TransportError::Message(format!("{:?}", err)))
     }
 }

@@ -155,7 +155,7 @@ impl WsServerTask {
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
-            ServerResponse::Redirect { status_code, ... } => {
+            ServerResponse::Redirect { status_code, .. } => {
                 return Err(error::Error::Transport(TransportError::Code(status_code)))
             }
             ServerResponse::Rejected { status_code } => {
