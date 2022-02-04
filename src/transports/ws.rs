@@ -148,14 +148,12 @@ impl WsServerTask {
                 .to_vec()
         });
 
-        let headers = if let Some(ref head) = maybe_encoded {
-            Some([soketto::handshake::client::Header {
+        let headers = maybe_encoded.as_ref().map(|head| {
+            [soketto::handshake::client::Header {
                 name: "Authorization",
-                value: &head,
-            }])
-        } else {
-            None
-        };
+                value: head,
+            }]
+        });
 
         if let Some(ref head) = headers {
             client.set_headers(head);
