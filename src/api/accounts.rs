@@ -282,13 +282,13 @@ mod accounts_signing {
             stream
         }
 
-        fn rlp_append_signature(&self, stream: &mut RlpStream, signature: &Signature) -> () {
+        fn rlp_append_signature(&self, stream: &mut RlpStream, signature: &Signature) {
             stream.append(&signature.v);
             stream.append(&U256::from_big_endian(signature.r.as_bytes()));
             stream.append(&U256::from_big_endian(signature.s.as_bytes()));
         }
 
-        fn rlp_append_access_list(&self, stream: &mut RlpStream) -> () {
+        fn rlp_append_access_list(&self, stream: &mut RlpStream) {
             stream.begin_list(self.access_list.len());
             for access in self.access_list.iter() {
                 stream.begin_list(2);
