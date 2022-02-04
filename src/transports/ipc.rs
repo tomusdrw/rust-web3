@@ -170,7 +170,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
     let mut read_buffer = vec![];
     let mut closed = false;
 
-    while !closed || pending_response_txs.len() > 0 {
+    while !closed || !pending_response_txs.is_empty() {
         tokio::select! {
             message = messages_rx.next() => match message {
                 None => closed = true,
