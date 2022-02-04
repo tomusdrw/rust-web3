@@ -1,7 +1,11 @@
 //! WebSocket Transport
 
 use self::compat::{TcpStream, TlsStream};
-use crate::{api::SubscriptionId, error, helpers, rpc, BatchTransport, DuplexTransport, Error, RequestId, Transport};
+use crate::{
+    api::SubscriptionId,
+    error::{self, TransportError},
+    helpers, rpc, BatchTransport, DuplexTransport, Error, RequestId, Transport,
+};
 use futures::{
     channel::{mpsc, oneshot},
     task::{Context, Poll},
@@ -22,13 +26,13 @@ use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
     fn from(err: soketto::handshake::Error) -> Self {
-        Error::Transport(format!("Handshake Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Handshake Error: {:?}", err)))
     }
 }
 
 impl From<connection::Error> for Error {
     fn from(err: connection::Error) -> Self {
-        Error::Transport(format!("Connection Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Connection Error: {:?}", err)))
     }
 }
 
@@ -100,12 +104,21 @@ impl WsServerTask {
 
         let scheme = match url.scheme() {
             s if s == "ws" || s == "wss" => s,
-            s => return Err(error::Error::Transport(format!("Wrong scheme: {}", s))),
+            s => {
+                return Err(error::Error::Transport(TransportError::Message(format!(
+                    "Wrong scheme: {}",
+                    s
+                ))))
+            }
         };
 
         let host = match url.host_str() {
             Some(s) => s,
-            None => return Err(error::Error::Transport("Wrong host name".to_string())),
+            None => {
+                return Err(error::Error::Transport(TransportError::Message(
+                    "Wrong host name".to_string(),
+                )))
+            }
         };
 
         let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
@@ -163,17 +176,11 @@ impl WsServerTask {
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
-            ServerResponse::Redirect { status_code, location } => {
-                return Err(error::Error::Transport(format!(
-                    "(code: {}) Unable to follow redirects: {}",
-                    status_code, location
-                )))
+            ServerResponse::Redirect { status_code, .. } => {
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
             }
             ServerResponse::Rejected { status_code } => {
-                return Err(error::Error::Transport(format!(
-                    "(code: {}) Connection rejected.",
-                    status_code
-                )))
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
             }
         };
 
@@ -363,7 +370,9 @@ impl WebSocket {
 }
 
 fn dropped_err<T>(_: T) -> error::Error {
-    Error::Transport("Cannot send request. Internal task finished.".into())
+    Error::Transport(TransportError::Message(
+        "Cannot send request. Internal task finished.".into(),
+    ))
 }
 
 fn batch_to_single(response: BatchResult) -> SingleResult {
