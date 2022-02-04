@@ -140,7 +140,7 @@ mod accounts_signing {
             let message_hash = self.hash_message(message);
 
             let signature = key
-                .sign(&message_hash.as_bytes(), None)
+                .sign(message_hash.as_bytes(), None)
                 .expect("hash is non-zero 32-bytes; qed");
             let v = signature
                 .v
