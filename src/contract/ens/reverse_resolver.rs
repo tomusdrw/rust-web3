@@ -10,9 +10,16 @@ use crate::{
 
 type ContractError = crate::contract::Error;
 
-/// Reverse Resolver contract interface
+/// Reverse resolution in ENS - the process of mapping from an Ethereum address (eg, 0x1234...) to an ENS name - is handled using a special namespace, *.addr.reverse*.
+/// A special-purpose registrar controls this namespace and allocates subdomains to any caller based on their address.
 ///
-/// [Specification](https://github.com/ensdomains/resolvers/blob/master/contracts/DefaultReverseResolver.sol)
+/// For example, the account *0x314159265dd8dbb310642f98f50c066173c1259b* can claim *314159265dd8dbb310642f98f50c066173c1259b.addr.reverse*. After doing so, it can configure a resolver and expose metadata, such as a canonical ENS name for this address.
+///
+/// The reverse registrar provides functions to claim a reverse record, as well as a convenience function to configure the record as it's most commonly used, as a way of specifying a canonical name for an address.
+///
+/// The reverse registrar is specified in [EIP 181](https://eips.ethereum.org/EIPS/eip-181).
+///
+/// [Source](https://github.com/ensdomains/ens/blob/master/contracts/ReverseRegistrar.sol)
 #[derive(Debug, Clone)]
 pub struct ReverseResolver<T: Transport> {
     contract: Contract<T>,

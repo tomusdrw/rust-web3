@@ -1,7 +1,7 @@
 //! HTTP Transport
 
 use crate::{
-    error::{Error, Result},
+    error::{Error, Result, TransportError},
     helpers, BatchTransport, RequestId, Transport,
 };
 #[cfg(not(feature = "wasm"))]
@@ -48,7 +48,7 @@ impl Http {
         }
         let client = builder
             .build()
-            .map_err(|err| Error::Transport(format!("failed to build client: {}", err)))?;
+            .map_err(|err| Error::Transport(TransportError::Message(format!("failed to build client: {}", err))))?;
         Ok(Self::with_client(client, url.parse()?))
     }
 
@@ -80,25 +80,28 @@ async fn execute_rpc<T: DeserializeOwned>(client: &Client, url: Url, request: &R
         .json(request)
         .send()
         .await
-        .map_err(|err| Error::Transport(format!("failed to send request: {}", err)))?;
+        .map_err(|err| Error::Transport(TransportError::Message(format!("failed to send request: {}", err))))?;
     let status = response.status();
-    let response = response
-        .bytes()
-        .await
-        .map_err(|err| Error::Transport(format!("failed to read response bytes: {}", err)))?;
+    let response = response.bytes().await.map_err(|err| {
+        Error::Transport(TransportError::Message(format!(
+            "failed to read response bytes: {}",
+            err
+        )))
+    })?;
     log::debug!(
         "[id:{}] received response: {:?}",
         id,
-        String::from_utf8_lossy(&response).as_ref()
+        String::from_utf8_lossy(&response)
     );
     if !status.is_success() {
-        return Err(Error::Transport(format!(
-            "response status code is not success: {}",
-            status
-        )));
+        return Err(Error::Transport(TransportError::Code(status.as_u16())));
     }
-    helpers::arbitrary_precision_deserialize_workaround(&response)
-        .map_err(|err| Error::Transport(format!("failed to deserialize response: {}", err)))
+    helpers::arbitrary_precision_deserialize_workaround(&response).map_err(|err| {
+        Error::Transport(TransportError::Message(format!(
+            "failed to deserialize response: {}",
+            err
+        )))
+    })
 }
 
 type RpcResult = Result<Value>;

@@ -19,6 +19,8 @@ pub enum Error {
     /// An error during deployment.
     #[display(fmt = "Deployment error: {}", _0)]
     Deployment(crate::contract::deploy::Error),
+    /// Contract does not support this interface.
+    InterfaceUnsupported,
 }
 
 impl std::error::Error for Error {
@@ -28,6 +30,7 @@ impl std::error::Error for Error {
             Error::Abi(ref e) => Some(e),
             Error::Api(ref e) => Some(e),
             Error::Deployment(ref e) => Some(e),
+            Error::InterfaceUnsupported => None,
         }
     }
 }

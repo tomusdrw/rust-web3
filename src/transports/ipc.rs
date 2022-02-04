@@ -1,6 +1,9 @@
 //! IPC transport
 
-use crate::{api::SubscriptionId, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport};
+use crate::{
+    api::SubscriptionId, error::TransportError, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result,
+    Transport,
+};
 use futures::{
     future::{join_all, JoinAll},
     stream::StreamExt,
@@ -324,13 +327,13 @@ fn respond_output(
 
 impl From<mpsc::error::SendError<TransportMessage>> for Error {
     fn from(err: mpsc::error::SendError<TransportMessage>) -> Self {
-        Error::Transport(format!("Send Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Send Error: {:?}", err)))
     }
 }
 
 impl From<oneshot::error::RecvError> for Error {
     fn from(err: oneshot::error::RecvError) -> Self {
-        Error::Transport(format!("Recv Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Recv Error: {:?}", err)))
     }
 }
 

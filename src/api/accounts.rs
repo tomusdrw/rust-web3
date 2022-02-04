@@ -1,11 +1,6 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::{
-    api::Namespace,
-    signing,
-    types::{AccessList, H256, U64},
-    Transport,
-};
+use crate::{api::Namespace, signing, types::H256, Transport};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
@@ -48,7 +43,8 @@ mod accounts_signing {
         error,
         signing::Signature,
         types::{
-            Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
+            AccessList, Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction,
+            TransactionParameters, U256, U64,
         },
     };
     use rlp::RlpStream;
