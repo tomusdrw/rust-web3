@@ -3,7 +3,7 @@
 use crate::{
     api::Namespace,
     signing,
-    types::{AccessList, H256, U64},
+    types::H256,
     Transport,
 };
 
@@ -54,6 +54,7 @@ mod accounts_signing {
         signing::Signature,
         types::{
             Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction, TransactionParameters, U256,
+            AccessList, U64,
         },
     };
     use rlp::RlpStream;
