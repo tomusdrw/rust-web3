@@ -319,9 +319,7 @@ impl<T: Transport> Contract<T> {
                     data: l.data.0,
                 })?;
 
-                Ok(R::from_tokens(
-                    log.params.into_iter().map(|x| x.value).collect::<Vec<_>>(),
-                )?)
+                R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())
             })
             .collect::<Result<Vec<R>>>()
     }

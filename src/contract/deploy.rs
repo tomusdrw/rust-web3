@@ -130,9 +130,9 @@ impl<T: Transport> Builder<T> {
             let tx = TransactionParameters {
                 nonce: tx.nonce,
                 to: tx.to,
-                gas: tx.gas.unwrap_or(1_000_000.into()),
+                gas: tx.gas.unwrap_or_else(|| 1_000_000.into()),
                 gas_price: tx.gas_price,
-                value: tx.value.unwrap_or(0.into()),
+                value: tx.value.unwrap_or_else(|| 0.into()),
                 data: tx
                     .data
                     .expect("Tried to deploy a contract but transaction data wasn't set"),

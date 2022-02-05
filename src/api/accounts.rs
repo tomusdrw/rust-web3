@@ -136,7 +136,7 @@ mod accounts_signing {
             let message_hash = self.hash_message(message);
 
             let signature = key
-                .sign(&message_hash.as_bytes(), None)
+                .sign(message_hash.as_bytes(), None)
                 .expect("hash is non-zero 32-bytes; qed");
             let v = signature
                 .v
@@ -179,7 +179,7 @@ mod accounts_signing {
             };
             let (signature, recovery_id) = recovery
                 .as_signature()
-                .ok_or_else(|| error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
+                .ok_or(error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
             let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
             Ok(address)
         }
@@ -278,13 +278,13 @@ mod accounts_signing {
             stream
         }
 
-        fn rlp_append_signature(&self, stream: &mut RlpStream, signature: &Signature) -> () {
+        fn rlp_append_signature(&self, stream: &mut RlpStream, signature: &Signature) {
             stream.append(&signature.v);
             stream.append(&U256::from_big_endian(signature.r.as_bytes()));
             stream.append(&U256::from_big_endian(signature.s.as_bytes()));
         }
 
-        fn rlp_append_access_list(&self, stream: &mut RlpStream) -> () {
+        fn rlp_append_access_list(&self, stream: &mut RlpStream) {
             stream.begin_list(self.access_list.len());
             for access in self.access_list.iter() {
                 stream.begin_list(2);
@@ -323,10 +323,7 @@ mod accounts_signing {
 
         /// Sign and return a raw signed transaction.
         pub fn sign(self, sign: impl signing::Key, chain_id: u64) -> SignedTransaction {
-            let adjust_v_value = match self.transaction_type.map(|t| t.as_u64()) {
-                Some(LEGACY_TX_ID) | None => true,
-                _ => false,
-            };
+            let adjust_v_value = matches!(self.transaction_type.map(|t| t.as_u64()), Some(LEGACY_TX_ID) | None);
 
             let encoded = self.encode(chain_id, None);
 

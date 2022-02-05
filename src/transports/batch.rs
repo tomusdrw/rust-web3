@@ -10,7 +10,7 @@ use futures::{
     Future, FutureExt,
 };
 use parking_lot::Mutex;
-use std::{collections::BTreeMap, mem, pin::Pin, sync::Arc};
+use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
 type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
@@ -38,7 +38,7 @@ where
 
     /// Sends all requests as a batch.
     pub fn submit_batch(&self) -> impl Future<Output = error::Result<Vec<error::Result<rpc::Value>>>> {
-        let batch = mem::replace(&mut *self.batch.lock(), vec![]);
+        let batch = std::mem::take(&mut *self.batch.lock());
         let ids = batch.iter().map(|&(id, _)| id).collect::<Vec<_>>();
 
         let batch = self.transport.send_batch(batch);

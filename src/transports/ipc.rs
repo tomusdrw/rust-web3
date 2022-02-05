@@ -173,17 +173,17 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
     let mut read_buffer = vec![];
     let mut closed = false;
 
-    while !closed || pending_response_txs.len() > 0 {
+    while !closed || !pending_response_txs.is_empty() {
         tokio::select! {
             message = messages_rx.next() => match message {
                 None => closed = true,
                 Some(TransportMessage::Subscribe(id, tx)) => {
-                    if let Some(_) = subscription_txs.insert(id.clone(), tx) {
+                    if subscription_txs.insert(id.clone(), tx).is_some() {
                         log::warn!("Replacing a subscription with id {:?}", id);
                     }
                 },
                 Some(TransportMessage::Unsubscribe(id)) => {
-                    if let None = subscription_txs.remove(&id) {
+                    if subscription_txs.remove(&id).is_none() {
                         log::warn!("Unsubscribing not subscribed id {:?}", id);
                     }
                 },

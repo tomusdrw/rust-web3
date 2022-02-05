@@ -94,13 +94,13 @@ mod feature_gated {
         type Target = SecretKey;
 
         fn deref(&self) -> &Self::Target {
-            &self.key
+            self.key
         }
     }
 
     impl<T: Deref<Target = SecretKey>> Key for T {
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
-            let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
+            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
             let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let standard_v = recovery_id.to_i32() as u64;
@@ -118,7 +118,7 @@ mod feature_gated {
         }
 
         fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
-            let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
+            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
             let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let v = recovery_id.to_i32() as u64;
@@ -140,7 +140,7 @@ mod feature_gated {
         let message = Message::from_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
         let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let signature =
-            RecoverableSignature::from_compact(&signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
+            RecoverableSignature::from_compact(signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let public_key = CONTEXT
             .recover_ecdsa(&message, &signature)
             .map_err(|_| RecoveryError::InvalidSignature)?;
