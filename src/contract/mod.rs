@@ -355,6 +355,10 @@ mod contract_signing {
                 to: Some(self.address),
                 gas_price: options.gas_price,
                 data: Bytes(fn_data),
+                transaction_type: options.transaction_type,
+                access_list: options.access_list,
+                max_fee_per_gas: options.max_fee_per_gas,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                 ..Default::default()
             };
             if let Some(gas) = options.gas {
