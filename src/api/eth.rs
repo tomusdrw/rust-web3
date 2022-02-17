@@ -248,8 +248,8 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get block receipts
-    pub fn block_receipts(&self, block: Option<BlockNumber>) -> CallFuture<Vec<Option<TransactionReceipt>>, T::Out> {
-      let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+    pub fn block_receipts(&self, block: BlockNumber) -> CallFuture<Option<Vec<TransactionReceipt>>, T::Out> {
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_getBlockReceipts", vec![block]))
     }
