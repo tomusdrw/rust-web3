@@ -247,6 +247,13 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
     }
 
+    /// Get block receipts
+    pub fn block_receipts(&self, block: Option<BlockNumber>) -> CallFuture<Vec<Option<TransactionReceipt>>, T::Out> {
+      let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+
+        CallFuture::new(self.transport.execute("eth_getBlockReceipts", vec![block]))
+    }
+  
     /// Get uncle header by block ID and uncle index.
     ///
     /// This method is meant for TurboGeth compatiblity,
@@ -505,6 +512,8 @@ mod tests {
     "status": "0x1",
     "effectiveGasPrice": "0x100"
   }"#;
+
+  const EXAMPLE_BLOCK_RECEIPTS: &str = &format!("[{}]", EXAMPLE_RECEIPT);
 
     const EXAMPLE_FEE_HISTORY: &str = r#"{
       "baseFeePerGas": [
@@ -766,6 +775,14 @@ mod tests {
       "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
       ::serde_json::from_str(EXAMPLE_RECEIPT).unwrap()
       => Some(::serde_json::from_str::<TransactionReceipt>(EXAMPLE_RECEIPT).unwrap())
+    );
+
+    rpc_test! (
+      Eth:block_receipts, BlockNumber::Pending
+      =>
+      "eth_getBlockReceipts", vec![r#""pending""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK_RECEIPTS).unwrap()
+      => Some(::serde_json::from_str::<Vec<Option<TransactionReceipt>>>(EXAMPLE_BLOCK_RECEIPTS).unwrap())
     );
 
     rpc_test! (
