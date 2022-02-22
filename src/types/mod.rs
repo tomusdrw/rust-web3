@@ -53,6 +53,6 @@ pub use self::{
 };
 
 /// Address
-pub type Address = H160;
+pub type Address = ethabi::Address;
 /// Index in block
 pub type Index = U64;

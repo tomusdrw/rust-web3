@@ -1,3 +1,4 @@
+use ethabi::Hash;
 use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -7,7 +8,7 @@ pub struct Log {
     /// H160
     pub address: H160,
     /// Topics
-    pub topics: Vec<H256>,
+    pub topics: Vec<Hash>,
     /// Data
     pub data: Bytes,
     /// Block Hash
@@ -90,7 +91,7 @@ pub struct Filter {
     address: Option<ValueOrArray<H160>>,
     /// Topics
     #[serde(skip_serializing_if = "Option::is_none")]
-    topics: Option<Vec<Option<ValueOrArray<H256>>>>,
+    topics: Option<Vec<Option<ValueOrArray<Hash>>>>,
     /// Limit
     #[serde(skip_serializing_if = "Option::is_none")]
     limit: Option<usize>,
@@ -139,10 +140,10 @@ impl FilterBuilder {
     /// Topics
     pub fn topics(
         mut self,
-        topic1: Option<Vec<H256>>,
-        topic2: Option<Vec<H256>>,
-        topic3: Option<Vec<H256>>,
-        topic4: Option<Vec<H256>>,
+        topic1: Option<Vec<Hash>>,
+        topic2: Option<Vec<Hash>>,
+        topic3: Option<Vec<Hash>>,
+        topic4: Option<Vec<Hash>>,
     ) -> Self {
         let mut topics = vec![topic1, topic2, topic3, topic4]
             .into_iter()

@@ -1,5 +1,5 @@
 //! Types for the Parity Transaction-Trace Filtering API
-use crate::types::{Address, BlockNumber, Bytes, H160, H256, U256};
+use crate::types::{Address, BlockNumber, Bytes, H256, U256};
 use serde::{Deserialize, Serialize};
 
 /// Trace filter
@@ -46,13 +46,13 @@ impl TraceFilterBuilder {
     }
 
     /// Sets to address
-    pub fn to_address(mut self, address: Vec<H160>) -> Self {
+    pub fn to_address(mut self, address: Vec<Address>) -> Self {
         self.filter.to_address = Some(address);
         self
     }
 
     /// Sets from address
-    pub fn from_address(mut self, address: Vec<H160>) -> Self {
+    pub fn from_address(mut self, address: Vec<Address>) -> Self {
         self.filter.from_address = Some(address);
         self
     }
