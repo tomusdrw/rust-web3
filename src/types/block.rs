@@ -1,5 +1,6 @@
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
-use serde::{de::Error, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -163,16 +164,39 @@ impl<'a> Deserialize<'a> for BlockNumber {
     where
         D: Deserializer<'a>,
     {
-        let value = String::deserialize(deserializer)?;
-        match value.as_str() {
+        deserializer.deserialize_any(BlockNumberVisitor)
+    }
+}
+
+struct BlockNumberVisitor;
+
+impl<'de> de::Visitor<'de> for BlockNumberVisitor {
+    type Value = BlockNumber;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "a block number")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match s {
             "latest" => Ok(BlockNumber::Latest),
             "earliest" => Ok(BlockNumber::Earliest),
             "pending" => Ok(BlockNumber::Pending),
-            _ if value.starts_with("0x") => U64::from_str_radix(&value[2..], 16)
+            _ if s.starts_with("0x") => U64::from_str_radix(&s[2..], 16)
                 .map(BlockNumber::Number)
-                .map_err(|e| D::Error::custom(format!("invalid block number: {}", e))),
-            _ => Err(D::Error::custom("invalid block number: missing 0x prefix".to_string())),
+                .map_err(|e| de::Error::custom(format!("invalid block number: {}", e))),
+            _ => Err(de::Error::custom("invalid block number: missing 0x prefix".to_string())),
         }
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(BlockNumber::Number(v.into()))
     }
 }
 
@@ -334,6 +358,8 @@ mod tests {
         let serialized = serde_json::to_value(BlockNumber::Number(100.into())).unwrap();
         assert_eq!(serialized, "0x64");
         let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Number(100.into()));
+        let deserialized = serde_json::from_value::<BlockNumber>(100.into()).unwrap();
         assert_eq!(deserialized, BlockNumber::Number(100.into()));
         let deserialized = serde_json::from_value::<BlockNumber>("64".into());
         assert_eq!(
