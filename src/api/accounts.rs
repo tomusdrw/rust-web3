@@ -36,7 +36,7 @@ impl<T: Transport> Accounts<T> {
 }
 
 #[cfg(feature = "signing")]
-mod accounts_signing {
+pub(crate) mod accounts_signing {
     use super::*;
     use crate::{
         api::Web3,
