@@ -1,8 +1,9 @@
 //! IPC transport
 
 use crate::{
-    api::SubscriptionId, error::TransportError, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result,
-    Transport,
+    api::SubscriptionId,
+    error::{self, TransportError},
+    helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport,
 };
 use futures::{
     future::{join_all, JoinAll},
@@ -99,7 +100,7 @@ impl BatchTransport for Ipc {
 }
 
 impl DuplexTransport for Ipc {
-    type NotificationStream = UnboundedReceiverStream<rpc::Value>;
+    type NotificationStream = UnboundedReceiverStream<crate::error::Result<rpc::Value>>;
 
     fn subscribe(&self, id: SubscriptionId) -> Result<Self::NotificationStream> {
         let (tx, rx) = mpsc::unbounded_channel();
@@ -158,7 +159,7 @@ type TransportRequest = (RequestId, rpc::Call, oneshot::Sender<rpc::Output>);
 enum TransportMessage {
     Single(TransportRequest),
     Batch(Vec<TransportRequest>),
-    Subscribe(SubscriptionId, mpsc::UnboundedSender<rpc::Value>),
+    Subscribe(SubscriptionId, mpsc::UnboundedSender<error::Result<rpc::Value>>),
     Unsubscribe(SubscriptionId),
 }
 
@@ -262,7 +263,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
 }
 
 fn notify(
-    subscription_txs: &mut BTreeMap<SubscriptionId, mpsc::UnboundedSender<rpc::Value>>,
+    subscription_txs: &mut BTreeMap<SubscriptionId, mpsc::UnboundedSender<error::Result<rpc::Value>>>,
     notification: rpc::Notification,
 ) -> std::result::Result<(), ()> {
     if let rpc::Params::Map(params) = notification.params {
@@ -272,7 +273,7 @@ fn notify(
         if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
             let id: SubscriptionId = id.clone().into();
             if let Some(tx) = subscription_txs.get(&id) {
-                if let Err(e) = tx.send(result.clone()) {
+                if let Err(e) = tx.send(Ok(result.clone())) {
                     log::error!("Error sending notification: {:?} (id: {:?}", e, id);
                 }
             } else {

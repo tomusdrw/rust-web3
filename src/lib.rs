@@ -75,7 +75,7 @@ pub trait BatchTransport: Transport {
 /// A transport implementation supporting pub sub subscriptions.
 pub trait DuplexTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: futures::Stream<Item = rpc::Value>;
+    type NotificationStream: futures::Stream<Item = error::Result<rpc::Value>>;
 
     /// Add a subscription to this transport
     fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream>;

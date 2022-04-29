@@ -14,6 +14,7 @@ use futures::{
 use soketto::{
     connection,
     handshake::{Client, ServerResponse},
+    Receiver, Sender,
 };
 use std::{
     collections::BTreeMap,
@@ -22,6 +23,7 @@ use std::{
     pin::Pin,
     sync::{atomic, Arc},
 };
+use tokio_util::compat::Compat;
 use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
@@ -39,7 +41,7 @@ impl From<connection::Error> for Error {
 type SingleResult = error::Result<rpc::Value>;
 type BatchResult = error::Result<Vec<SingleResult>>;
 type Pending = oneshot::Sender<BatchResult>;
-type Subscription = mpsc::UnboundedSender<rpc::Value>;
+type Subscription = mpsc::UnboundedSender<error::Result<rpc::Value>>;
 
 /// Stream, either plain TCP or TLS.
 enum MaybeTlsStream<P, T> {
@@ -91,10 +93,81 @@ where
 }
 
 struct WsServerTask {
+    connect_info: ConnectInfo,
     pending: BTreeMap<RequestId, Pending>,
     subscriptions: BTreeMap<SubscriptionId, Subscription>,
     sender: connection::Sender<MaybeTlsStream<TcpStream, TlsStream>>,
     receiver: connection::Receiver<MaybeTlsStream<TcpStream, TlsStream>>,
+}
+
+struct ConnectInfo {
+    scheme: String,
+    host: String,
+    port: u16,
+    addrs: String,
+    resource: String,
+    username: String,
+    password: Option<String>,
+}
+
+impl ConnectInfo {
+    pub async fn get_connection(
+        &self,
+    ) -> error::Result<(
+        Sender<
+            MaybeTlsStream<Compat<tokio::net::TcpStream>, Compat<async_native_tls::TlsStream<tokio::net::TcpStream>>>,
+        >,
+        Receiver<
+            MaybeTlsStream<Compat<tokio::net::TcpStream>, Compat<async_native_tls::TlsStream<tokio::net::TcpStream>>>,
+        >,
+    )> {
+        let stream = compat::raw_tcp_stream(self.addrs.clone()).await?;
+        stream.set_nodelay(true)?;
+        let socket = if self.scheme == "wss" {
+            #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
+            {
+                let stream = async_native_tls::connect(&self.host, stream).await?;
+                MaybeTlsStream::Tls(compat::compat(stream))
+            }
+            #[cfg(not(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std")))]
+            panic!("The library was compiled without TLS support. Enable ws-tls-tokio or ws-tls-async-std feature.");
+        } else {
+            let stream = compat::compat(stream);
+            MaybeTlsStream::Plain(stream)
+        };
+
+        let mut client = Client::new(socket, &self.host, &self.resource);
+        let maybe_encoded = self.password.as_ref().map(|password| {
+            use headers::authorization::{Authorization, Credentials};
+            Authorization::basic(&self.username, &password)
+                .0
+                .encode()
+                .as_bytes()
+                .to_vec()
+        });
+
+        let headers = maybe_encoded.as_ref().map(|head| {
+            [soketto::handshake::client::Header {
+                name: "Authorization",
+                value: head,
+            }]
+        });
+
+        if let Some(ref head) = headers {
+            client.set_headers(head);
+        }
+        let handshake = client.handshake();
+        let (sender, receiver) = match handshake.await? {
+            ServerResponse::Accepted { .. } => client.into_builder().finish(),
+            ServerResponse::Redirect { status_code, .. } => {
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
+            }
+            ServerResponse::Rejected { status_code } => {
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
+            }
+        };
+        Ok((sender, receiver))
+    }
 }
 
 impl WsServerTask {
@@ -126,7 +199,7 @@ impl WsServerTask {
         let addrs = format!("{}:{}", host, port);
 
         log::trace!("Connecting TcpStream with address: {}", addrs);
-        let stream = compat::raw_tcp_stream(addrs).await?;
+        let stream = compat::raw_tcp_stream(addrs.clone()).await?;
         stream.set_nodelay(true)?;
         let socket = if scheme == "wss" {
             #[cfg(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std"))]
@@ -183,6 +256,15 @@ impl WsServerTask {
         };
 
         Ok(Self {
+            connect_info: ConnectInfo {
+                scheme: scheme.to_owned(),
+                resource: resource,
+                username: url.username().to_owned(),
+                password: url.password().map(|v| v.to_owned()),
+                host: host.to_owned(),
+                port,
+                addrs,
+            },
             pending: Default::default(),
             subscriptions: Default::default(),
             sender,
@@ -192,6 +274,7 @@ impl WsServerTask {
 
     async fn into_task(self, requests: mpsc::UnboundedReceiver<TransportMessage>) {
         let Self {
+            connect_info,
             receiver,
             mut sender,
             mut pending,
@@ -200,8 +283,8 @@ impl WsServerTask {
 
         let receiver = as_data_stream(receiver).fuse();
         let requests = requests.fuse();
-        pin_mut!(receiver);
-        pin_mut!(requests);
+        let mut receiver = Box::pin(receiver);
+        let mut requests = Box::pin(requests);
         loop {
             select! {
                 msg = requests.next() => match msg {
@@ -213,7 +296,7 @@ impl WsServerTask {
                         let res2 = sender.flush().await;
                         if let Err(e) = res.and(res2) {
                             // TODO [ToDr] Re-connect.
-                            log::error!("WS connection error: {:?}", e);
+                            log::warn!("WS connection error: {:?}", e);
                             pending.remove(&id);
                         }
                     }
@@ -234,8 +317,31 @@ impl WsServerTask {
                         handle_message(&data, &subscriptions, &mut pending);
                     },
                     Some(Err(e)) => {
-                        log::error!("WS connection error: {:?}", e);
-                        break;
+                        log::warn!("WS connection error: {:?}", e);
+
+                        for (_id, request) in pending{
+                            if let Err(err) = request.send(Err(Error::Transport(TransportError::Message(format!("WS connection error: {:?}",e))))) {
+                                log::warn!("Sending a response to deallocated channel: {:?}", err);
+                            }
+                        }
+
+                        pending = BTreeMap::new();
+
+                        for (id,stream) in subscriptions{
+                            if let Err(e) = stream.unbounded_send(Err(Error::Transport(TransportError::Message(format!("WS connection error: {:?}",e))))) {
+                                log::error!("Error sending notification: {:?} (id: {:?}", e, id);
+                            }
+                        }
+
+                        subscriptions = BTreeMap::new();
+
+                        if let Ok((new_sender,new_receiver)) = connect_info.get_connection().await{
+                            let new_receiver = as_data_stream(new_receiver).fuse();
+                            let new_receiver = Box::pin(new_receiver);
+
+                            sender = new_sender;
+                            receiver = new_receiver;
+                        }
                     },
                     None => break,
                 },
@@ -271,7 +377,7 @@ fn handle_message(
             if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
                 let id: SubscriptionId = id.clone().into();
                 if let Some(stream) = subscriptions.get(&id) {
-                    if let Err(e) = stream.unbounded_send(result.clone()) {
+                    if let Err(e) = stream.unbounded_send(Ok(result.clone())) {
                         log::error!("Error sending notification: {:?} (id: {:?}", e, id);
                     }
                 } else {
@@ -318,7 +424,7 @@ enum TransportMessage {
     },
     Subscribe {
         id: SubscriptionId,
-        sink: mpsc::UnboundedSender<rpc::Value>,
+        sink: mpsc::UnboundedSender<error::Result<rpc::Value>>,
     },
     Unsubscribe {
         id: SubscriptionId,
@@ -460,7 +566,7 @@ impl BatchTransport for WebSocket {
 }
 
 impl DuplexTransport for WebSocket {
-    type NotificationStream = mpsc::UnboundedReceiver<rpc::Value>;
+    type NotificationStream = mpsc::UnboundedReceiver<error::Result<rpc::Value>>;
 
     fn subscribe(&self, id: SubscriptionId) -> error::Result<Self::NotificationStream> {
         // TODO [ToDr] Not unbounded?
