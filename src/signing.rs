@@ -31,7 +31,7 @@ mod feature_gated {
     use super::*;
     use crate::types::Address;
     use once_cell::sync::Lazy;
-    pub(crate) use secp256k1::SecretKey;
+    pub use secp256k1::SecretKey;
     use secp256k1::{
         ecdsa::{RecoverableSignature, RecoveryId},
         All, Message, PublicKey, Secp256k1,
