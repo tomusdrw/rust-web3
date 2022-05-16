@@ -98,8 +98,9 @@ async fn execute_rpc<T: DeserializeOwned>(client: &Client, url: Url, request: &R
     }
     helpers::arbitrary_precision_deserialize_workaround(&response).map_err(|err| {
         Error::Transport(TransportError::Message(format!(
-            "failed to deserialize response: {}",
-            err
+            "failed to deserialize response: {}: {}",
+            err,
+            String::from_utf8_lossy(&response)
         )))
     })
 }
