@@ -19,15 +19,16 @@ use serde::{
     de::{value::StringDeserializer, IntoDeserializer},
     Deserialize,
 };
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, sync::{Arc, Mutex}};
 use wasm_bindgen::{prelude::*, JsCast};
 
-type Subscriptions = Rc<RefCell<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>;
+type Subscriptions = Arc<Mutex<BTreeMap<SubscriptionId, mpsc::UnboundedSender<serde_json::Value>>>>;
+
 
 /// EIP-1193 transport
 #[derive(Clone, Debug)]
 pub struct Eip1193 {
-    provider_and_listeners: Rc<RefCell<ProviderAndListeners>>,
+    provider_and_listeners: Arc<Mutex<ProviderAndListeners>>,
     subscriptions: Subscriptions,
 }
 
@@ -60,7 +61,7 @@ impl Eip1193 {
         }) as Box<dyn FnMut(JsValue)>);
         provider_and_listeners.on("message", msg_handler);
         Eip1193 {
-            provider_and_listeners: Rc::new(RefCell::new(provider_and_listeners)),
+            provider_and_listeners: Arc::new(Mutex::new(provider_and_listeners)),
             subscriptions,
         }
     }
@@ -112,7 +113,7 @@ impl Eip1193 {
         T: 'static,
     {
         let (sender, receiver) = mpsc::unbounded();
-        self.provider_and_listeners.borrow_mut().on(
+        self.provider_and_listeners.lock().unwrap().on(
             name,
             Closure::wrap(Box::new(move |evt| {
                 let evt_parsed = handler(evt);
@@ -199,13 +200,13 @@ impl DuplexTransport for Eip1193 {
 
     fn subscribe(&self, id: SubscriptionId) -> error::Result<Self::NotificationStream> {
         let (sender, receiver) = mpsc::unbounded();
-        let mut subscriptions_ref = self.subscriptions.borrow_mut();
+        let mut subscriptions_ref = self.subscriptions.lock().unwrap();
         subscriptions_ref.insert(id, sender);
         Ok(receiver)
     }
 
     fn unsubscribe(&self, id: SubscriptionId) -> error::Result<()> {
-        match (*self.subscriptions.borrow_mut()).remove(&id) {
+        match (*self.subscriptions.lock().unwrap()).remove(&id) {
             Some(_sender) => Ok(()),
             None => panic!("Tried to unsubscribe from non-existent subscription. Did we already unsubscribe?"),
         }
