@@ -17,11 +17,14 @@ use soketto::{
 };
 use std::{
     collections::BTreeMap,
+    convert::TryInto,
     fmt,
     marker::Unpin,
     pin::Pin,
     sync::{atomic, Arc},
+    time::Duration,
 };
+use tokio::time;
 use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
@@ -40,6 +43,8 @@ type SingleResult = error::Result<rpc::Value>;
 type BatchResult = error::Result<Vec<SingleResult>>;
 type Pending = oneshot::Sender<BatchResult>;
 type Subscription = mpsc::UnboundedSender<rpc::Value>;
+
+const PING_PONG_INTERVAL: Duration = Duration::from_secs(20);
 
 /// Stream, either plain TCP or TLS.
 enum MaybeTlsStream<P, T> {
@@ -95,6 +100,7 @@ struct WsServerTask {
     subscriptions: BTreeMap<SubscriptionId, Subscription>,
     sender: connection::Sender<MaybeTlsStream<TcpStream, TlsStream>>,
     receiver: connection::Receiver<MaybeTlsStream<TcpStream, TlsStream>>,
+    ping_pong_interval: Duration,
 }
 
 impl WsServerTask {
@@ -187,6 +193,7 @@ impl WsServerTask {
             subscriptions: Default::default(),
             sender,
             receiver,
+            ping_pong_interval: PING_PONG_INTERVAL,
         })
     }
 
@@ -196,8 +203,10 @@ impl WsServerTask {
             mut sender,
             mut pending,
             mut subscriptions,
+            ping_pong_interval,
         } = self;
 
+        let mut ping_pong_interval = time::interval(ping_pong_interval);
         let receiver = as_data_stream(receiver).fuse();
         let requests = requests.fuse();
         pin_mut!(receiver);
@@ -239,6 +248,13 @@ impl WsServerTask {
                     },
                     None => break,
                 },
+                _ = ping_pong_interval.tick().fuse() => {
+                    log::trace!("Pinging the WS connection");
+                    let data = [].as_slice().try_into().unwrap();
+                    if let Err(e) = sender.send_ping(data).await {
+                        log::error!("Sending ping failed: {}", e);
+                    }
+                }
                 complete => break,
             }
         }
