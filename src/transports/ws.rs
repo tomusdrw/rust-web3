@@ -8,6 +8,7 @@ use crate::{
 };
 use futures::{
     channel::{mpsc, oneshot},
+    future,
     task::{Context, Poll},
     AsyncRead, AsyncWrite, Future, FutureExt, Stream, StreamExt,
 };
@@ -22,9 +23,8 @@ use std::{
     marker::Unpin,
     pin::Pin,
     sync::{atomic, Arc},
-    time::Duration,
+    time::{Duration, Instant},
 };
-use tokio::time;
 use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
@@ -100,7 +100,27 @@ struct WsServerTask {
     subscriptions: BTreeMap<SubscriptionId, Subscription>,
     sender: connection::Sender<MaybeTlsStream<TcpStream, TlsStream>>,
     receiver: connection::Receiver<MaybeTlsStream<TcpStream, TlsStream>>,
-    ping_pong_interval: Duration,
+    ping_pong_interval: Option<Duration>,
+}
+
+#[cfg(target_arch = "wasm32")]
+fn interval_stream(interval: Option<Duration>) -> impl Stream<Item = Instant> {
+    if interval.is_some() {
+        log::warn!("Ignoring the ping pong interval, feature unsupported on wasm32");
+    }
+    future::pending().into_stream()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn interval_stream(interval: Option<Duration>) -> impl Stream<Item = Instant> {
+    use tokio::time;
+    use tokio_stream::wrappers::IntervalStream;
+    if let Some(interval) = interval {
+        let interval = time::interval(interval);
+        IntervalStream::new(interval).map(|instant| instant.into_std()).boxed()
+    } else {
+        future::pending().into_stream().boxed()
+    }
 }
 
 impl WsServerTask {
@@ -193,7 +213,7 @@ impl WsServerTask {
             subscriptions: Default::default(),
             sender,
             receiver,
-            ping_pong_interval: PING_PONG_INTERVAL,
+            ping_pong_interval: PING_PONG_INTERVAL.into(),
         })
     }
 
@@ -206,7 +226,8 @@ impl WsServerTask {
             ping_pong_interval,
         } = self;
 
-        let mut ping_pong_interval = time::interval(ping_pong_interval);
+        let mut ping_pong_interval = interval_stream(ping_pong_interval);
+
         let receiver = as_data_stream(receiver).fuse();
         let requests = requests.fuse();
         pin_mut!(receiver);
@@ -248,7 +269,7 @@ impl WsServerTask {
                     },
                     None => break,
                 },
-                _ = ping_pong_interval.tick().fuse() => {
+                _ = ping_pong_interval.next().fuse() => {
                     log::trace!("Pinging the WS connection");
                     let data = [].as_slice().try_into().unwrap();
                     if let Err(e) = sender.send_ping(data).await {
