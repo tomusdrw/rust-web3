@@ -262,7 +262,7 @@ enum ParsedMessage {
     Notification(rpc::Notification),
     /// Represents a valid JSON-RPC response
     Response(rpc::Response),
-    /// Represents an invalid JSON-RPC response
+    /// Represents an malformed JSON-RPC response, although containing the request `id`
     InvalidResponse(rpc::Id),
 }
 

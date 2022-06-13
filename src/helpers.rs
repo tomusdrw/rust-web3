@@ -87,8 +87,8 @@ where
     }
 }
 
-/// Extract the response id from slice. Used to obtain the response id if the deserialization of the whole response fails,
-/// workraround for https://github.com/tomusdrw/rust-web3/issues/566
+/// Extract the response id from bytes slice. Used to obtain the response id if the deserialization of the whole response fails,
+/// workaround for https://github.com/tomusdrw/rust-web3/issues/566
 pub fn response_id_from_slice(response: &[u8]) -> Option<rpc::Id> {
     #[derive(Deserialize)]
     struct JustId {
