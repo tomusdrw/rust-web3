@@ -1,4 +1,7 @@
-use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
+use crate::{
+    contract::tokens::Detokenize,
+    types::{BlockNumber, Bytes, Index, H160, H256, U256, U64},
+};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// A log produced by a transaction.
@@ -54,6 +57,17 @@ impl Log {
     }
 }
 
+/// A log produced when a specefic contract event was emited
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LogWithMeta<R: Detokenize> {
+    /// This could be necessary to retrieve calldata
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: Option<H256>,
+
+    ///this is a tuple from the event signature (e.g. (uint256, bytes))
+    pub event_data: R,
+}
+
 #[derive(Default, Debug, PartialEq, Clone)]
 struct ValueOrArray<T>(Vec<T>);
 
@@ -106,27 +120,33 @@ impl FilterBuilder {
     /// Sets `from_block`. The fields `from_block` and `block_hash` are
     /// mutually exclusive. Setting `from_block` will clear a previously set
     /// `block_hash`.
-    pub fn from_block(mut self, block: BlockNumber) -> Self {
-        self.filter.block_hash = None;
-        self.filter.from_block = Some(block);
+    pub fn from_block(mut self, block: Option<BlockNumber>) -> Self {
+        if let Some(block) = block {
+            self.filter.block_hash = None;
+            self.filter.from_block = Some(block);
+        }
         self
     }
 
     /// Sets `to_block`. The fields `to_block` and `block_hash` are mutually
     /// exclusive. Setting `to_block` will clear a previously set `block_hash`.
-    pub fn to_block(mut self, block: BlockNumber) -> Self {
-        self.filter.block_hash = None;
-        self.filter.to_block = Some(block);
+    pub fn to_block(mut self, block: Option<BlockNumber>) -> Self {
+        if let Some(block) = block {
+            self.filter.block_hash = None;
+            self.filter.to_block = Some(block);
+        }
         self
     }
 
     /// Sets `block_hash`. The field `block_hash` and the pair `from_block` and
     /// `to_block` are mutually exclusive. Setting `block_hash` will clear a
     /// previously set `from_block` and `to_block`.
-    pub fn block_hash(mut self, hash: H256) -> Self {
-        self.filter.from_block = None;
-        self.filter.to_block = None;
-        self.filter.block_hash = Some(hash);
+    pub fn block_hash(mut self, hash: Option<H256>) -> Self {
+        if let Some(_block_hash) = hash {
+            self.filter.from_block = None;
+            self.filter.to_block = None;
+            self.filter.block_hash = hash;
+        }
         self
     }
 

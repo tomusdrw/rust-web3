@@ -6,8 +6,8 @@ use crate::{
     contract::tokens::{Detokenize, Tokenize},
     futures::Future,
     types::{
-        AccessList, Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
-        TransactionRequest, H256, U256, U64,
+        AccessList, Address, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, LogWithMeta,
+        TransactionCondition, TransactionReceipt, TransactionRequest, H256, U256, U64,
     },
     Transport,
 };
@@ -279,7 +279,16 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Find events matching the topics.
-    pub async fn events<A, B, C, R>(&self, event: &str, topic0: A, topic1: B, topic2: C) -> Result<Vec<R>>
+    pub async fn events<A, B, C, R>(
+        &self,
+        event: &str,
+        from_block: Option<BlockNumber>,
+        to_block: Option<BlockNumber>,
+        block_hash: Option<H256>,
+        topic0: A,
+        topic1: B,
+        topic2: C,
+    ) -> Result<Vec<LogWithMeta<R>>>
     where
         A: Tokenize,
         B: Tokenize,
@@ -310,7 +319,15 @@ impl<T: Transport> Contract<T> {
 
         let logs = self
             .eth
-            .logs(FilterBuilder::default().topic_filter(filter).build())
+            .logs(
+                FilterBuilder::default()
+                    .address(vec![self.address])
+                    .topic_filter(filter)
+                    .from_block(from_block)
+                    .to_block(to_block)
+                    .block_hash(block_hash)
+                    .build(),
+            )
             .await?;
         logs.into_iter()
             .map(move |l| {
@@ -319,9 +336,14 @@ impl<T: Transport> Contract<T> {
                     data: l.data.0,
                 })?;
 
-                R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())
+                let event_data = R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())?;
+
+                Ok(LogWithMeta {
+                    transaction_hash: l.transaction_hash,
+                    event_data,
+                })
             })
-            .collect::<Result<Vec<R>>>()
+            .collect::<Result<Vec<LogWithMeta<R>>>>()
     }
 }
 
