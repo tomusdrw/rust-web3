@@ -25,7 +25,7 @@ pub use self::{
     bytes::Bytes,
     bytes_array::BytesArray,
     fee_history::FeeHistory,
-    log::{Filter, FilterBuilder, Log,LogWithMeta},
+    log::{Filter, FilterBuilder, Log, LogWithMeta},
     parity_peers::{
         EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
     },
