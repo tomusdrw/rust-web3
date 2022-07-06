@@ -30,12 +30,15 @@ pub use feature_gated::*;
 mod feature_gated {
     use super::*;
     use crate::types::Address;
+    use once_cell::sync::Lazy;
     pub(crate) use secp256k1::SecretKey;
     use secp256k1::{
-        recovery::{RecoverableSignature, RecoveryId},
-        Message, PublicKey, Secp256k1,
+        ecdsa::{RecoverableSignature, RecoveryId},
+        All, Message, PublicKey, Secp256k1,
     };
     use std::ops::Deref;
+
+    static CONTEXT: Lazy<Secp256k1<All>> = Lazy::new(Secp256k1::new);
 
     /// A trait representing ethereum-compatible key with signing capabilities.
     ///
@@ -57,6 +60,10 @@ mod feature_gated {
         /// protection added (as per EIP-155). Otherwise, the V-value will be in
         /// 'Electrum' notation.
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
+
+        /// Sign given message without manipulating V-value; used for typed transactions
+        /// (AccessList and EIP-1559)
+        fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError>;
 
         /// Get public address that this key represents.
         fn address(&self) -> Address;
@@ -87,16 +94,14 @@ mod feature_gated {
         type Target = SecretKey;
 
         fn deref(&self) -> &Self::Target {
-            &self.key
+            self.key
         }
     }
 
     impl<T: Deref<Target = SecretKey>> Key for T {
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
-            let message = Message::from_slice(&message).map_err(|_| SigningError::InvalidMessage)?;
-            let (recovery_id, signature) = Secp256k1::signing_only()
-                .sign_recoverable(&message, self)
-                .serialize_compact();
+            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
+            let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let standard_v = recovery_id.to_i32() as u64;
             let v = if let Some(chain_id) = chain_id {
@@ -106,6 +111,17 @@ mod feature_gated {
                 // Otherwise, convert to 'Electrum' notation.
                 standard_v + 27
             };
+            let r = H256::from_slice(&signature[..32]);
+            let s = H256::from_slice(&signature[32..]);
+
+            Ok(Signature { v, r, s })
+        }
+
+        fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
+            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
+            let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
+
+            let v = recovery_id.to_i32() as u64;
             let r = H256::from_slice(&signature[..32]);
             let s = H256::from_slice(&signature[32..]);
 
@@ -124,9 +140,9 @@ mod feature_gated {
         let message = Message::from_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
         let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let signature =
-            RecoverableSignature::from_compact(&signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
-        let public_key = Secp256k1::verification_only()
-            .recover(&message, &signature)
+            RecoverableSignature::from_compact(signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
+        let public_key = CONTEXT
+            .recover_ecdsa(&message, &signature)
             .map_err(|_| RecoveryError::InvalidSignature)?;
 
         Ok(public_key_address(&public_key))
@@ -150,8 +166,8 @@ mod feature_gated {
 
     /// Gets the public address of a private key.
     pub(crate) fn secret_key_address(key: &SecretKey) -> Address {
-        let secp = Secp256k1::signing_only();
-        let public_key = PublicKey::from_secret_key(&secp, key);
+        let secp = &*CONTEXT;
+        let public_key = PublicKey::from_secret_key(secp, key);
         public_key_address(&public_key)
     }
 }
@@ -174,4 +190,93 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     hasher.update(bytes);
     hasher.finalize(&mut output);
     output
+}
+
+/// Result of the name hash algotithm.
+pub type NameHash = [u8; 32];
+
+/// Compute the hash of a domain name using the namehash algorithm.
+///
+/// [Specification](https://docs.ens.domains/contract-api-reference/name-processing#hashing-names)
+pub fn namehash(name: &str) -> NameHash {
+    let mut node = [0u8; 32];
+
+    if name.is_empty() {
+        return node;
+    }
+
+    let mut labels: Vec<&str> = name.split('.').collect();
+
+    labels.reverse();
+
+    for label in labels.iter() {
+        let label_hash = keccak256(label.as_bytes());
+
+        node = keccak256(&[node, label_hash].concat());
+    }
+
+    node
+}
+
+/// Hash a message according to EIP-191.
+///
+/// The data is a UTF-8 encoded string and will enveloped as follows:
+/// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
+/// using keccak256.
+pub fn hash_message<S>(message: S) -> H256
+where
+    S: AsRef<[u8]>,
+{
+    let message = message.as_ref();
+
+    let mut eth_message = format!("\x19Ethereum Signed Message:\n{}", message.len()).into_bytes();
+    eth_message.extend_from_slice(message);
+
+    keccak256(&eth_message).into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    //See -> https://eips.ethereum.org/EIPS/eip-137 for test cases
+
+    #[test]
+    fn name_hash_empty() {
+        let input = "";
+
+        let result = namehash(input);
+
+        let expected = [0u8; 32];
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn name_hash_eth() {
+        let input = "eth";
+
+        let result = namehash(input);
+
+        let expected = [
+            0x93, 0xcd, 0xeb, 0x70, 0x8b, 0x75, 0x45, 0xdc, 0x66, 0x8e, 0xb9, 0x28, 0x01, 0x76, 0x16, 0x9d, 0x1c, 0x33,
+            0xcf, 0xd8, 0xed, 0x6f, 0x04, 0x69, 0x0a, 0x0b, 0xcc, 0x88, 0xa9, 0x3f, 0xc4, 0xae,
+        ];
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn name_hash_foo_eth() {
+        let input = "foo.eth";
+
+        let result = namehash(input);
+
+        let expected = [
+            0xde, 0x9b, 0x09, 0xfd, 0x7c, 0x5f, 0x90, 0x1e, 0x23, 0xa3, 0xf1, 0x9f, 0xec, 0xc5, 0x48, 0x28, 0xe9, 0xc8,
+            0x48, 0x53, 0x98, 0x01, 0xe8, 0x65, 0x91, 0xbd, 0x98, 0x01, 0xb0, 0x19, 0xf8, 0x4f,
+        ];
+
+        assert_eq!(expected, result);
+    }
 }

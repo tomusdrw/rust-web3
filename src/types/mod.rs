@@ -3,9 +3,11 @@
 mod block;
 mod bytes;
 mod bytes_array;
+mod fee_history;
 mod log;
 mod parity_peers;
 mod parity_pending_transaction;
+mod proof;
 mod recovery;
 mod signed;
 mod sync_state;
@@ -22,6 +24,7 @@ pub use self::{
     block::{Block, BlockHeader, BlockId, BlockNumber},
     bytes::Bytes,
     bytes_array::BytesArray,
+    fee_history::FeeHistory,
     log::{Filter, FilterBuilder, Log},
     parity_peers::{
         EthProtocolInfo, ParityPeerInfo, ParityPeerType, PeerNetworkInfo, PeerProtocolsInfo, PipProtocolInfo,
@@ -29,7 +32,8 @@ pub use self::{
     parity_pending_transaction::{
         FilterCondition, ParityPendingTransactionFilter, ParityPendingTransactionFilterBuilder, ToFilter,
     },
-    recovery::{Recovery, RecoveryMessage},
+    proof::Proof,
+    recovery::{ParseSignatureError, Recovery, RecoveryMessage},
     signed::{SignedData, SignedTransaction, TransactionParameters},
     sync_state::{SyncInfo, SyncState},
     trace_filtering::{

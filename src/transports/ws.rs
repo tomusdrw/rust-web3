@@ -1,7 +1,11 @@
 //! WebSocket Transport
 
 use self::compat::{TcpStream, TlsStream};
-use crate::{api::SubscriptionId, error, helpers, rpc, BatchTransport, DuplexTransport, Error, RequestId, Transport};
+use crate::{
+    api::SubscriptionId,
+    error::{self, TransportError},
+    helpers, rpc, BatchTransport, DuplexTransport, Error, RequestId, Transport,
+};
 use futures::{
     channel::{mpsc, oneshot},
     task::{Context, Poll},
@@ -22,13 +26,13 @@ use url::Url;
 
 impl From<soketto::handshake::Error> for Error {
     fn from(err: soketto::handshake::Error) -> Self {
-        Error::Transport(format!("Handshake Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Handshake Error: {:?}", err)))
     }
 }
 
 impl From<connection::Error> for Error {
     fn from(err: connection::Error) -> Self {
-        Error::Transport(format!("Connection Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Connection Error: {:?}", err)))
     }
 }
 
@@ -100,15 +104,28 @@ impl WsServerTask {
 
         let scheme = match url.scheme() {
             s if s == "ws" || s == "wss" => s,
-            s => return Err(error::Error::Transport(format!("Wrong scheme: {}", s))),
+            s => {
+                return Err(error::Error::Transport(TransportError::Message(format!(
+                    "Wrong scheme: {}",
+                    s
+                ))))
+            }
         };
+
         let host = match url.host_str() {
             Some(s) => s,
-            None => return Err(error::Error::Transport("Wrong host name".to_string())),
+            None => {
+                return Err(error::Error::Transport(TransportError::Message(
+                    "Wrong host name".to_string(),
+                )))
+            }
         };
+
         let port = url.port().unwrap_or(if scheme == "ws" { 80 } else { 443 });
+
         let addrs = format!("{}:{}", host, port);
 
+        log::trace!("Connecting TcpStream with address: {}", addrs);
         let stream = compat::raw_tcp_stream(addrs).await?;
         stream.set_nodelay(true)?;
         let socket = if scheme == "wss" {
@@ -124,21 +141,44 @@ impl WsServerTask {
             MaybeTlsStream::Plain(stream)
         };
 
-        let mut client = Client::new(socket, host, url.path());
+        let resource = match url.query() {
+            Some(q) => format!("{}?{}", url.path(), q),
+            None => url.path().to_owned(),
+        };
+
+        log::trace!(
+            "Connecting websocket client with host: {} and resource: {}",
+            host,
+            resource
+        );
+        let mut client = Client::new(socket, host, &resource);
+        let maybe_encoded = url.password().map(|password| {
+            use headers::authorization::{Authorization, Credentials};
+            Authorization::basic(url.username(), password)
+                .0
+                .encode()
+                .as_bytes()
+                .to_vec()
+        });
+
+        let headers = maybe_encoded.as_ref().map(|head| {
+            [soketto::handshake::client::Header {
+                name: "Authorization",
+                value: head,
+            }]
+        });
+
+        if let Some(ref head) = headers {
+            client.set_headers(head);
+        }
         let handshake = client.handshake();
         let (sender, receiver) = match handshake.await? {
             ServerResponse::Accepted { .. } => client.into_builder().finish(),
-            ServerResponse::Redirect { status_code, location } => {
-                return Err(error::Error::Transport(format!(
-                    "(code: {}) Unable to follow redirects: {}",
-                    status_code, location
-                )))
+            ServerResponse::Redirect { status_code, .. } => {
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
             }
             ServerResponse::Rejected { status_code } => {
-                return Err(error::Error::Transport(format!(
-                    "(code: {}) Connection rejected.",
-                    status_code
-                )))
+                return Err(error::Error::Transport(TransportError::Code(status_code)))
             }
         };
 
@@ -328,7 +368,9 @@ impl WebSocket {
 }
 
 fn dropped_err<T>(_: T) -> error::Error {
-    Error::Transport("Cannot send request. Internal task finished.".into())
+    Error::Transport(TransportError::Message(
+        "Cannot send request. Internal task finished.".into(),
+    ))
 }
 
 fn batch_to_single(response: BatchResult) -> SingleResult {
@@ -531,12 +573,9 @@ mod tests {
             let mut server = handshake::Server::new(BufReader::new(BufWriter::new(socket)));
             let key = {
                 let req = server.receive_request().await.unwrap();
-                req.into_key()
+                req.key()
             };
-            let accept = handshake::server::Response::Accept {
-                key: &key,
-                protocol: None,
-            };
+            let accept = handshake::server::Response::Accept { key, protocol: None };
             server.send_response(&accept).await.unwrap();
             let (mut sender, mut receiver) = server.into_builder().finish();
             loop {

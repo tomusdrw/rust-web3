@@ -57,6 +57,10 @@ pub struct TransactionParameters {
     pub transaction_type: Option<U64>,
     /// Access list
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 /// The default fas for transactions.
@@ -79,6 +83,8 @@ impl Default for TransactionParameters {
             chain_id: None,
             transaction_type: None,
             access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
         }
     }
 }
@@ -95,21 +101,25 @@ impl From<CallRequest> for TransactionParameters {
             chain_id: None,
             transaction_type: call.transaction_type,
             access_list: call.access_list,
+            max_fee_per_gas: call.max_fee_per_gas,
+            max_priority_fee_per_gas: call.max_priority_fee_per_gas,
         }
     }
 }
 
-impl Into<CallRequest> for TransactionParameters {
-    fn into(self) -> CallRequest {
+impl From<TransactionParameters> for CallRequest {
+    fn from(val: TransactionParameters) -> Self {
         CallRequest {
             from: None,
-            to: self.to,
-            gas: Some(self.gas),
-            gas_price: self.gas_price,
-            value: Some(self.value),
-            data: Some(self.data),
-            transaction_type: self.transaction_type,
-            access_list: self.access_list,
+            to: val.to,
+            gas: Some(val.gas),
+            gas_price: val.gas_price,
+            value: Some(val.value),
+            data: Some(val.data),
+            transaction_type: val.transaction_type,
+            access_list: val.access_list,
+            max_fee_per_gas: val.max_fee_per_gas,
+            max_priority_fee_per_gas: val.max_priority_fee_per_gas,
         }
     }
 }

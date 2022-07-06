@@ -3,7 +3,7 @@
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
-    types::{Address, RawTransaction, TransactionRequest, H256},
+    types::{Address, Bytes, RawTransaction, TransactionRequest, H256, H520},
     Transport,
 };
 
@@ -62,6 +62,17 @@ impl<T: Transport> Personal<T> {
         )
     }
 
+    /// Signs an Ethereum specific message with `sign(keccak256("\x19Ethereum Signed Message: " + len(data) + data)))`
+    ///
+    /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
+    /// Returns encoded signature.
+    pub fn sign(&self, data: Bytes, account: Address, password: &str) -> CallFuture<H520, T::Out> {
+        let data = helpers::serialize(&data);
+        let address = helpers::serialize(&account);
+        let password = helpers::serialize(&password);
+        CallFuture::new(self.transport.execute("personal_sign", vec![data, address, password]))
+    }
+
     /// Signs a transaction without dispatching it to the network.
     /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
     /// Returns a signed transaction in raw bytes along with it's details.
@@ -98,7 +109,7 @@ mod tests {
     use crate::{
         api::Namespace,
         rpc::Value,
-        types::{Address, RawTransaction, TransactionRequest},
+        types::{Address, Bytes, RawTransaction, TransactionRequest, H160, H520},
     };
     use hex_literal::hex;
 
@@ -143,6 +154,7 @@ mod tests {
         value: Some(0x1.into()), data: None,
         nonce: None, condition: None,
         transaction_type: None, access_list: None,
+        max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, "hunter2"
       =>
       "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
@@ -161,6 +173,8 @@ mod tests {
         condition: None,
         transaction_type: None,
         access_list: None,
+        max_fee_per_gas: None,
+        max_priority_fee_per_gas: None,
       }, "hunter2"
       =>
       "personal_signTransaction", vec![r#"{"data":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360","from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1","gas":"0x7f110","gasPrice":"0x9184e72a000","nonce":"0x0","to":"0x853f43d8a49eeb85d32cf465507dd71d507100c1","value":"0x7f110"}"#, r#""hunter2""#];
@@ -172,5 +186,12 @@ mod tests {
       Personal:import_raw_key, &[0u8; 32], "hunter2" =>
       "personal_importRawKey", vec![r#""0000000000000000000000000000000000000000000000000000000000000000""#, r#""hunter2""#];
       Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
+    }
+
+    rpc_test! {
+      Personal:sign, Bytes(hex!("7f0d39b8347598e20466233ce2fb3e824f0f93dfbf233125d3ab09b172c62591ec24dc84049242e364895c3abdbbd843d4a0a188").to_vec()), H160(hex!("7f0d39b8347598e20466233ce2fb3e824f0f93df")), "hunter2"
+      =>
+      "personal_sign", vec![r#""0x7f0d39b8347598e20466233ce2fb3e824f0f93dfbf233125d3ab09b172c62591ec24dc84049242e364895c3abdbbd843d4a0a188""#, r#""0x7f0d39b8347598e20466233ce2fb3e824f0f93df""#, r#""hunter2""#];
+      Value::String("0xdac1cba443d72e2088ed0cd2e6608ce696eb4728caf119dcfeea752f57a1163274de0b25007aa70201d0d80190071b26be2287b4a473767e5f7bc443c080b4fc1c".into()) => H520(hex!("dac1cba443d72e2088ed0cd2e6608ce696eb4728caf119dcfeea752f57a1163274de0b25007aa70201d0d80190071b26be2287b4a473767e5f7bc443c080b4fc1c"))
     }
 }

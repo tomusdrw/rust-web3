@@ -210,7 +210,7 @@ mod tests {
             log_type: None,
             removed: Some(true),
         };
-        assert_eq!(true, log.is_removed());
+        assert!(log.is_removed());
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod tests {
             log_type: None,
             removed: Some(false),
         };
-        assert_eq!(false, log.is_removed());
+        assert!(!log.is_removed());
     }
 
     #[test]
@@ -246,7 +246,7 @@ mod tests {
             log_type: Some("removed".into()),
             removed: None,
         };
-        assert_eq!(true, log.is_removed());
+        assert!(log.is_removed());
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
             log_type: Some("mined".into()),
             removed: None,
         };
-        assert_eq!(false, log.is_removed());
+        assert!(!log.is_removed());
     }
 
     #[test]
@@ -282,7 +282,7 @@ mod tests {
             log_type: None,
             removed: None,
         };
-        assert_eq!(false, log.is_removed());
+        assert!(!log.is_removed());
     }
 
     #[test]

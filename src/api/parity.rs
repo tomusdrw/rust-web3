@@ -99,6 +99,8 @@ mod tests {
                 data: None,
                 transaction_type: None,
                 access_list: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
             },
             CallRequest {
                 from: Some(Address::from_low_u64_be(0x321)),
@@ -109,6 +111,8 @@ mod tests {
                 data: Some(hex!("0493").into()),
                 transaction_type: None,
                 access_list: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
             },
             CallRequest {
                 from: None,
@@ -119,6 +123,8 @@ mod tests {
                 data: Some(hex!("0723").into()),
                 transaction_type: None,
                 access_list: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
             }
         ] => "parity_call", vec![
             r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},{"data":"0x0493","from":"0x0000000000000000000000000000000000000321","to":"0x0000000000000000000000000000000000000123"},{"data":"0x0723","to":"0x0000000000000000000000000000000000000765","value":"0x5"}]"#
@@ -132,7 +138,7 @@ mod tests {
         ParityPendingTransactionFilter::builder()
             .from(Address::from_low_u64_be(0x32))
             .gas(U64::from(100_000))
-            .gas_price(FilterCondition::GreaterThan(U64::from(100_000_000_000 as u64)))
+            .gas_price(FilterCondition::GreaterThan(U64::from(100_000_000_000_u64)))
             .build()
          => "parity_pendingTransactions",
             vec![r#"1"#, r#"{"from":{"eq":"0x0000000000000000000000000000000000000032"},"gas":{"eq":"0x186a0"},"gas_price":{"gt":"0x174876e800"}}"#]

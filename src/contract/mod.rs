@@ -14,6 +14,7 @@ use crate::{
 use std::{collections::HashMap, hash::Hash, time};
 
 pub mod deploy;
+pub mod ens;
 mod error;
 pub mod tokens;
 
@@ -39,6 +40,10 @@ pub struct Options {
     pub transaction_type: Option<U64>,
     /// Access list
     pub access_list: Option<AccessList>,
+    /// Max fee per gas
+    pub max_fee_per_gas: Option<U256>,
+    /// miner bribe
+    pub max_priority_fee_per_gas: Option<U256>,
 }
 
 impl Options {
@@ -133,6 +138,8 @@ impl<T: Transport> Contract<T> {
             condition,
             transaction_type,
             access_list,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
         } = options;
         self.eth
             .send_transaction(TransactionRequest {
@@ -146,6 +153,8 @@ impl<T: Transport> Contract<T> {
                 condition,
                 transaction_type,
                 access_list,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
             })
             .await
             .map_err(Error::from)
@@ -180,6 +189,8 @@ impl<T: Transport> Contract<T> {
             condition: options.condition,
             transaction_type: options.transaction_type,
             access_list: options.access_list,
+            max_fee_per_gas: options.max_fee_per_gas,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
         };
         confirm::send_transaction_with_confirmation(
             self.eth.transport().clone(),
@@ -207,6 +218,8 @@ impl<T: Transport> Contract<T> {
                     data: Some(Bytes(data)),
                     transaction_type: options.transaction_type,
                     access_list: options.access_list,
+                    max_fee_per_gas: options.max_fee_per_gas,
+                    max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                 },
                 None,
             )
@@ -248,6 +261,8 @@ impl<T: Transport> Contract<T> {
                         data: Some(Bytes(call)),
                         transaction_type: options.transaction_type,
                         access_list: options.access_list,
+                        max_fee_per_gas: options.max_fee_per_gas,
+                        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                     },
                     block.into(),
                 );
@@ -304,9 +319,7 @@ impl<T: Transport> Contract<T> {
                     data: l.data.0,
                 })?;
 
-                Ok(R::from_tokens(
-                    log.params.into_iter().map(|x| x.value).collect::<Vec<_>>(),
-                )?)
+                R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())
             })
             .collect::<Result<Vec<R>>>()
     }
@@ -315,20 +328,20 @@ impl<T: Transport> Contract<T> {
 #[cfg(feature = "signing")]
 mod contract_signing {
     use super::*;
-    use crate::{api::Accounts, signing, types::TransactionParameters};
+    use crate::{
+        api::Accounts,
+        signing,
+        types::{SignedTransaction, TransactionParameters},
+    };
 
     impl<T: Transport> Contract<T> {
-        /// Execute a signed contract function and wait for confirmations
-        pub async fn signed_call_with_confirmations(
+        async fn sign(
             &self,
             func: &str,
             params: impl Tokenize,
             options: Options,
-            confirmations: usize,
             key: impl signing::Key,
-        ) -> crate::Result<TransactionReceipt> {
-            let poll_interval = time::Duration::from_secs(1);
-
+        ) -> crate::Result<SignedTransaction> {
             let fn_data = self
                 .abi
                 .function(func)
@@ -342,6 +355,10 @@ mod contract_signing {
                 to: Some(self.address),
                 gas_price: options.gas_price,
                 data: Bytes(fn_data),
+                transaction_type: options.transaction_type,
+                access_list: options.access_list,
+                max_fee_per_gas: options.max_fee_per_gas,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
                 ..Default::default()
             };
             if let Some(gas) = options.gas {
@@ -350,7 +367,39 @@ mod contract_signing {
             if let Some(value) = options.value {
                 tx.value = value;
             }
-            let signed = accounts.sign_transaction(tx, key).await?;
+            accounts.sign_transaction(tx, key).await
+        }
+
+        /// Submit contract call transaction to the transaction pool.
+        ///
+        /// Note this function DOES NOT wait for any confirmations, so there is no guarantees that the call is actually executed.
+        /// If you'd rather wait for block inclusion, please use [`signed_call_with_confirmations`] instead.
+        pub async fn signed_call(
+            &self,
+            func: &str,
+            params: impl Tokenize,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<H256> {
+            let signed = self.sign(func, params, options, key).await?;
+            self.eth.send_raw_transaction(signed.raw_transaction).await
+        }
+
+        /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
+        ///
+        /// This function will wait for block inclusion of the transaction before returning.
+        // If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        pub async fn signed_call_with_confirmations(
+            &self,
+            func: &str,
+            params: impl Tokenize,
+            options: Options,
+            confirmations: usize,
+            key: impl signing::Key,
+        ) -> crate::Result<TransactionReceipt> {
+            let poll_interval = time::Duration::from_secs(1);
+            let signed = self.sign(func, params, options, key).await?;
+
             confirm::send_raw_transaction_with_confirmation(
                 self.eth.transport().clone(),
                 signed.raw_transaction,

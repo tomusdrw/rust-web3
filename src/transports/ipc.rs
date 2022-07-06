@@ -1,6 +1,9 @@
 //! IPC transport
 
-use crate::{api::SubscriptionId, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result, Transport};
+use crate::{
+    api::SubscriptionId, error::TransportError, helpers, BatchTransport, DuplexTransport, Error, RequestId, Result,
+    Transport,
+};
 use futures::{
     future::{join_all, JoinAll},
     stream::StreamExt,
@@ -15,11 +18,13 @@ use std::{
 };
 use tokio::{
     io::AsyncWriteExt,
-    net::UnixStream,
     sync::{mpsc, oneshot},
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::io::ReaderStream;
+
+#[cfg(unix)]
+use tokio::net::UnixStream;
 
 /// Unix Domain Sockets (IPC) transport.
 #[derive(Debug, Clone)]
@@ -168,17 +173,17 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
     let mut read_buffer = vec![];
     let mut closed = false;
 
-    while !closed || pending_response_txs.len() > 0 {
+    while !closed || !pending_response_txs.is_empty() {
         tokio::select! {
             message = messages_rx.next() => match message {
                 None => closed = true,
                 Some(TransportMessage::Subscribe(id, tx)) => {
-                    if let Some(_) = subscription_txs.insert(id.clone(), tx) {
+                    if subscription_txs.insert(id.clone(), tx).is_some() {
                         log::warn!("Replacing a subscription with id {:?}", id);
                     }
                 },
                 Some(TransportMessage::Unsubscribe(id)) => {
-                    if let None = subscription_txs.remove(&id) {
+                    if subscription_txs.remove(&id).is_none() {
                         log::warn!("Unsubscribing not subscribed id {:?}", id);
                     }
                 },
@@ -322,13 +327,13 @@ fn respond_output(
 
 impl From<mpsc::error::SendError<TransportMessage>> for Error {
     fn from(err: mpsc::error::SendError<TransportMessage>) -> Self {
-        Error::Transport(format!("Send Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Send Error: {:?}", err)))
     }
 }
 
 impl From<oneshot::error::RecvError> for Error {
     fn from(err: oneshot::error::RecvError) -> Self {
-        Error::Transport(format!("Recv Error: {:?}", err))
+        Error::Transport(TransportError::Message(format!("Recv Error: {:?}", err)))
     }
 }
 
