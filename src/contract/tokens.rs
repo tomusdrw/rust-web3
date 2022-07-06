@@ -18,7 +18,7 @@ pub trait Detokenize {
 impl<T: Tokenizable> Detokenize for T {
     fn from_tokens(mut tokens: Vec<Token>) -> Result<Self, Error> {
         if tokens.len() == 0 {
-            return Self::from_token( Token::Array(vec![]));
+            return Self::from_token(Token::Array(vec![]));
         }
         if tokens.len() != 1 {
             Err(Error::InvalidOutputType(format!(
