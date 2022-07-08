@@ -135,14 +135,19 @@ impl Eip1193 {
 
     /// EIP-3326: Switch a wallet to another chain
     pub async fn switch_chain(&self, chain_id: &str) -> Result<serde_json::value::Value, error::Error> {
-        let js_params = JsValue::from_serde(&vec![&ChainId { chain_id: chain_id.to_string() }])
-            .expect("couldn't send method params via JSON");
+        let js_params = JsValue::from_serde(&vec![&ChainId {
+            chain_id: chain_id.to_string(),
+        }])
+        .expect("couldn't send method params via JSON");
 
-        self.provider_and_listeners.borrow().provider.request_wrapped(RequestArguments {
-            method: String::from("wallet_switchEthereumChain"),
-            params: js_sys::Array::from(&js_params),
-        })
-        .await
+        self.provider_and_listeners
+            .borrow()
+            .provider
+            .request_wrapped(RequestArguments {
+                method: String::from("wallet_switchEthereumChain"),
+                params: js_sys::Array::from(&js_params),
+            })
+            .await
     }
 }
 
