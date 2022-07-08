@@ -132,6 +132,24 @@ impl Eip1193 {
             .into_deserializer();
         O::deserialize(deserializer).expect(&format!("couldn't deserialize {}", name))
     }
+
+    /// EIP-3326: Switch a wallet to another chain
+    pub async fn switch_chain(&self, chain_id: &str) -> Result<serde_json::value::Value, error::Error> {
+        let js_params = JsValue::from_serde(&vec![&ChainId { chain_id: chain_id.to_string() }])
+            .expect("couldn't send method params via JSON");
+
+        self.provider_and_listeners.borrow().provider.request_wrapped(RequestArguments {
+            method: String::from("wallet_switchEthereumChain"),
+            params: js_sys::Array::from(&js_params),
+        })
+        .await
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainId {
+    pub chain_id: String,
 }
 
 /// Event data sent from the JavaScript side to our callback.
