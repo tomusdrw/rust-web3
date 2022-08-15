@@ -371,6 +371,15 @@ mod contract_signing {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
                 .map_err(|err| crate::error::Error::Decoder(format!("{:?}", err)))?;
+            self.sign_raw(fn_data, options, key).await
+        }
+
+        async fn sign_raw(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<SignedTransaction> {
             let accounts = Accounts::new(self.eth.transport().clone());
             let mut tx = TransactionParameters {
                 nonce: options.nonce,
@@ -407,10 +416,24 @@ mod contract_signing {
             self.eth.send_raw_transaction(signed.raw_transaction).await
         }
 
+        /// Submit contract call transaction to the transaction pool.
+        ///
+        /// Note this function DOES NOT wait for any confirmations, so there is no guarantees that the call is actually executed.
+        /// If you'd rather wait for block inclusion, please use [`signed_call_raw_with_confirmations`] instead.
+        pub async fn signed_call_raw(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<H256> {
+            let signed = self.sign_raw(fn_data, options, key).await?;
+            self.eth.send_raw_transaction(signed.raw_transaction).await
+        }
+
         /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
         ///
         /// This function will wait for block inclusion of the transaction before returning.
-        // If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        /// If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
         pub async fn signed_call_with_confirmations(
             &self,
             func: &str,
@@ -421,6 +444,29 @@ mod contract_signing {
         ) -> crate::Result<TransactionReceipt> {
             let poll_interval = time::Duration::from_secs(1);
             let signed = self.sign(func, params, options, key).await?;
+
+            confirm::send_raw_transaction_with_confirmation(
+                self.eth.transport().clone(),
+                signed.raw_transaction,
+                poll_interval,
+                confirmations,
+            )
+            .await
+        }
+
+        /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
+        ///
+        /// This function will wait for block inclusion of the transaction before returning.
+        /// If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        pub async fn signed_call_raw_with_confirmations(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            confirmations: usize,
+            key: impl signing::Key,
+        ) -> crate::Result<TransactionReceipt> {
+            let poll_interval = time::Duration::from_secs(1);
+            let signed = self.sign_raw(fn_data, options, key).await?;
 
             confirm::send_raw_transaction_with_confirmation(
                 self.eth.transport().clone(),
