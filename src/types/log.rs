@@ -1,10 +1,15 @@
 use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::{
+    fmt::{self, Debug},
+    str::FromStr,
+};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Log {
     /// H160
+    #[serde(default, deserialize_with = "null_to_default")]
     pub address: H160,
     /// Topics
     pub topics: Vec<H256>,
@@ -70,6 +75,31 @@ where
             1 => Serialize::serialize(&self.0[0], serializer),
             _ => Serialize::serialize(&self.0, serializer),
         }
+    }
+}
+
+fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de> + FromStr + Debug,
+    D: Deserializer<'de>,
+    <T as FromStr>::Err: fmt::Debug,
+{
+    let option = String::deserialize(deserializer);
+    match option {
+        Ok(string) => {
+            if string.len() > 40 {
+                // Remove address prefix
+                let len = string.len();
+                let author: &str = &string[len - 40..];
+                let author = author.clone().to_string();
+                let result: Option<T> = Some(author.parse().unwrap());
+                Ok(result.unwrap_or_default())
+            } else {
+                let result: Option<T> = Some(string.parse().unwrap());
+                Ok(result.unwrap_or_default())
+            }
+        }
+        Err(err) => Err(err),
     }
 }
 

@@ -1,3 +1,8 @@
+use std::{
+    fmt::{self, Debug},
+    str::FromStr,
+};
+
 use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
 use serde::{de::Error, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -118,11 +123,27 @@ pub struct Block<TX> {
 
 fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
-    T: Default + Deserialize<'de>,
+    T: Default + Deserialize<'de> + FromStr + Debug,
     D: Deserializer<'de>,
+    <T as FromStr>::Err: fmt::Debug,
 {
-    let option = Option::deserialize(deserializer)?;
-    Ok(option.unwrap_or_default())
+    let option = String::deserialize(deserializer);
+    match option {
+        Ok(string) => {
+            if string.len() > 40 {
+                // Remove address prefix
+                let len = string.len();
+                let author: &str = &string[len - 40..];
+                let author = author.clone().to_string();
+                let result: Option<T> = Some(author.parse().unwrap());
+                Ok(result.unwrap_or_default())
+            } else {
+                let result: Option<T> = Some(string.parse().unwrap());
+                Ok(result.unwrap_or_default())
+            }
+        }
+        Err(err) => Err(err),
+    }
 }
 
 /// Block Number
