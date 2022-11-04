@@ -33,6 +33,7 @@ pub mod signing;
 pub mod transports;
 pub mod types;
 
+pub use rpc::Call;
 pub use crate::{
     api::Web3,
     error::{Error, Result},
