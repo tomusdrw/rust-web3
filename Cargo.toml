@@ -58,7 +58,7 @@ wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
 [dev-dependencies]
 # For examples
-env_logger = "0.9"
+env_logger = "0.10"
 hex-literal = "0.3"
 wasm-bindgen-test = "0.3.19"
 
