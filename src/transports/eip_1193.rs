@@ -15,10 +15,7 @@ use jsonrpc_core::{
     error::{Error as RPCError, ErrorCode as RPCErrorCode},
     types::request::{Call, MethodCall},
 };
-use serde::{
-    de::{value::StringDeserializer, IntoDeserializer},
-    Deserialize,
-};
+use serde::{de::{value::StringDeserializer, DeserializeOwned, IntoDeserializer}, Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use wasm_bindgen::{prelude::*, JsCast};
 
@@ -41,7 +38,7 @@ impl Eip1193 {
         let subscriptions: Subscriptions = Subscriptions::default();
         let subscriptions_for_closure = subscriptions.clone();
         let msg_handler = Closure::wrap(Box::new(move |evt_js: JsValue| {
-            let evt = evt_js.into_serde::<MessageEvent>().expect("Couldn't parse event data");
+            let evt = deserialize_from_js::<MessageEvent>(evt_js).expect("Couldn't parse event data");
             log::trace!("Message from provider: {:?}", evt);
             match evt.event_type.as_str() {
                 "eth_subscription" => {
@@ -70,8 +67,7 @@ impl Eip1193 {
     /// be closed when the `Eip1193` is dropped.
     pub fn connect_stream(&self) -> impl Stream<Item = Option<String>> {
         self.handle_ad_hoc_event("connect", |evt_js| {
-            let evt = evt_js
-                .into_serde::<ConnectEvent>()
+            let evt = deserialize_from_js::<ConnectEvent>(evt_js)
                 .expect("couldn't parse connect event");
             evt.chain_id
         })
@@ -81,7 +77,7 @@ impl Eip1193 {
     /// above.
     pub fn disconnect_stream(&self) -> impl Stream<Item = jsonrpc_core::Error> {
         self.handle_ad_hoc_event("disconnect", |evt_js| {
-            evt_js.into_serde().expect("deserializing disconnect error failed")
+            deserialize_from_js(evt_js).expect("deserializing disconnect error failed")
         })
     }
 
@@ -178,8 +174,9 @@ impl Transport for Eip1193 {
                 method,
                 ..
             }) => {
-                let js_params =
-                    js_sys::Array::from(&JsValue::from_serde(&params).expect("couldn't send method params via JSON"));
+                let js_params = js_sys::Array::from(
+                    &serialize_to_js(&params).expect("couldn't send method params via JSON")
+                );
                 let copy = self.provider_and_listeners.borrow().provider.clone();
                 Box::pin(async move {
                     copy.request_wrapped(RequestArguments {
@@ -263,8 +260,8 @@ impl Provider {
         }
 
         let parsed_value = resp
-            .map(|res| res.into_serde())
-            .map_err(|err| err.into_serde::<RPCErrorExtra>());
+            .map(deserialize_from_js)
+            .map_err(deserialize_from_js::<RPCErrorExtra>);
         match parsed_value {
             Ok(Ok(res)) => Ok(res),
             Err(Ok(err)) => Err(Error::Rpc(err.into())),
@@ -333,6 +330,16 @@ impl RequestArguments {
     }
 }
 
+fn serialize_to_js<T: Serialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    use serde_wasm_bindgen::{Serializer};
+
+    value.serialize(&Serializer::json_compatible())
+}
+
+fn deserialize_from_js<T: DeserializeOwned>(value: JsValue) -> Result<T, serde_wasm_bindgen::Error> {
+    serde_wasm_bindgen::from_value(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,14 +347,14 @@ mod tests {
 
     fn json_to_js(json: &str) -> JsValue {
         let json_value = serde_json::from_str::<serde_json::Value>(json).unwrap();
-        let js_value = JsValue::from_serde(&json_value).unwrap();
+        let js_value = serialize_to_js(&json_value).unwrap();
         js_value
     }
 
     #[wasm_bindgen_test]
     fn parses_valid_response_correctly() {
         let value = serde_json::from_str::<serde_json::Value>(r#"[1, false, null, "string"]"#).unwrap();
-        let response = Ok(JsValue::from_serde(&value).unwrap());
+        let response = Ok(serialize_to_js(&value).unwrap());
         let expected_result = Ok(value);
         assert_eq!(Provider::parse_response(response), expected_result);
 
