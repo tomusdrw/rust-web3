@@ -15,7 +15,11 @@ use jsonrpc_core::{
     error::{Error as RPCError, ErrorCode as RPCErrorCode},
     types::request::{Call, MethodCall},
 };
-use serde::{de::{value::StringDeserializer, DeserializeOwned, IntoDeserializer}, Deserialize, Serialize};
+use serde::{
+    de::{value::StringDeserializer, DeserializeOwned, IntoDeserializer},
+    Deserialize, Serialize,
+};
+use serde_wasm_bindgen::Serializer;
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use wasm_bindgen::{prelude::*, JsCast};
 
@@ -67,8 +71,7 @@ impl Eip1193 {
     /// be closed when the `Eip1193` is dropped.
     pub fn connect_stream(&self) -> impl Stream<Item = Option<String>> {
         self.handle_ad_hoc_event("connect", |evt_js| {
-            let evt = deserialize_from_js::<ConnectEvent>(evt_js)
-                .expect("couldn't parse connect event");
+            let evt = deserialize_from_js::<ConnectEvent>(evt_js).expect("couldn't parse connect event");
             evt.chain_id
         })
     }
@@ -174,9 +177,8 @@ impl Transport for Eip1193 {
                 method,
                 ..
             }) => {
-                let js_params = js_sys::Array::from(
-                    &serialize_to_js(&params).expect("couldn't send method params via JSON")
-                );
+                let js_params =
+                    js_sys::Array::from(&serialize_to_js(&params).expect("couldn't send method params via JSON"));
                 let copy = self.provider_and_listeners.borrow().provider.clone();
                 Box::pin(async move {
                     copy.request_wrapped(RequestArguments {
@@ -331,8 +333,6 @@ impl RequestArguments {
 }
 
 fn serialize_to_js<T: Serialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    use serde_wasm_bindgen::{Serializer};
-
     value.serialize(&Serializer::json_compatible())
 }
 
