@@ -239,7 +239,6 @@ impl Provider {
     fn parse_response(resp: Result<JsValue, JsValue>) -> error::Result<serde_json::value::Value> {
         // Fix #544
         #[derive(Debug, Deserialize)]
-        #[serde(deny_unknown_fields)]
         pub struct RPCErrorExtra {
             /// Code
             pub code: RPCErrorCode,
@@ -373,10 +372,6 @@ mod tests {
     fn returns_error_on_invalid_response() {
         assert!(matches!(
             Provider::parse_response(Err(json_to_js(r#"{"code": "red", "message": ""}"#))),
-            Err(Error::InvalidResponse(_))
-        ));
-        assert!(matches!(
-            Provider::parse_response(Err(json_to_js(r#"{"code": 0, "message": "", "extra": true}"#))),
             Err(Error::InvalidResponse(_))
         ));
         assert!(matches!(
