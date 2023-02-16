@@ -12,6 +12,11 @@ Rust implementation of Web3.js library.
 
 Documentation: [crates.io][docs-rs-url]
 
+## Status
+
+Note this package is barely maintained and I am looking for an active maintainer (see #664).
+If you are starting a new project, I'd recommend choosing https://github.com/gakonst/ethers-rs instead.
+
 ## Usage
 
 First, add this to your `Cargo.toml`:
