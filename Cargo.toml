@@ -1,6 +1,6 @@
 [package]
 name = "web3"
-version = "0.19.0"
+version = "0.19.1"
 description = "Ethereum JSON-RPC client."
 homepage = "https://github.com/tomusdrw/rust-web3"
 repository = "https://github.com/tomusdrw/rust-web3"
@@ -19,7 +19,7 @@ ethereum-types = "0.13.0"
 futures = "0.3.5"
 futures-timer = "3.0.2"
 hex = "0.4"
-idna = "0.2"
+idna = "0.3"
 jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.12.0"
@@ -29,11 +29,11 @@ serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
-secp256k1 = { version = "0.21", features = ["recovery"], optional = true }
+secp256k1 = { version = "0.27", features = ["recovery"], optional = true }
 once_cell = { version = "1.8.0", optional = true }
 
 ## HTTP
-base64 = { version = "0.13", optional = true }
+base64 = { version = "0.21", optional = true }
 bytes = { version = "1.0", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
 headers = { version = "0.3", optional = true }
@@ -58,7 +58,7 @@ wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
 [dev-dependencies]
 # For examples
-env_logger = "0.9"
+env_logger = "0.10"
 hex-literal = "0.3"
 wasm-bindgen-test = "0.3.19"
 
