@@ -142,6 +142,12 @@ jobs:
           command:                 check
           toolchain:               stable
           args:                    --no-default-features --features ws-tls-tokio
+      - name:                      Checking ws-rustls-tokio
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               stable
+          args:                    --no-default-features --features ws-rustls-tokio
       - name:                      Checking ws-async-std
         uses:                      actions-rs/cargo@master
         with:

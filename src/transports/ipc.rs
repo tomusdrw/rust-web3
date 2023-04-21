@@ -394,7 +394,7 @@ mod test {
                 })
             );
 
-            tx.write(r#"{"jsonrpc": "2.0", "id": 1, "result": {"test": 1}}"#.as_ref())
+            tx.write_all(r#"{"jsonrpc": "2.0", "id": 1, "result": {"test": 1}}"#.as_ref())
                 .await
                 .unwrap();
             tx.flush().await.unwrap();
@@ -417,7 +417,7 @@ mod test {
 
             let response_bytes = r#"{"jsonrpc": "2.0", "id": 2, "result": {"test": "string1"}}"#;
             for chunk in response_bytes.as_bytes().chunks(3) {
-                tx.write(chunk).await.unwrap();
+                tx.write_all(chunk).await.unwrap();
                 tx.flush().await.unwrap();
             }
         }
