@@ -137,10 +137,26 @@ impl BatchTransport for Http {
         let (client, url) = self.new_request();
         let (ids, calls): (Vec<_>, Vec<_>) = requests.into_iter().unzip();
         Box::pin(async move {
-            let outputs: Vec<Output> = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let value = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let outputs = handle_possible_error_object_for_batched_request(value)?;
             handle_batch_response(&ids, outputs)
         })
     }
+}
+
+fn handle_possible_error_object_for_batched_request(value: Value) -> Result<Vec<Output>> {
+    if value.is_object() {
+        let output: Output = serde_json::from_value(value)?;
+        return Err(match output {
+            Output::Failure(failure) => Error::Rpc(failure.error),
+            Output::Success(success) => {
+                // totally unlikely - we got json success object for batched request
+                Error::InvalidResponse(format!("Invalid response for batched request: {:?}", success))
+            }
+        });
+    }
+    let outputs = serde_json::from_value(value)?;
+    Ok(outputs)
 }
 
 // According to the jsonrpc specification batch responses can be returned in any order so we need to
