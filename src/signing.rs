@@ -56,7 +56,7 @@ mod feature_gated {
     pub trait Key {
         /// Sign given message and include chain-id replay protection.
         ///
-        /// When a chain ID is provided, the `Signature`'s V-value will have chain relay
+        /// When a chain ID is provided, the `Signature`'s V-value will have chain replay
         /// protection added (as per EIP-155). Otherwise, the V-value will be in
         /// 'Electrum' notation.
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
