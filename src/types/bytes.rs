@@ -5,7 +5,7 @@ use serde::{
 use std::fmt;
 
 /// Raw bytes wrapper
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct Bytes(pub Vec<u8>);
 
 impl<T: Into<Vec<u8>>> From<T> for Bytes {
@@ -31,6 +31,13 @@ impl<'a> Deserialize<'a> for Bytes {
         D: Deserializer<'a>,
     {
         deserializer.deserialize_identifier(BytesVisitor)
+    }
+}
+
+impl fmt::Debug for Bytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let serialized = format!("0x{}", hex::encode(&self.0));
+        f.debug_tuple("Bytes").field(&serialized).finish()
     }
 }
 
