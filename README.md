@@ -136,3 +136,6 @@ The library supports following features:
 - `eip-1193` - Enable EIP-1193 support.
 - `wasm` - Compile for WASM (make sure to disable default features).
 - `arbitrary_precision` - Enable `arbitrary_precision` in `serde_json`.
+- `allow-missing-fields` - Some response fields are mandatory in Ethereum but not present in
+  EVM-compatible chains such as Celo and Fantom. This feature enables compatibility by setting a
+  default value on those fields.

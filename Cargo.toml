@@ -84,5 +84,6 @@ ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "w
 ipc-tokio = ["tokio", "tokio-stream", "tokio-util"]
 arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]
 test = []
+allow-missing-fields = []
 
 [workspace]

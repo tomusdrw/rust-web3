@@ -11,6 +11,7 @@ pub struct BlockHeader {
     pub parent_hash: H256,
     /// Hash of the uncles
     #[serde(rename = "sha3Uncles")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
@@ -31,6 +32,7 @@ pub struct BlockHeader {
     pub gas_used: U256,
     /// Gas Limit
     #[serde(rename = "gasLimit")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
     #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -44,6 +46,7 @@ pub struct BlockHeader {
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub difficulty: U256,
     /// Mix Hash
     #[serde(rename = "mixHash")]
@@ -63,6 +66,7 @@ pub struct Block<TX> {
     pub parent_hash: H256,
     /// Hash of the uncles
     #[serde(rename = "sha3Uncles")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
@@ -83,6 +87,7 @@ pub struct Block<TX> {
     pub gas_used: U256,
     /// Gas Limit
     #[serde(rename = "gasLimit")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
     #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -96,6 +101,7 @@ pub struct Block<TX> {
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub difficulty: U256,
     /// Total difficulty
     #[serde(rename = "totalDifficulty")]
@@ -104,6 +110,7 @@ pub struct Block<TX> {
     #[serde(default, rename = "sealFields")]
     pub seal_fields: Vec<Bytes>,
     /// Uncles' hashes
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles: Vec<H256>,
     /// Transactions
     pub transactions: Vec<TX>,
