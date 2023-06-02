@@ -193,7 +193,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
                     }
 
                     let bytes = helpers::to_string(&rpc::Request::Single(rpc_call)).into_bytes();
-                    if let Err(err) = socket_writer.write(&bytes).await {
+                    if let Err(err) = socket_writer.write_all(&bytes).await {
                         pending_response_txs.remove(&request_id);
                         log::error!("IPC write error: {:?}", err);
                     }
@@ -213,7 +213,7 @@ async fn run_server(unix_stream: UnixStream, messages_rx: UnboundedReceiverStrea
 
                     let bytes = helpers::to_string(&rpc::Request::Batch(rpc_calls)).into_bytes();
 
-                    if let Err(err) = socket_writer.write(&bytes).await {
+                    if let Err(err) = socket_writer.write_all(&bytes).await {
                         log::error!("IPC write error: {:?}", err);
                         for request_id in request_ids {
                             pending_response_txs.remove(&request_id);

@@ -137,10 +137,26 @@ impl BatchTransport for Http {
         let (client, url) = self.new_request();
         let (ids, calls): (Vec<_>, Vec<_>) = requests.into_iter().unzip();
         Box::pin(async move {
-            let outputs: Vec<Output> = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let value = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let outputs = handle_possible_error_object_for_batched_request(value)?;
             handle_batch_response(&ids, outputs)
         })
     }
+}
+
+fn handle_possible_error_object_for_batched_request(value: Value) -> Result<Vec<Output>> {
+    if value.is_object() {
+        let output: Output = serde_json::from_value(value)?;
+        return Err(match output {
+            Output::Failure(failure) => Error::Rpc(failure.error),
+            Output::Success(success) => {
+                // totally unlikely - we got json success object for batched request
+                Error::InvalidResponse(format!("Invalid response for batched request: {:?}", success))
+            }
+        });
+    }
+    let outputs = serde_json::from_value(value)?;
+    Ok(outputs)
 }
 
 // According to the jsonrpc specification batch responses can be returned in any order so we need to
@@ -176,6 +192,8 @@ fn id_of_output(output: &Output) -> Result<RequestId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Error::Rpc;
+    use jsonrpc_core::ErrorCode;
 
     async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
         use hyper::body::HttpBody;
@@ -217,6 +235,51 @@ mod tests {
 
         // then
         assert_eq!(response, Ok(Value::String("x".into())));
+    }
+
+    #[tokio::test]
+    async fn catch_generic_json_error_for_batched_request() {
+        use hyper::service::{make_service_fn, service_fn};
+
+        async fn handler(_req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
+            let response = r#"{
+                "jsonrpc":"2.0",
+                "error":{
+                    "code":0,
+                    "message":"we can't execute this request"
+                },
+                "id":null
+            }"#;
+            Ok(hyper::Response::<hyper::Body>::new(response.into()))
+        }
+
+        // given
+        let addr = "127.0.0.1:3001";
+        // start server
+        let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(handler)) });
+        let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
+        tokio::spawn(async move {
+            println!("Listening on http://{}", addr);
+            server.await.unwrap();
+        });
+
+        // when
+        let client = Http::new(&format!("http://{}", addr)).unwrap();
+        println!("Sending request");
+        let response = client
+            .send_batch(vec![client.prepare("some_method", vec![])].into_iter())
+            .await;
+        println!("Got response");
+
+        // then
+        assert_eq!(
+            response,
+            Err(Rpc(crate::rpc::error::Error {
+                code: ErrorCode::ServerError(0),
+                message: "we can't execute this request".to_string(),
+                data: None,
+            }))
+        );
     }
 
     #[test]
