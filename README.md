@@ -115,7 +115,7 @@ web3 = { version = "_", default-features = false, features = ["http"] }
 # Avoiding OpenSSL dependency
 
 On Linux, `native-tls` is implemented using OpenSSL. To avoid that dependency
-for HTTPS use the corresponding feature.
+for HTTPS or WSS use the corresponding features.
 ```toml
 web3 = { version = "_", default-features = false, features = ["http-rustls-tls", "signing", "ws-rustls-tokio", "ipc-tokio"] }
 ```
