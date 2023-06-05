@@ -11,6 +11,7 @@ pub struct BlockHeader {
     pub parent_hash: H256,
     /// Hash of the uncles
     #[serde(rename = "sha3Uncles")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
@@ -31,6 +32,7 @@ pub struct BlockHeader {
     pub gas_used: U256,
     /// Gas Limit
     #[serde(rename = "gasLimit")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
     #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -44,6 +46,7 @@ pub struct BlockHeader {
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub difficulty: U256,
     /// Mix Hash
     #[serde(rename = "mixHash")]
@@ -63,6 +66,7 @@ pub struct Block<TX> {
     pub parent_hash: H256,
     /// Hash of the uncles
     #[serde(rename = "sha3Uncles")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles_hash: H256,
     /// Miner/author's address.
     #[serde(rename = "miner", default, deserialize_with = "null_to_default")]
@@ -83,6 +87,7 @@ pub struct Block<TX> {
     pub gas_used: U256,
     /// Gas Limit
     #[serde(rename = "gasLimit")]
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub gas_limit: U256,
     /// Base fee per unit of gas (if past London)
     #[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -96,6 +101,7 @@ pub struct Block<TX> {
     /// Timestamp
     pub timestamp: U256,
     /// Difficulty
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub difficulty: U256,
     /// Total difficulty
     #[serde(rename = "totalDifficulty")]
@@ -104,6 +110,7 @@ pub struct Block<TX> {
     #[serde(default, rename = "sealFields")]
     pub seal_fields: Vec<Bytes>,
     /// Uncles' hashes
+    #[cfg_attr(feature = "allow-missing-fields", serde(default))]
     pub uncles: Vec<H256>,
     /// Transactions
     pub transactions: Vec<TX>,
@@ -128,6 +135,10 @@ where
 /// Block Number
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockNumber {
+    /// Finalized block
+    Finalized,
+    /// Safe block
+    Safe,
     /// Latest block
     Latest,
     /// Earliest block (genesis)
@@ -154,6 +165,8 @@ impl Serialize for BlockNumber {
             BlockNumber::Latest => serializer.serialize_str("latest"),
             BlockNumber::Earliest => serializer.serialize_str("earliest"),
             BlockNumber::Pending => serializer.serialize_str("pending"),
+            BlockNumber::Finalized => serializer.serialize_str("finalized"),
+            BlockNumber::Safe => serializer.serialize_str("safe"),
         }
     }
 }
@@ -168,6 +181,8 @@ impl<'a> Deserialize<'a> for BlockNumber {
             "latest" => Ok(BlockNumber::Latest),
             "earliest" => Ok(BlockNumber::Earliest),
             "pending" => Ok(BlockNumber::Pending),
+            "finalized" => Ok(BlockNumber::Finalized),
+            "safe" => Ok(BlockNumber::Safe),
             _ if value.starts_with("0x") => U64::from_str_radix(&value[2..], 16)
                 .map(BlockNumber::Number)
                 .map_err(|e| D::Error::custom(format!("invalid block number: {}", e))),
@@ -329,6 +344,18 @@ mod tests {
         assert_eq!(serialized, "pending");
         let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
         assert_eq!(deserialized, BlockNumber::Pending);
+
+        // BlockNumber::Finalized
+        let serialized = serde_json::to_value(BlockNumber::Finalized).unwrap();
+        assert_eq!(serialized, "finalized");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Finalized);
+
+        // BlockNumber::Safe
+        let serialized = serde_json::to_value(BlockNumber::Safe).unwrap();
+        assert_eq!(serialized, "safe");
+        let deserialized = serde_json::from_value::<BlockNumber>(serialized).unwrap();
+        assert_eq!(deserialized, BlockNumber::Safe);
 
         // BlockNumber::Number
         let serialized = serde_json::to_value(BlockNumber::Number(100.into())).unwrap();
