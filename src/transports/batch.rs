@@ -16,6 +16,9 @@ type Pending = oneshot::Sender<error::Result<rpc::Value>>;
 type PendingRequests = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
 
 /// Transport allowing to batch queries together.
+///
+/// Note: cloned instances of [Batch] share the queues of pending and unsent requests.
+/// If you want to avoid it, use [Batch::new] repeatedly instead.
 #[derive(Debug, Clone)]
 pub struct Batch<T> {
     transport: T,
