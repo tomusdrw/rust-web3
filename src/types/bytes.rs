@@ -54,8 +54,8 @@ impl<'a> Visitor<'a> for BytesVisitor {
     where
         E: Error,
     {
-        if value.len() >= 2 && &value[0..2] == "0x" {
-            let bytes = hex::decode(&value[2..]).map_err(|e| Error::custom(format!("Invalid hex: {}", e)))?;
+        if let Some(value) = value.strip_prefix("0x") {
+            let bytes = hex::decode(value).map_err(|e| Error::custom(format!("Invalid hex: {}", e)))?;
             Ok(Bytes(bytes))
         } else {
             Err(Error::invalid_value(Unexpected::Str(value), &"0x prefix"))
@@ -67,5 +67,30 @@ impl<'a> Visitor<'a> for BytesVisitor {
         E: Error,
     {
         self.visit_str(value.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize() {
+        assert_eq!(serde_json::from_str::<Bytes>(r#""0x00""#).unwrap(), Bytes(vec![0x00]));
+        assert_eq!(
+            serde_json::from_str::<Bytes>(r#""0x0123456789AaBbCcDdEeFf""#).unwrap(),
+            Bytes(vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF])
+        );
+        assert_eq!(serde_json::from_str::<Bytes>(r#""0x""#).unwrap(), Bytes(vec![]));
+
+        assert!(serde_json::from_str::<Bytes>("0").is_err(), "Not a string");
+        assert!(serde_json::from_str::<Bytes>(r#""""#).is_err(), "Empty string");
+        assert!(serde_json::from_str::<Bytes>(r#""0xZZ""#).is_err(), "Invalid hex");
+        assert!(
+            serde_json::from_str::<Bytes>(r#""deadbeef""#).is_err(),
+            "Missing 0x prefix"
+        );
+        assert!(serde_json::from_str::<Bytes>(r#""数字""#).is_err(), "Non-ASCII");
+        assert!(serde_json::from_str::<Bytes>(r#""0x数字""#).is_err(), "Non-ASCII");
     }
 }
