@@ -19,7 +19,7 @@ ethereum-types = "0.14.1"
 futures = "0.3.5"
 futures-timer = "3.0.2"
 hex = "0.4"
-idna = "0.2"
+idna = "0.4"
 jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.12.0"
@@ -29,11 +29,11 @@ serde_json = "1.0.39"
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
-secp256k1 = { version = "0.21", features = ["recovery"], optional = true }
+secp256k1 = { version = "0.27", features = ["recovery"], optional = true }
 once_cell = { version = "1.8.0", optional = true }
 
 ## HTTP
-base64 = { version = "0.13", optional = true }
+base64 = { version = "0.21", optional = true }
 bytes = { version = "1.0", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
 headers = { version = "0.3", optional = true }
@@ -44,22 +44,23 @@ async-native-tls = { package = "web3-async-native-tls", version = "0.4", optiona
 async-std = { version = "1.6", optional = true }
 tokio = { version = "1.0", optional = true, features = ["full"] }
 tokio-stream = { version = "0.1", optional = true }
-tokio-util = { version = "0.6", optional = true, features = ["compat", "io"] }
+tokio-util = { version = "0.7", optional = true, features = ["compat", "io"] }
 soketto = { version = "0.7.0", optional = true }
 ## Shared (WS, HTTP)
 url = { version = "2.1", optional = true }
 ## EIP-1193
 js-sys = { version = "0.3.45", optional = true }
 ### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
-rand = { version = "0.8.1", optional = true }
 getrandom = { version = "0.2", features = ["js"], optional = true }
-wasm-bindgen = { version = "0.2.68", optional = true, features = ["serde-serialize"] }
+rand = { version = "0.8.1", optional = true }
+serde-wasm-bindgen = { version = "0.5.0", optional = true }
+wasm-bindgen = { version = "0.2.68", optional = true }
 wasm-bindgen-futures = { version = "0.4.18", optional = true }
 
 [dev-dependencies]
 # For examples
-env_logger = "0.9"
-hex-literal = "0.3"
+env_logger = "0.10"
+hex-literal = "0.4"
 wasm-bindgen-test = "0.3.19"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
@@ -69,7 +70,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 
 [features]
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
-wasm = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures-timer/wasm-bindgen", "rand", "getrandom"]
+wasm = ["futures-timer/wasm-bindgen", "getrandom", "js-sys", "rand", "serde-wasm-bindgen", "wasm-bindgen", "wasm-bindgen-futures"]
 eip-1193 = ["wasm"]
 _http_base = ["reqwest", "bytes", "url", "base64", "headers"]
 http = ["_http_base"]
@@ -84,5 +85,6 @@ ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "w
 ipc-tokio = ["tokio", "tokio-stream", "tokio-util"]
 arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]
 test = []
+allow-missing-fields = []
 
 [workspace]
