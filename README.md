@@ -23,7 +23,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-web3 = "0.18.0"
+web3 = "0.19.0"
 ```
 
 ## Example
@@ -109,7 +109,7 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 Currently, Windows does not support IPC, which is enabled in the library by default.
 To compile, you need to disable the IPC feature:
 ```
-web3 = { version = "0.18.0", default-features = false, features = ["http"] }
+web3 = { version = "0.19.0", default-features = false, features = ["http"] }
 ```
 
 # Avoiding OpenSSL dependency
@@ -117,7 +117,7 @@ web3 = { version = "0.18.0", default-features = false, features = ["http"] }
 On Linux, `native-tls` is implemented using OpenSSL. To avoid that dependency
 for HTTPS use the corresponding feature.
 ```
-web3 = { version = "0.18.0", default-features = false, features = ["http-rustls-tls"] }
+web3 = { version = "0.19.0", default-features = false, features = ["http-rustls-tls"] }
 ```
 
 # Cargo Features
