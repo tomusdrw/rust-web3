@@ -9,13 +9,12 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
-
   check-test-build:
     runs-on:                       ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check, test and build
     env:
       RUST_BACKTRACE:              full
@@ -57,9 +56,6 @@ jobs:
           args:                    --all --verbose
 
   check-wasm:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check WASM
     runs-on:                       ubuntu-latest
     env:
@@ -93,9 +89,6 @@ jobs:
           args:                   --target wasm32-unknown-unknown --no-default-features --features eip-1193 --tests
 
   check-transports:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check Transports
     runs-on:                       ubuntu-latest
     env:

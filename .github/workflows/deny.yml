@@ -11,12 +11,12 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   cargo-deny:
     runs-on:            ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     steps:
       - name:           Checkout sources & submodules
         uses:           actions/checkout@master

@@ -9,12 +9,12 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
 ## Check stage
   check-fmt:
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check RustFmt
     runs-on:                       ubuntu-latest
     env:
