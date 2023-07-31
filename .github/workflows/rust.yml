@@ -12,15 +12,14 @@ on:
 jobs:
 
   check-test-build:
-    name:                          Check, test and build
     runs-on:                       ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    name:                          Check, test and build
     env:
       RUST_BACKTRACE:              full
     steps:
-      - name:                      Cancel Previous Runs
-        uses:                      styfle/cancel-workflow-action@0.4.1
-        with:
-          access_token:            ${{ github.token }}
       - name:                      Checkout sources & submodules
         uses:                      actions/checkout@master
         with:
@@ -58,15 +57,14 @@ jobs:
           args:                    --all --verbose
 
   check-wasm:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check WASM
     runs-on:                       ubuntu-latest
     env:
       RUST_BACKTRACE:              full
     steps:
-      - name:                      Cancel Previous Runs
-        uses:                      styfle/cancel-workflow-action@0.4.1
-        with:
-          access_token:            ${{ github.token }}
       - name:                      Checkout sources & submodules
         uses:                      actions/checkout@master
         with:
@@ -95,15 +93,14 @@ jobs:
           args:                   --target wasm32-unknown-unknown --no-default-features --features eip-1193 --tests
 
   check-transports:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     name:                          Check Transports
     runs-on:                       ubuntu-latest
     env:
       RUST_BACKTRACE:              full
     steps:
-      - name:                      Cancel Previous Runs
-        uses:                      styfle/cancel-workflow-action@0.4.1
-        with:
-          access_token:            ${{ github.token }}
       - name:                      Checkout sources & submodules
         uses:                      actions/checkout@master
         with:
