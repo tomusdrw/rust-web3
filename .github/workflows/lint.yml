@@ -9,6 +9,9 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
 ## Check stage
   check-fmt:
@@ -17,10 +20,6 @@ jobs:
     env:
       RUST_BACKTRACE:   full
     steps:
-      - name:           Cancel Previous Runs
-        uses:           styfle/cancel-workflow-action@0.4.1
-        with:
-          access_token: ${{ github.token }}
       - name:           Checkout sources & submodules
         uses:           actions/checkout@master
         with:
