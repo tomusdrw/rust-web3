@@ -1,10 +1,17 @@
 //! A strongly-typed transport alternative.
 
 use crate::{api, error, rpc, BatchTransport, DuplexTransport, RequestId, Transport};
+#[cfg(not(feature = "wasm"))]
 use futures::{
-    future::{BoxFuture, FutureExt},
-    stream::{BoxStream, StreamExt},
+    future::BoxFuture,
+    stream::BoxStream,
 };
+#[cfg(feature = "wasm")]
+use futures::{
+    future::LocalBoxFuture as BoxFuture,
+    stream::LocalBoxStream as BoxStream,
+};
+use futures::{future::FutureExt, stream::StreamExt};
 
 /// A wrapper over two possible transports.
 ///
@@ -24,8 +31,8 @@ impl<A, B, AOut, BOut> Transport for Either<A, B>
 where
     A: Transport<Out = AOut>,
     B: Transport<Out = BOut>,
-    AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static + Send,
-    BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static + Send,
+    AOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
+    BOut: futures::Future<Output = error::Result<rpc::Value>> + 'static,
 {
     type Out = BoxFuture<'static, error::Result<rpc::Value>>;
 
@@ -38,8 +45,8 @@ where
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
         match *self {
-            Self::Left(ref a) => a.send(id, request).boxed(),
-            Self::Right(ref b) => b.send(id, request).boxed(),
+            Self::Left(ref a) => Box::pin(a.send(id, request)),
+            Self::Right(ref b) => Box::pin(b.send(id, request)),
         }
     }
 }
