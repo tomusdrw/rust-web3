@@ -60,7 +60,7 @@ impl Log {
 /// A log produced when a specific contract event was emitted.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogWithMeta<R: Detokenize> {
-    /// This could be necessary to retrieve calldata
+    /// Transaction hash necessary to retrieve `calldata`.
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<H256>,
 
