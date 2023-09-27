@@ -57,7 +57,7 @@ impl Log {
     }
 }
 
-/// A log produced when a specefic contract event was emited
+/// A log produced when a specific contract event was emitted.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogWithMeta<R: Detokenize> {
     /// This could be necessary to retrieve calldata
