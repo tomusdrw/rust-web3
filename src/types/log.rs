@@ -64,7 +64,7 @@ pub struct LogWithMeta<R: Detokenize> {
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<H256>,
 
-    ///this is a tuple from the event signature (e.g. (uint256, bytes))
+    /// A tuple from the event signature (e.g. `(uint256, bytes)`).
     pub event_data: R,
 }
 
