@@ -42,6 +42,7 @@ headers = { version = "0.4", optional = true }
 # Temporarily use forked version released to crates.io
 async-native-tls = { package = "web3-async-native-tls", version = "0.4", optional = true, default-features = false }
 tokio-rustls = { version = "0.24.1", optional = true }
+rustls = { version = "0.21.7", optional = true }
 webpki-roots = { version = "0.25.2", optional = true }
 async-std = { version = "1.6", optional = true }
 tokio = { version = "1.0", optional = true, features = ["full"] }
