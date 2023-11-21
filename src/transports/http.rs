@@ -230,17 +230,18 @@ mod tests {
         use hyper::service::{make_service_fn, service_fn};
 
         // given
-        let addr = format!("127.0.0.1:{}", get_available_port().unwrap()).as_str();
+        let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
         // start server
         let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(server)) });
         let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
+        let addr_clone = addr.clone();
         tokio::spawn(async move {
-            println!("Listening on http://{}", addr);
+            println!("Listening on http://{}", addr_clone);
             server.await.unwrap();
         });
 
         // when
-        let client = Http::new(&format!("http://{}", addr)).unwrap();
+        let client = Http::new(&format!("http://{}", &addr)).unwrap();
         println!("Sending request");
         let response = client.execute("eth_getAccounts", vec![]).await;
         println!("Got response");
@@ -266,17 +267,18 @@ mod tests {
         }
 
         // given
-        let addr = format!("127.0.0.1:{}", get_available_port().unwrap()).as_str();
+        let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
         // start server
         let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(handler)) });
         let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
+        let addr_clone = addr.clone();
         tokio::spawn(async move {
-            println!("Listening on http://{}", addr);
+            println!("Listening on http://{}", addr_clone);
             server.await.unwrap();
         });
 
         // when
-        let client = Http::new(&format!("http://{}", addr)).unwrap();
+        let client = Http::new(&format!("http://{}", &addr)).unwrap();
         println!("Sending request");
         let response = client
             .send_batch(vec![client.prepare("some_method", vec![])].into_iter())
