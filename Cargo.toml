@@ -72,7 +72,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
 wasm = ["futures-timer/wasm-bindgen", "getrandom", "js-sys", "rand", "serde-wasm-bindgen", "wasm-bindgen", "wasm-bindgen-futures"]
 eip-1193 = ["wasm"]
-_http_base = ["reqwest", "bytes", "url", "base64", "headers"]
+_http_base = ["reqwest", "bytes", "url", "base64"]
 http = ["_http_base"]
 http-tls = ["http", "reqwest/default-tls"]
 http-native-tls = ["http", "reqwest/native-tls"]
