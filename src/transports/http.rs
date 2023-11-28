@@ -44,7 +44,7 @@ impl Http {
         let mut builder = Client::builder();
         #[cfg(not(feature = "wasm"))]
         {
-            builder = builder.user_agent(headers::HeaderValue::from_static("web3.rs"));
+            builder = builder.user_agent(reqwest::header::HeaderValue::from_static("web3.rs"));
         }
         let client = builder
             .build()

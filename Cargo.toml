@@ -36,7 +36,7 @@ once_cell = { version = "1.8.0", optional = true }
 base64 = { version = "0.21", optional = true }
 bytes = { version = "1.0", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
-headers = { version = "0.3", optional = true }
+headers = { version = "0.4", optional = true }
 ## WS
 # async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
 # Temporarily use forked version released to crates.io
@@ -72,7 +72,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 default = ["http-tls", "signing", "ws-tls-tokio", "ipc-tokio"]
 wasm = ["futures-timer/wasm-bindgen", "getrandom", "js-sys", "rand", "serde-wasm-bindgen", "wasm-bindgen", "wasm-bindgen-futures"]
 eip-1193 = ["wasm"]
-_http_base = ["reqwest", "bytes", "url", "base64", "headers"]
+_http_base = ["reqwest", "bytes", "url", "base64"]
 http = ["_http_base"]
 http-tls = ["http", "reqwest/default-tls"]
 http-native-tls = ["http", "reqwest/native-tls"]
