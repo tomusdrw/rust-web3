@@ -52,7 +52,7 @@ pub struct SubscriptionStream<T: DuplexTransport, I> {
     id: SubscriptionId,
     #[pin]
     rx: T::NotificationStream,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<error::Result<I>>,
 }
 
 impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
@@ -90,7 +90,7 @@ where
     fn poll_next(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         let this = self.project();
         let x = ready!(this.rx.poll_next(ctx));
-        Poll::Ready(x.map(|result| serde_json::from_value(result).map_err(Into::into)))
+        Poll::Ready(x.map(|result| result.and_then(|v| serde_json::from_value(v).map_err(Into::into))))
     }
 }
 

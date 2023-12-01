@@ -72,10 +72,10 @@ where
     B: DuplexTransport<NotificationStream = BStream>,
     A::Out: 'static + Send,
     B::Out: 'static + Send,
-    AStream: futures::Stream<Item = rpc::Value> + 'static + Send,
-    BStream: futures::Stream<Item = rpc::Value> + 'static + Send,
+    AStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static + Send,
+    BStream: futures::Stream<Item = error::Result<rpc::Value>> + 'static + Send,
 {
-    type NotificationStream = BoxStream<'static, rpc::Value>;
+    type NotificationStream = BoxStream<'static, error::Result<rpc::Value>>;
 
     fn subscribe(&self, id: api::SubscriptionId) -> error::Result<Self::NotificationStream> {
         Ok(match *self {
