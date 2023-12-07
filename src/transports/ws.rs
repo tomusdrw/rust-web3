@@ -260,21 +260,20 @@ async fn tokio_rustls_connect(
     stream: tokio::net::TcpStream,
 ) -> error::Result<tokio_rustls::client::TlsStream<tokio::net::TcpStream>> {
     use std::convert::TryFrom;
-    use tokio_rustls::rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore, ServerName};
+    use rustls_pki_types::ServerName;
+    use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
     let client_conf = ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates({
             let mut root_cert_store = RootCertStore::empty();
-            root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-                OwnedTrustAnchor::from_subject_spki_name_constraints(ta.subject, ta.spki, ta.name_constraints)
-            }));
+            root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
             root_cert_store
         })
         .with_no_client_auth();
 
     let dnsname = ServerName::try_from(host)
-        .map_err(|err| error::Error::Transport(TransportError::Message(format!("Invalid host: {err}"))))?;
+        .map_err(|err| error::Error::Transport(TransportError::Message(format!("Invalid host: {err}"))))?
+        .to_owned();
 
     Ok(tokio_rustls::TlsConnector::from(Arc::new(client_conf))
         .connect(dnsname, stream)
