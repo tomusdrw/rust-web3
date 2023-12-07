@@ -196,15 +196,8 @@ mod tests {
     use jsonrpc_core::ErrorCode;
     use std::net::TcpListener;
 
-    fn port_is_available(port: u16) -> bool {
-        match TcpListener::bind(("127.0.0.1", port)) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
-    }
-
     fn get_available_port() -> Option<u16> {
-        (3001..65535).find(|port| port_is_available(*port))
+        Some(TcpListener::bind(("127.0.0.1", 0)).ok()?.local_addr().ok()?.port())
     }
 
     async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
