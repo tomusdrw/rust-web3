@@ -259,8 +259,8 @@ async fn tokio_rustls_connect(
     host: &str,
     stream: tokio::net::TcpStream,
 ) -> error::Result<tokio_rustls::client::TlsStream<tokio::net::TcpStream>> {
-    use std::convert::TryFrom;
     use rustls_pki_types::ServerName;
+    use std::convert::TryFrom;
     use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
     let client_conf = ClientConfig::builder()
