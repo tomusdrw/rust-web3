@@ -67,7 +67,7 @@ hex-literal = "0.4"
 wasm-bindgen-test = "0.3.19"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-hyper = { version = "0.14", default-features = false, features = ["server"] }
+hyper = { version = "1.1", default-features = false, features = ["server"] }
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 
