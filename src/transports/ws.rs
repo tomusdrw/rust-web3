@@ -134,8 +134,17 @@ impl WsServerTask {
                 let stream = async_native_tls::connect(host, stream).await?;
                 MaybeTlsStream::Tls(compat::compat(stream))
             }
-            #[cfg(not(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std")))]
-            panic!("The library was compiled without TLS support. Enable ws-tls-tokio or ws-tls-async-std feature.");
+            #[cfg(all(
+                feature = "ws-rustls-tokio",
+                not(feature = "ws-tls-tokio"),
+                not(feature = "ws-tls-async-std")
+            ))]
+            {
+                let stream = tokio_rustls_connect(host, stream).await?;
+                MaybeTlsStream::Tls(compat::compat(stream))
+            }
+            #[cfg(not(any(feature = "ws-tls-tokio", feature = "ws-tls-async-std", feature = "ws-rustls-tokio")))]
+            panic!("The library was compiled without TLS support. Enable ws-tls-tokio, ws-rustls-tokio or ws-tls-async-std feature.");
         } else {
             let stream = compat::compat(stream);
             MaybeTlsStream::Plain(stream)
@@ -243,6 +252,32 @@ impl WsServerTask {
             }
         }
     }
+}
+
+#[cfg(feature = "ws-rustls-tokio")]
+async fn tokio_rustls_connect(
+    host: &str,
+    stream: tokio::net::TcpStream,
+) -> error::Result<tokio_rustls::client::TlsStream<tokio::net::TcpStream>> {
+    use rustls_pki_types::ServerName;
+    use std::convert::TryFrom;
+    use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+
+    let client_conf = ClientConfig::builder()
+        .with_root_certificates({
+            let mut root_cert_store = RootCertStore::empty();
+            root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+            root_cert_store
+        })
+        .with_no_client_auth();
+
+    let dnsname = ServerName::try_from(host)
+        .map_err(|err| error::Error::Transport(TransportError::Message(format!("Invalid host: {err}"))))?
+        .to_owned();
+
+    Ok(tokio_rustls::TlsConnector::from(Arc::new(client_conf))
+        .connect(dnsname, stream)
+        .await?)
 }
 
 fn as_data_stream<T: Unpin + futures::AsyncRead + futures::AsyncWrite>(
@@ -512,13 +547,16 @@ pub mod compat {
     /// TLS stream type for tokio runtime.
     #[cfg(feature = "ws-tls-tokio")]
     pub type TlsStream = Compat<async_native_tls::TlsStream<tokio::net::TcpStream>>;
+    /// Rustls TLS stream type for tokio runtime.
+    #[cfg(all(feature = "ws-rustls-tokio", not(feature = "ws-tls-tokio")))]
+    pub type TlsStream = Compat<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>;
     /// Dummy TLS stream type.
-    #[cfg(not(feature = "ws-tls-tokio"))]
+    #[cfg(all(not(feature = "ws-tls-tokio"), not(feature = "ws-rustls-tokio")))]
     pub type TlsStream = TcpStream;
 
     /// Create new TcpStream object.
     pub async fn raw_tcp_stream(addrs: String) -> io::Result<tokio::net::TcpStream> {
-        Ok(tokio::net::TcpStream::connect(addrs).await?)
+        tokio::net::TcpStream::connect(addrs).await
     }
 
     /// Wrap given argument into compatibility layer.

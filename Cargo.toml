@@ -41,6 +41,9 @@ headers = { version = "0.4", optional = true }
 # async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
 # Temporarily use forked version released to crates.io
 async-native-tls = { package = "web3-async-native-tls", version = "0.4", optional = true, default-features = false }
+tokio-rustls = { version = "0.25", optional = true }
+rustls-pki-types = { version = "1", optional = true }
+webpki-roots = { version = "0.26", optional = true }
 async-std = { version = "1.6", optional = true }
 tokio = { version = "1.0", optional = true, features = ["full"] }
 tokio-stream = { version = "0.1", optional = true }
@@ -81,6 +84,7 @@ signing = ["secp256k1", "once_cell"]
 ws-tokio = ["soketto", "url", "tokio", "tokio-util", "headers"]
 ws-async-std = ["soketto", "url", "async-std", "headers"]
 ws-tls-tokio = ["async-native-tls", "async-native-tls/runtime-tokio", "ws-tokio"]
+ws-rustls-tokio = ["tokio-rustls", "webpki-roots", "rustls-pki-types", "ws-tokio"]
 ws-tls-async-std = ["async-native-tls", "async-native-tls/runtime-async-std", "ws-async-std"]
 ipc-tokio = ["tokio", "tokio-stream", "tokio-util"]
 arbitrary_precision = ["serde_json/arbitrary_precision", "jsonrpc-core/arbitrary_precision"]

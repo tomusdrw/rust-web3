@@ -108,17 +108,19 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 
 Currently, Windows does not support IPC, which is enabled in the library by default.
 To compile, you need to disable the IPC feature:
-```
-web3 = { version = "0.19.0", default-features = false, features = ["http"] }
+```toml
+web3 = { version = "_", default-features = false, features = ["http"] }
 ```
 
 # Avoiding OpenSSL dependency
 
 On Linux, `native-tls` is implemented using OpenSSL. To avoid that dependency
-for HTTPS use the corresponding feature.
+for HTTPS or WSS use the corresponding features.
+```toml
+web3 = { version = "_", default-features = false, features = ["http-rustls-tls", "ws-rustls-tokio"] }
 ```
-web3 = { version = "0.19.0", default-features = false, features = ["http-rustls-tls"] }
-```
+
+_Note: To fully replicate the default features also add `signing` & `ipc-tokio` features_.
 
 # Cargo Features
 
@@ -129,6 +131,7 @@ The library supports following features:
 - `http-rustls-tls` - Enables TLS support via `reqwest/rustls-tls` for HTTP transport (implies `http`).
 - `ws-tokio` - Enables WS transport using `tokio` runtime.
 - `ws-tls-tokio` - Enables TLS support for WS transport (implies `ws-tokio`; default).
+- `ws-rustls-tokio` - Enables rustls TLS support for WS transport (implies `ws-tokio`).
 - `ws-async-std` - Enables WS transport using `async-std` runtime.
 - `ws-tls-async-std` - Enables TLS support for WS transport (implies `ws-async-std`).
 - `ipc-tokio` - Enables IPC transport using `tokio` runtime (default).
