@@ -1,8 +1,7 @@
 //! HTTP Transport
 
-use crate::error::RateLimit;
 use crate::{
-    error::{Error, Result, TransportError},
+    error::{Error, RateLimit, Result, TransportError},
     helpers, BatchTransport, RequestId, Transport,
 };
 use async_recursion::async_recursion;
@@ -14,8 +13,7 @@ use futures::future::BoxFuture;
 use futures::future::LocalBoxFuture as BoxFuture;
 use futures_timer::Delay;
 use jsonrpc_core::types::{Call, Output, Request, Value};
-use reqwest::header::HeaderMap;
-use reqwest::{Client, Url};
+use reqwest::{header::HeaderMap, Client, Url};
 use serde::de::DeserializeOwned;
 use std::{
     collections::HashMap,
@@ -310,15 +308,15 @@ mod tests {
     use super::*;
     use crate::Error::Rpc;
     use core::pin::Pin;
-    use futures::lock::Mutex;
-    use futures::Future;
-    use hyper::body::HttpBody;
-    use hyper::service::{make_service_fn, service_fn};
-    use hyper::{Body, Error, Method, Request, Response, Server};
+    use futures::{lock::Mutex, Future};
+    use hyper::{
+        body::HttpBody,
+        service::{make_service_fn, service_fn},
+        Body, Error, Method, Request, Response, Server,
+    };
     use jsonrpc_core::ErrorCode;
     use std::net::TcpListener;
-    use tokio::task::JoinHandle;
-    use tokio::time::Instant;
+    use tokio::{task::JoinHandle, time::Instant};
 
     type HyperResponse = Pin<Box<dyn Future<Output = hyper::Result<Response<Body>>> + Send>>;
 
