@@ -4,7 +4,6 @@ use crate::{
     error::{Error, RateLimit, Result, TransportError},
     helpers, BatchTransport, RequestId, Transport,
 };
-use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use core::time::Duration;
 #[cfg(not(feature = "wasm"))]
@@ -166,57 +165,58 @@ fn extract_retry_after_value(headers: &HeaderMap) -> DelayAfter {
     DelayAfter::Date(header.to_string())
 }
 
-#[async_recursion]
-async fn execute_rpc_with_retries<T: DeserializeOwned + std::marker::Send>(
-    client: &Client,
+fn execute_rpc_with_retries<'a, T: DeserializeOwned + std::marker::Send>(
+    client: &'a Client,
     url: Url,
-    request: &Request,
+    request: &'a Request,
     id: RequestId,
     retries: Retries,
-) -> Result<T> {
-    match execute_rpc(client, url.clone(), request, id).await {
-        Ok(output) => Ok(output),
-        Err(Error::Transport(error)) => match error {
-            TransportError::Code(code) => {
-                if retries.max_retries <= 0
-                    || retries.sleep_for <= Duration::from_secs(0)
-                    || (code != 429 && code < 500)
-                {
-                    return Err(Error::Transport(error));
+) -> BoxFuture<'a, Result<T>> {
+    Box::pin(async move {
+        match execute_rpc(client, url.clone(), request, id).await {
+            Ok(output) => Ok(output),
+            Err(Error::Transport(error)) => match error {
+                TransportError::Code(code) => {
+                    if retries.max_retries <= 0
+                        || retries.sleep_for <= Duration::from_secs(0)
+                        || (code != 429 && code < 500)
+                    {
+                        return Err(Error::Transport(error));
+                    }
+
+                    Delay::new(retries.sleep_for).await;
+                    execute_rpc_with_retries(client, url, request, id, retries.step()).await
                 }
+                TransportError::Message(message) => Err(Error::Transport(TransportError::Message(message))),
+                TransportError::RateLimit(limit) => {
+                    if !retries.use_retry_after_header && retries.max_retries <= 0 {
+                        return Err(Error::Transport(TransportError::Code(429)));
+                    }
 
-                Delay::new(retries.sleep_for).await;
-                execute_rpc_with_retries(client, url, request, id, retries.step()).await
-            }
-            TransportError::Message(message) => Err(Error::Transport(TransportError::Message(message))),
-            TransportError::RateLimit(limit) => {
-                if !retries.use_retry_after_header && retries.max_retries <= 0 {
-                    return Err(Error::Transport(TransportError::Code(429)));
-                }
+                    match limit {
+                        RateLimit::Date(date) => {
+                            let Ok(until) = DateTime::parse_from_rfc2822(&date) else {
+                                return Err(Error::Transport(TransportError::Code(429)));
+                            };
 
-                match limit {
-                    RateLimit::Date(date) => {
-                        let Ok(until) = DateTime::parse_from_rfc2822(&date) else {
-                            return Err(Error::Transport(TransportError::Code(429)));
-                        };
+                            let from_now = until.with_timezone(&Utc::now().timezone()) - Utc::now();
+                            let secs = from_now.num_seconds() + 1; // +1 for rounding
+                            if secs > 0 {
+                                Delay::new(Duration::from_secs(secs as u64)).await;
+                            }
 
-                        let from_now = until.with_timezone(&Utc::now().timezone()) - Utc::now();
-                        let secs = from_now.num_seconds() + 1; // +1 for rounding
-                        if secs > 0 {
-                            Delay::new(Duration::from_secs(secs as u64)).await;
+                            execute_rpc_with_retries(client, url, request, id, retries.step()).await
                         }
-
-                        execute_rpc_with_retries(client, url, request, id, retries.step()).await
-                    }
-                    RateLimit::Seconds(seconds) => {
-                        Delay::new(Duration::from_secs(seconds)).await;
-                        execute_rpc_with_retries(client, url, request, id, retries.step()).await
+                        RateLimit::Seconds(seconds) => {
+                            Delay::new(Duration::from_secs(seconds)).await;
+                            execute_rpc_with_retries(client, url, request, id, retries.step()).await
+                        }
                     }
                 }
-            }
-        },
-        Err(err) => Err(err),
-    }
+            },
+            Err(err) => Err(err),
+        }
+    })
 }
 
 type RpcResult = Result<Value>;
