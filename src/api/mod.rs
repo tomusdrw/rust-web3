@@ -28,6 +28,9 @@ pub use self::{
     web3::Web3 as Web3Api,
 };
 
+#[cfg(feature = "signing")]
+pub use self::accounts::accounts_signing::Transaction;
+
 use crate::{
     confirm, error,
     types::{Bytes, TransactionReceipt, TransactionRequest, U64},
