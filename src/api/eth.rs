@@ -247,6 +247,13 @@ impl<T: Transport> Eth<T> {
         CallFuture::new(self.transport.execute("eth_getTransactionReceipt", vec![hash]))
     }
 
+    /// Get block receipts
+    pub fn block_receipts(&self, block: BlockNumber) -> CallFuture<Option<Vec<TransactionReceipt>>, T::Out> {
+        let block = helpers::serialize(&block);
+
+        CallFuture::new(self.transport.execute("eth_getBlockReceipts", vec![block]))
+    }
+  
     /// Get uncle header by block ID and uncle index.
     ///
     /// This method is meant for TurboGeth compatiblity,
@@ -505,6 +512,21 @@ mod tests {
     "status": "0x1",
     "effectiveGasPrice": "0x100"
   }"#;
+
+    const EXAMPLE_BLOCK_RECEIPTS: &str = r#"[{
+    "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "transactionIndex": "0x1",
+    "from": "0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
+    "blockNumber": "0xb",
+    "blockHash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+    "cumulativeGasUsed": "0x33bc",
+    "gasUsed": "0x4dc",
+    "contractAddress": "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
+    "logsBloom":  "0x0e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d15273310e670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
+    "logs": [],
+    "status": "0x1",
+    "effectiveGasPrice": "0x100"
+  }]"#;
 
     const EXAMPLE_FEE_HISTORY: &str = r#"{
       "baseFeePerGas": [
@@ -766,6 +788,14 @@ mod tests {
       "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
       ::serde_json::from_str(EXAMPLE_RECEIPT).unwrap()
       => Some(::serde_json::from_str::<TransactionReceipt>(EXAMPLE_RECEIPT).unwrap())
+    );
+
+    rpc_test! (
+      Eth:block_receipts, BlockNumber::Number(100i64.into())
+      =>
+      "eth_getBlockReceipts", vec![r#""0x64""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK_RECEIPTS).unwrap()
+      => Some(::serde_json::from_str::<Vec<TransactionReceipt>>(EXAMPLE_BLOCK_RECEIPTS).unwrap())
     );
 
     rpc_test! (
