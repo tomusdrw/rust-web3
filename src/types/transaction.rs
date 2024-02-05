@@ -108,6 +108,9 @@ pub struct Receipt {
     /// Effective gas price
     #[serde(rename = "effectiveGasPrice")]
     pub effective_gas_price: Option<U256>,
+    /// Transaction revert reason
+    #[serde(rename = "revertReason")]
+    pub revert_reason: Option<String>,
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
