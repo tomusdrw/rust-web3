@@ -74,7 +74,7 @@ async fn transaction_receipt_block_number_check<T: Transport>(eth: &Eth<T>, hash
     Ok(receipt.and_then(|receipt| receipt.block_number))
 }
 
-async fn decode_revert_reason(revert_reason_abi: &str) -> error::Result<String> {
+fn decode_revert_reason(revert_reason_abi: &str) -> error::Result<String> {
     // remove method id and data offset
     let cleaned_abi = &revert_reason_abi[FUNCTION_SELECTOR_LEN + ENCODED_ARGUMENT_LEN..];
 
@@ -112,7 +112,7 @@ async fn send_transaction_with_confirmation_<T: Transport>(
 
     if receipt.is_txn_reverted() {
         if let Some(revert_reason_abi) = receipt.revert_reason.as_deref() {
-            let revert_reason = decode_revert_reason(revert_reason_abi).await?;
+            let revert_reason = decode_revert_reason(revert_reason_abi)?;
             return Err(Error::Revert(revert_reason));
         }
     }
@@ -256,13 +256,13 @@ mod tests {
         assert_eq!(confirmation, Ok(transaction_receipt));
     }
 
-    #[tokio::test]
-    async fn test_decode_revert_reason() {
+    #[test]
+    fn test_decode_revert_reason() {
         // example from solidity docs
         let revert_reason_abi = "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a4e6f7420656e6f7567682045746865722070726f76696465642e000000000000";
         let expected_revert_reason = "Not enough Ether provided.";
 
-        let decoded_revert_reason = decode_revert_reason(revert_reason_abi).await.unwrap();
+        let decoded_revert_reason = decode_revert_reason(revert_reason_abi).unwrap();
 
         assert_eq!(expected_revert_reason, decoded_revert_reason);
     }
