@@ -114,6 +114,7 @@ pub struct Receipt {
 }
 
 impl Receipt {
+    /// Checks transaction execution reverted
     pub fn is_txn_reverted(&self) -> bool {
         self.status == Some(0.into())
     }
