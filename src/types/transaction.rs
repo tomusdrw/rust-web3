@@ -108,6 +108,16 @@ pub struct Receipt {
     /// Effective gas price
     #[serde(rename = "effectiveGasPrice")]
     pub effective_gas_price: Option<U256>,
+    /// Transaction revert reason
+    #[serde(rename = "revertReason")]
+    pub revert_reason: Option<String>,
+}
+
+impl Receipt {
+    /// Checks transaction execution reverted
+    pub fn is_txn_reverted(&self) -> bool {
+        self.status == Some(0.into())
+    }
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
