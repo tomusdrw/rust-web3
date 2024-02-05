@@ -113,6 +113,12 @@ pub struct Receipt {
     pub revert_reason: Option<String>,
 }
 
+impl Receipt {
+    pub fn is_txn_reverted(&self) -> bool {
+        self.status == Some(0.into())
+    }
+}
+
 /// Raw bytes of a signed, but not yet sent transaction
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RawTransaction {
