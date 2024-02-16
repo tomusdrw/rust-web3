@@ -86,6 +86,7 @@ async fn send_transaction_with_confirmation_<T: Transport>(
         .transaction_receipt(hash)
         .await?
         .expect("receipt can't be null after wait for confirmations; qed");
+
     Ok(receipt)
 }
 
@@ -163,6 +164,7 @@ mod tests {
             logs_bloom: Default::default(),
             transaction_type: None,
             effective_gas_price: Default::default(),
+            revert_reason: None,
         };
 
         let poll_interval = Duration::from_secs(0);
