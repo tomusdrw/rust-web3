@@ -4,16 +4,10 @@ use crate::{
     api::{Eth, EthFilter, Namespace},
     error,
     types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64},
-    Error, Transport,
+    Transport,
 };
 use futures::{Future, StreamExt};
 use std::time::Duration;
-
-/// Specifies the called function (See [Function selector](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector))
-const FUNCTION_SELECTOR_LEN: usize = 10;
-
-/// Length of arguments in revert reason (See [Argument Encoding](https://docs.soliditylang.org/en/latest/abi-spec.html#argument-encoding))
-const ENCODED_ARGUMENT_LEN: usize = 64;
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -74,23 +68,6 @@ async fn transaction_receipt_block_number_check<T: Transport>(eth: &Eth<T>, hash
     Ok(receipt.and_then(|receipt| receipt.block_number))
 }
 
-fn decode_revert_reason(revert_reason_abi: &str) -> error::Result<String> {
-    // remove method id and data offset
-    let cleaned_abi = &revert_reason_abi[FUNCTION_SELECTOR_LEN + ENCODED_ARGUMENT_LEN..];
-
-    let reason_len_hex = &cleaned_abi[..ENCODED_ARGUMENT_LEN];
-    let reason_len = 2 * usize::from_str_radix(reason_len_hex, 16)
-        .map_err(|err| Error::Decoder(format!("Unable to parse txn revert reason length: {:?}", err)))?;
-
-    let reason_hex = &cleaned_abi[ENCODED_ARGUMENT_LEN..ENCODED_ARGUMENT_LEN + reason_len];
-    let decoded_reason = hex::decode(&reason_hex)
-        .map_err(|err| Error::Decoder(format!("Unable to parse txn revert reason: {:?}", err)))?;
-    let reason_str = String::from_utf8(decoded_reason)
-        .map_err(|err| Error::Decoder(format!("Unable to convert txn revert reason to String: {:?}", err)))?;
-
-    Ok(reason_str)
-}
-
 async fn send_transaction_with_confirmation_<T: Transport>(
     hash: H256,
     transport: T,
@@ -109,13 +86,6 @@ async fn send_transaction_with_confirmation_<T: Transport>(
         .transaction_receipt(hash)
         .await?
         .expect("receipt can't be null after wait for confirmations; qed");
-
-    if receipt.is_txn_reverted() {
-        if let Some(revert_reason_abi) = receipt.revert_reason.as_deref() {
-            let revert_reason = decode_revert_reason(revert_reason_abi)?;
-            return Err(Error::Revert(revert_reason));
-        }
-    }
 
     Ok(receipt)
 }
@@ -150,7 +120,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_revert_reason, send_transaction_with_confirmation};
+    use super::send_transaction_with_confirmation;
     use crate::{
         rpc::Value,
         transports::test::TestTransport,
@@ -254,16 +224,5 @@ mod tests {
         );
         transport.assert_no_more_requests();
         assert_eq!(confirmation, Ok(transaction_receipt));
-    }
-
-    #[test]
-    fn test_decode_revert_reason() {
-        // example from solidity docs
-        let revert_reason_abi = "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a4e6f7420656e6f7567682045746865722070726f76696465642e000000000000";
-        let expected_revert_reason = "Not enough Ether provided.";
-
-        let decoded_revert_reason = decode_revert_reason(revert_reason_abi).unwrap();
-
-        assert_eq!(expected_revert_reason, decoded_revert_reason);
     }
 }
