@@ -21,7 +21,7 @@ pub struct CallRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "gasPrice")]
     pub gas_price: Option<U256>,
-    /// Transfered value (None for no transfer)
+    /// Transferred value (None for no transfer)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<U256>,
     /// Data (None for empty data)
@@ -42,7 +42,7 @@ pub struct CallRequest {
 }
 
 impl CallRequest {
-    /// Funtion to return a builder for a Call Request
+    /// Function to return a builder for a Call Request
     pub fn builder() -> CallRequestBuilder {
         CallRequestBuilder::new()
     }
@@ -55,7 +55,7 @@ pub struct CallRequestBuilder {
 }
 
 impl CallRequestBuilder {
-    /// Retuns a Builder with the Call Request set to default
+    /// Returns a Builder with the Call Request set to default
     pub fn new() -> CallRequestBuilder {
         CallRequestBuilder {
             call_request: CallRequest::default(),
@@ -80,13 +80,13 @@ impl CallRequestBuilder {
         self
     }
 
-    /// Set transfered value (None for no transfer)
+    /// Set transferred value (None for no transfer)
     pub fn gas_price(mut self, gas_price: U256) -> Self {
         self.call_request.gas_price = Some(gas_price);
         self
     }
 
-    /// Set transfered value (None for no transfer)
+    /// Set transferred value (None for no transfer)
     pub fn value(mut self, value: U256) -> Self {
         self.call_request.value = Some(value);
         self
@@ -131,7 +131,7 @@ pub struct TransactionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "gasPrice")]
     pub gas_price: Option<U256>,
-    /// Transfered value (None for no transfer)
+    /// Transferred value (None for no transfer)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<U256>,
     /// Transaction data (None for empty bytes)
@@ -158,7 +158,7 @@ pub struct TransactionRequest {
 }
 
 impl TransactionRequest {
-    /// Funtion to return a builder for a Transaction Request
+    /// Function to return a builder for a Transaction Request
     pub fn builder() -> TransactionRequestBuilder {
         TransactionRequestBuilder::new()
     }
@@ -171,7 +171,7 @@ pub struct TransactionRequestBuilder {
 }
 
 impl TransactionRequestBuilder {
-    /// Retuns a Builder with the Transaction Request set to default
+    /// Returns a Builder with the Transaction Request set to default
     pub fn new() -> TransactionRequestBuilder {
         TransactionRequestBuilder {
             transaction_request: TransactionRequest::default(),
@@ -196,7 +196,7 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Set transfered value (None for no transfer)
+    /// Set transferred value (None for no transfer)
     pub fn value(mut self, value: U256) -> Self {
         self.transaction_request.value = Some(value);
         self

@@ -1,7 +1,7 @@
 //! Ethereum Name Service Interface
 //!
 //! This interface provides most functions implemented in ENS.
-//! With it you can resolve ethereum addresses to domain names, domain name to blockchain adresses and more!
+//! With it you can resolve ethereum addresses to domain names, domain name to blockchain addresses and more!
 //!
 //! # Example
 //! ```no_run

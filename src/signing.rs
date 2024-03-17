@@ -192,7 +192,7 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     output
 }
 
-/// Result of the name hash algotithm.
+/// Result of the name hash algorithm.
 pub type NameHash = [u8; 32];
 
 /// Compute the hash of a domain name using the namehash algorithm.
