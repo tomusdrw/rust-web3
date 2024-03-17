@@ -45,7 +45,7 @@ impl<T: Transport> Builder<T> {
         self
     }
 
-    /// Execute deployment passing code and contructor parameters.
+    /// Execute deployment passing code and constructor parameters.
     pub async fn execute<P, V>(self, code: V, params: P, from: Address) -> Result<Contract<T>, Error>
     where
         P: Tokenize,
@@ -217,7 +217,7 @@ impl<T: Transport> Builder<T> {
         match receipt.status {
             Some(status) if status == 0.into() => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),
             // If the `status` field is not present we use the presence of `contract_address` to
-            // determine if deployment was successfull.
+            // determine if deployment was successful.
             _ => match receipt.contract_address {
                 Some(address) => Ok(Contract::new(eth, address, abi)),
                 None => Err(Error::ContractDeploymentFailure(receipt.transaction_hash)),

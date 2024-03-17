@@ -249,7 +249,7 @@ impl<T: Transport> Eth<T> {
 
     /// Get uncle header by block ID and uncle index.
     ///
-    /// This method is meant for TurboGeth compatiblity,
+    /// This method is meant for TurboGeth compatibility,
     /// which is missing transaction hashes in the response.
     pub fn uncle_header(&self, block: BlockId, index: Index) -> CallFuture<Option<BlockHeader>, T::Out> {
         self.fetch_uncle(block, index)
