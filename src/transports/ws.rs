@@ -424,7 +424,7 @@ enum ResponseState {
     Waiting(oneshot::Receiver<BatchResult>),
 }
 
-/// A WS resonse wrapper.
+/// A WS response wrapper.
 pub struct Response<R, T> {
     extract: T,
     state: ResponseState,

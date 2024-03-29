@@ -42,7 +42,7 @@ pub struct CallRequest {
 }
 
 impl CallRequest {
-    /// Funtion to return a builder for a Call Request
+    /// Function to return a builder for a Call Request
     pub fn builder() -> CallRequestBuilder {
         CallRequestBuilder::new()
     }
@@ -55,7 +55,7 @@ pub struct CallRequestBuilder {
 }
 
 impl CallRequestBuilder {
-    /// Retuns a Builder with the Call Request set to default
+    /// Returns a Builder with the Call Request set to default
     pub fn new() -> CallRequestBuilder {
         CallRequestBuilder {
             call_request: CallRequest::default(),
@@ -158,7 +158,7 @@ pub struct TransactionRequest {
 }
 
 impl TransactionRequest {
-    /// Funtion to return a builder for a Transaction Request
+    /// Function to return a builder for a Transaction Request
     pub fn builder() -> TransactionRequestBuilder {
         TransactionRequestBuilder::new()
     }
@@ -171,7 +171,7 @@ pub struct TransactionRequestBuilder {
 }
 
 impl TransactionRequestBuilder {
-    /// Retuns a Builder with the Transaction Request set to default
+    /// Returns a Builder with the Transaction Request set to default
     pub fn new() -> TransactionRequestBuilder {
         TransactionRequestBuilder {
             transaction_request: TransactionRequest::default(),
