@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn should_succesfully_deserialize_decimals() {
+    fn should_successfully_deserialize_decimals() {
         let deserialized1: Res = serde_json::from_str(r#""""#);
         let deserialized2: Res = serde_json::from_str(r#""0""#);
         let deserialized3: Res = serde_json::from_str(r#""10""#);

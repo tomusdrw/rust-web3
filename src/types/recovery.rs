@@ -61,7 +61,7 @@ impl Recovery {
     /// Retrieve the Recovery Id ("Standard V")
     ///
     /// Returns `None` if `v` value is invalid
-    /// (equivalent of returning `4` in some implementaions).
+    /// (equivalent of returning `4` in some implementations).
     pub fn recovery_id(&self) -> Option<i32> {
         match self.v {
             27 => Some(0),
