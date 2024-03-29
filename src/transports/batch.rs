@@ -30,7 +30,7 @@ impl<T> Batch<T>
 where
     T: BatchTransport,
 {
-    /// Creates new Batch transport given existing transport supporing batch requests.
+    /// Creates new Batch transport given existing transport supporting batch requests.
     pub fn new(transport: T) -> Self {
         Batch {
             transport,
