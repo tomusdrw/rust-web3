@@ -1,0 +1,6 @@
+[files]
+extend-exclude = [
+    "src/api/parity_accounts.rs",
+    "src/contract/ens/registry.rs"
+]
+
