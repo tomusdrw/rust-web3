@@ -47,13 +47,17 @@ pub enum Error {
     /// web3 internal error
     #[display(fmt = "Internal Web3 error")]
     Internal,
+    /// Transaction reverted
+    #[display(fmt = "Transaction reverted: {}", _0)]
+    #[from(ignore)]
+    Revert(String),
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         use self::Error::*;
         match *self {
-            Unreachable | Decoder(_) | InvalidResponse(_) | Transport { .. } | Internal => None,
+            Unreachable | Decoder(_) | InvalidResponse(_) | Transport { .. } | Internal | Revert(_) => None,
             Rpc(ref e) => Some(e),
             Io(ref e) => Some(e),
             Recovery(ref e) => Some(e),
@@ -79,6 +83,7 @@ impl Clone for Error {
             Io(e) => Io(IoError::from(e.kind())),
             Recovery(e) => Recovery(e.clone()),
             Internal => Internal,
+            Revert(s) => Revert(s.clone()),
         }
     }
 }
@@ -94,6 +99,7 @@ impl PartialEq for Error {
             (Rpc(a), Rpc(b)) => a == b,
             (Io(a), Io(b)) => a.kind() == b.kind(),
             (Recovery(a), Recovery(b)) => a == b,
+            (Revert(a), Revert(b)) => a == b,
             _ => false,
         }
     }
