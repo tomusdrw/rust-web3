@@ -6,8 +6,8 @@ use crate::{
     contract::tokens::{Detokenize, Tokenize},
     futures::Future,
     types::{
-        AccessList, Address, BlockId, Bytes, CallRequest, FilterBuilder, TransactionCondition, TransactionReceipt,
-        TransactionRequest, H256, U256, U64,
+        AccessList, Address, BlockId, BlockNumber, Bytes, CallRequest, FilterBuilder, LogWithMeta,
+        TransactionCondition, TransactionReceipt, TransactionRequest, H256, U256, U64,
     },
     Transport,
 };
@@ -279,7 +279,16 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Find events matching the topics.
-    pub async fn events<A, B, C, R>(&self, event: &str, topic0: A, topic1: B, topic2: C) -> Result<Vec<R>>
+    pub async fn events<A, B, C, R>(
+        &self,
+        event: &str,
+        from_block: Option<BlockNumber>,
+        to_block: Option<BlockNumber>,
+        block_hash: Option<H256>,
+        topic0: A,
+        topic1: B,
+        topic2: C,
+    ) -> Result<Vec<LogWithMeta<R>>>
     where
         A: Tokenize,
         B: Tokenize,
@@ -310,7 +319,15 @@ impl<T: Transport> Contract<T> {
 
         let logs = self
             .eth
-            .logs(FilterBuilder::default().topic_filter(filter).build())
+            .logs(
+                FilterBuilder::default()
+                    .address(vec![self.address])
+                    .topic_filter(filter)
+                    .from_block(from_block)
+                    .to_block(to_block)
+                    .block_hash(block_hash)
+                    .build(),
+            )
             .await?;
         logs.into_iter()
             .map(move |l| {
@@ -319,9 +336,14 @@ impl<T: Transport> Contract<T> {
                     data: l.data.0,
                 })?;
 
-                R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())
+                let event_data = R::from_tokens(log.params.into_iter().map(|x| x.value).collect::<Vec<_>>())?;
+
+                Ok(LogWithMeta {
+                    transaction_hash: l.transaction_hash,
+                    event_data,
+                })
             })
-            .collect::<Result<Vec<R>>>()
+            .collect::<Result<Vec<LogWithMeta<R>>>>()
     }
 }
 
@@ -349,6 +371,15 @@ mod contract_signing {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
                 // `contract::Error` instead of more generic `Error`.
                 .map_err(|err| crate::error::Error::Decoder(format!("{:?}", err)))?;
+            self.sign_raw(fn_data, options, key).await
+        }
+
+        async fn sign_raw(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<SignedTransaction> {
             let accounts = Accounts::new(self.eth.transport().clone());
             let mut tx = TransactionParameters {
                 nonce: options.nonce,
@@ -385,10 +416,24 @@ mod contract_signing {
             self.eth.send_raw_transaction(signed.raw_transaction).await
         }
 
+        /// Submit contract call transaction to the transaction pool.
+        ///
+        /// Note this function DOES NOT wait for any confirmations, so there is no guarantees that the call is actually executed.
+        /// If you'd rather wait for block inclusion, please use [`signed_call_raw_with_confirmations`] instead.
+        pub async fn signed_call_raw(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            key: impl signing::Key,
+        ) -> crate::Result<H256> {
+            let signed = self.sign_raw(fn_data, options, key).await?;
+            self.eth.send_raw_transaction(signed.raw_transaction).await
+        }
+
         /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
         ///
         /// This function will wait for block inclusion of the transaction before returning.
-        // If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        /// If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
         pub async fn signed_call_with_confirmations(
             &self,
             func: &str,
@@ -399,6 +444,29 @@ mod contract_signing {
         ) -> crate::Result<TransactionReceipt> {
             let poll_interval = time::Duration::from_secs(1);
             let signed = self.sign(func, params, options, key).await?;
+
+            confirm::send_raw_transaction_with_confirmation(
+                self.eth.transport().clone(),
+                signed.raw_transaction,
+                poll_interval,
+                confirmations,
+            )
+            .await
+        }
+
+        /// Submit contract call transaction to the transaction pool and wait for the transaction to be included in a block.
+        ///
+        /// This function will wait for block inclusion of the transaction before returning.
+        /// If you'd rather just submit transaction and receive it's hash, please use [`signed_call`] instead.
+        pub async fn signed_call_raw_with_confirmations(
+            &self,
+            fn_data: Vec<u8>,
+            options: Options,
+            confirmations: usize,
+            key: impl signing::Key,
+        ) -> crate::Result<TransactionReceipt> {
+            let poll_interval = time::Duration::from_secs(1);
+            let signed = self.sign_raw(fn_data, options, key).await?;
 
             confirm::send_raw_transaction_with_confirmation(
                 self.eth.transport().clone(),
