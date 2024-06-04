@@ -236,7 +236,9 @@ impl WsServerTask {
                             log::warn!("Unsubscribing from non-existent subscription with id {:?}", id);
                         }
                     }
-                    None => {}
+                    None => {
+                        sender.close().await.expect("Fail to close WS")
+                    }
                 },
                 res = receiver.next() => match res {
                     Some(Ok(data)) => {
