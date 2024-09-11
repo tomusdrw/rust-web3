@@ -35,7 +35,7 @@ once_cell = { version = "1.8.0", optional = true }
 ## HTTP
 base64 = { version = "0.22", optional = true }
 bytes = { version = "1.0", optional = true }
-reqwest = { version = "0.11", optional = true, default-features = false, features = ["json"] }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["json"] }
 headers = { version = "0.4", optional = true }
 ## WS
 # async-native-tls = { git = "https://github.com/async-email/async-native-tls.git", rev = "b5b5562d6cea77f913d4cbe448058c031833bf17", optional = true, default-features = false }
@@ -67,7 +67,9 @@ hex-literal = "0.4"
 wasm-bindgen-test = "0.3.19"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-hyper = { version = "0.14", default-features = false, features = ["server"] }
+hyper = { version = "1", default-features = false, features = ["server"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 

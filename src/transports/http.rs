@@ -193,6 +193,8 @@ fn id_of_output(output: &Output) -> Result<RequestId> {
 mod tests {
     use super::*;
     use crate::Error::Rpc;
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Full};
     use jsonrpc_core::ErrorCode;
     use std::net::TcpListener;
 
@@ -200,37 +202,43 @@ mod tests {
         Some(TcpListener::bind(("127.0.0.1", 0)).ok()?.local_addr().ok()?.port())
     }
 
-    async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
-        use hyper::body::HttpBody;
-
+    async fn server(req: hyper::Request<hyper::body::Incoming>) -> hyper::Result<hyper::Response<Full<Bytes>>> {
         let expected = r#"{"jsonrpc":"2.0","method":"eth_getAccounts","params":[],"id":0}"#;
         let response = r#"{"jsonrpc":"2.0","id":0,"result":"x"}"#;
 
         assert_eq!(req.method(), &hyper::Method::POST);
         assert_eq!(req.uri().path(), "/");
         let mut content: Vec<u8> = vec![];
-        let mut body = req.into_body();
-        while let Some(Ok(chunk)) = body.data().await {
-            content.extend(&*chunk);
-        }
+        let body = req.into_body();
+        let body = body.collect().await?.to_bytes().to_vec();
+        content.extend(body);
+
         assert_eq!(std::str::from_utf8(&*content), Ok(expected));
 
-        Ok(hyper::Response::new(response.into()))
+        Ok(hyper::Response::new(Full::new(Bytes::from(response))))
     }
 
     #[tokio::test]
     async fn should_make_a_request() {
-        use hyper::service::{make_service_fn, service_fn};
-
+        use hyper::service::service_fn;
+        use hyper_util::{
+            rt::{TokioExecutor, TokioIo},
+            server::conn::auto,
+        };
+        use tokio::net::TcpListener;
         // given
         let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
-        // start server
-        let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(server)) });
-        let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
         let addr_clone = addr.clone();
+        // start server
+        let listener = TcpListener::bind(addr.clone()).await.unwrap();
         tokio::spawn(async move {
             println!("Listening on http://{}", addr_clone);
-            server.await.unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = TokioIo::new(stream);
+            auto::Builder::new(TokioExecutor::new())
+                .serve_connection(io, service_fn(server))
+                .await
+                .unwrap();
         });
 
         // when
@@ -245,9 +253,15 @@ mod tests {
 
     #[tokio::test]
     async fn catch_generic_json_error_for_batched_request() {
-        use hyper::service::{make_service_fn, service_fn};
+        use http_body_util::Full;
+        use hyper::service::service_fn;
+        use hyper_util::{
+            rt::{TokioExecutor, TokioIo},
+            server::conn::auto,
+        };
+        use tokio::net::TcpListener;
 
-        async fn handler(_req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
+        async fn handler(_req: hyper::Request<hyper::body::Incoming>) -> hyper::Result<hyper::Response<Full<Bytes>>> {
             let response = r#"{
                 "jsonrpc":"2.0",
                 "error":{
@@ -256,18 +270,22 @@ mod tests {
                 },
                 "id":null
             }"#;
-            Ok(hyper::Response::<hyper::Body>::new(response.into()))
+            Ok(hyper::Response::new(Full::new(Bytes::from(response))))
         }
 
-        // given
+        // Given
         let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
-        // start server
-        let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(handler)) });
-        let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
         let addr_clone = addr.clone();
+        // start server
+        let listener = TcpListener::bind(addr.clone()).await.unwrap();
         tokio::spawn(async move {
             println!("Listening on http://{}", addr_clone);
-            server.await.unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = TokioIo::new(stream);
+            auto::Builder::new(TokioExecutor::new())
+                .serve_connection(io, service_fn(handler))
+                .await
+                .unwrap();
         });
 
         // when
