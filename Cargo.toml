@@ -19,7 +19,7 @@ ethereum-types = "0.14.1"
 futures = "0.3.5"
 futures-timer = "3.0.2"
 hex = "0.4"
-idna = "1.0"
+idna = "1.0.3"
 jsonrpc-core = "18.0.0"
 log = "0.4.6"
 parking_lot = "0.12.0"
@@ -50,7 +50,7 @@ tokio-stream = { version = "0.1", optional = true }
 tokio-util = { version = "0.7", optional = true, features = ["compat", "io"] }
 soketto = { version = "0.8.0", optional = true }
 ## Shared (WS, HTTP)
-url = { version = "2.1", optional = true }
+url = { version = "2.5.4", optional = true }
 ## EIP-1193
 js-sys = { version = "0.3.45", optional = true }
 ### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
