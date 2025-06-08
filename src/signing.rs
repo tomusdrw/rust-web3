@@ -31,7 +31,7 @@ mod feature_gated {
     use super::*;
     use crate::types::Address;
     use once_cell::sync::Lazy;
-    pub(crate) use secp256k1::SecretKey;
+    pub use secp256k1::SecretKey;
     use secp256k1::{
         ecdsa::{RecoverableSignature, RecoveryId},
         All, Message, PublicKey, Secp256k1,
@@ -56,7 +56,7 @@ mod feature_gated {
     pub trait Key {
         /// Sign given message and include chain-id replay protection.
         ///
-        /// When a chain ID is provided, the `Signature`'s V-value will have chain relay
+        /// When a chain ID is provided, the `Signature`'s V-value will have chain replay
         /// protection added (as per EIP-155). Otherwise, the V-value will be in
         /// 'Electrum' notation.
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
@@ -100,7 +100,7 @@ mod feature_gated {
 
     impl<T: Deref<Target = SecretKey>> Key for T {
         fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
-            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
+            let message = Message::from_digest_slice(message).map_err(|_| SigningError::InvalidMessage)?;
             let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let standard_v = recovery_id.to_i32() as u64;
@@ -118,7 +118,7 @@ mod feature_gated {
         }
 
         fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
-            let message = Message::from_slice(message).map_err(|_| SigningError::InvalidMessage)?;
+            let message = Message::from_digest_slice(message).map_err(|_| SigningError::InvalidMessage)?;
             let (recovery_id, signature) = CONTEXT.sign_ecdsa_recoverable(&message, self).serialize_compact();
 
             let v = recovery_id.to_i32() as u64;
@@ -137,7 +137,7 @@ mod feature_gated {
     ///
     /// Signature and `recovery_id` can be obtained from `types::Recovery` type.
     pub fn recover(message: &[u8], signature: &[u8], recovery_id: i32) -> Result<Address, RecoveryError> {
-        let message = Message::from_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
+        let message = Message::from_digest_slice(message).map_err(|_| RecoveryError::InvalidMessage)?;
         let recovery_id = RecoveryId::from_i32(recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
         let signature =
             RecoverableSignature::from_compact(signature, recovery_id).map_err(|_| RecoveryError::InvalidSignature)?;
@@ -192,7 +192,7 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     output
 }
 
-/// Result of the name hash algotithm.
+/// Result of the name hash algorithm.
 pub type NameHash = [u8; 32];
 
 /// Compute the hash of a domain name using the namehash algorithm.

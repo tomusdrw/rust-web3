@@ -119,7 +119,7 @@ pub fn to_result_from_output(output: rpc::Output) -> error::Result<rpc::Value> {
 
 #[macro_use]
 #[cfg(test)]
-pub mod tests {
+mod tests {
     macro_rules! rpc_test {
     // With parameters
     (

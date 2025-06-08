@@ -44,7 +44,7 @@ impl Http {
         let mut builder = Client::builder();
         #[cfg(not(feature = "wasm"))]
         {
-            builder = builder.user_agent(headers::HeaderValue::from_static("web3.rs"));
+            builder = builder.user_agent(reqwest::header::HeaderValue::from_static("web3.rs"));
         }
         let client = builder
             .build()
@@ -137,10 +137,26 @@ impl BatchTransport for Http {
         let (client, url) = self.new_request();
         let (ids, calls): (Vec<_>, Vec<_>) = requests.into_iter().unzip();
         Box::pin(async move {
-            let outputs: Vec<Output> = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let value = execute_rpc(&client, url, &Request::Batch(calls), id).await?;
+            let outputs = handle_possible_error_object_for_batched_request(value)?;
             handle_batch_response(&ids, outputs)
         })
     }
+}
+
+fn handle_possible_error_object_for_batched_request(value: Value) -> Result<Vec<Output>> {
+    if value.is_object() {
+        let output: Output = serde_json::from_value(value)?;
+        return Err(match output {
+            Output::Failure(failure) => Error::Rpc(failure.error),
+            Output::Success(success) => {
+                // totally unlikely - we got json success object for batched request
+                Error::InvalidResponse(format!("Invalid response for batched request: {:?}", success))
+            }
+        });
+    }
+    let outputs = serde_json::from_value(value)?;
+    Ok(outputs)
 }
 
 // According to the jsonrpc specification batch responses can be returned in any order so we need to
@@ -176,47 +192,119 @@ fn id_of_output(output: &Output) -> Result<RequestId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Error::Rpc;
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Full};
+    use jsonrpc_core::ErrorCode;
+    use std::net::TcpListener;
 
-    async fn server(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
-        use hyper::body::HttpBody;
+    fn get_available_port() -> Option<u16> {
+        Some(TcpListener::bind(("127.0.0.1", 0)).ok()?.local_addr().ok()?.port())
+    }
 
+    async fn server(req: hyper::Request<hyper::body::Incoming>) -> hyper::Result<hyper::Response<Full<Bytes>>> {
         let expected = r#"{"jsonrpc":"2.0","method":"eth_getAccounts","params":[],"id":0}"#;
         let response = r#"{"jsonrpc":"2.0","id":0,"result":"x"}"#;
 
         assert_eq!(req.method(), &hyper::Method::POST);
         assert_eq!(req.uri().path(), "/");
         let mut content: Vec<u8> = vec![];
-        let mut body = req.into_body();
-        while let Some(Ok(chunk)) = body.data().await {
-            content.extend(&*chunk);
-        }
+        let body = req.into_body();
+        let body = body.collect().await?.to_bytes().to_vec();
+        content.extend(body);
+
         assert_eq!(std::str::from_utf8(&*content), Ok(expected));
 
-        Ok(hyper::Response::new(response.into()))
+        Ok(hyper::Response::new(Full::new(Bytes::from(response))))
     }
 
     #[tokio::test]
     async fn should_make_a_request() {
-        use hyper::service::{make_service_fn, service_fn};
-
+        use hyper::service::service_fn;
+        use hyper_util::{
+            rt::{TokioExecutor, TokioIo},
+            server::conn::auto,
+        };
+        use tokio::net::TcpListener;
         // given
-        let addr = "127.0.0.1:3001";
+        let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
+        let addr_clone = addr.clone();
         // start server
-        let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(server)) });
-        let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
+        let listener = TcpListener::bind(addr.clone()).await.unwrap();
         tokio::spawn(async move {
-            println!("Listening on http://{}", addr);
-            server.await.unwrap();
+            println!("Listening on http://{}", addr_clone);
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = TokioIo::new(stream);
+            auto::Builder::new(TokioExecutor::new())
+                .serve_connection(io, service_fn(server))
+                .await
+                .unwrap();
         });
 
         // when
-        let client = Http::new(&format!("http://{}", addr)).unwrap();
+        let client = Http::new(&format!("http://{}", &addr)).unwrap();
         println!("Sending request");
         let response = client.execute("eth_getAccounts", vec![]).await;
         println!("Got response");
 
         // then
         assert_eq!(response, Ok(Value::String("x".into())));
+    }
+
+    #[tokio::test]
+    async fn catch_generic_json_error_for_batched_request() {
+        use http_body_util::Full;
+        use hyper::service::service_fn;
+        use hyper_util::{
+            rt::{TokioExecutor, TokioIo},
+            server::conn::auto,
+        };
+        use tokio::net::TcpListener;
+
+        async fn handler(_req: hyper::Request<hyper::body::Incoming>) -> hyper::Result<hyper::Response<Full<Bytes>>> {
+            let response = r#"{
+                "jsonrpc":"2.0",
+                "error":{
+                    "code":0,
+                    "message":"we can't execute this request"
+                },
+                "id":null
+            }"#;
+            Ok(hyper::Response::new(Full::new(Bytes::from(response))))
+        }
+
+        // Given
+        let addr = format!("127.0.0.1:{}", get_available_port().unwrap());
+        let addr_clone = addr.clone();
+        // start server
+        let listener = TcpListener::bind(addr.clone()).await.unwrap();
+        tokio::spawn(async move {
+            println!("Listening on http://{}", addr_clone);
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = TokioIo::new(stream);
+            auto::Builder::new(TokioExecutor::new())
+                .serve_connection(io, service_fn(handler))
+                .await
+                .unwrap();
+        });
+
+        // when
+        let client = Http::new(&format!("http://{}", &addr)).unwrap();
+        println!("Sending request");
+        let response = client
+            .send_batch(vec![client.prepare("some_method", vec![])].into_iter())
+            .await;
+        println!("Got response");
+
+        // then
+        assert_eq!(
+            response,
+            Err(Rpc(crate::rpc::error::Error {
+                code: ErrorCode::ServerError(0),
+                message: "we can't execute this request".to_string(),
+                data: None,
+            }))
+        );
     }
 
     #[test]

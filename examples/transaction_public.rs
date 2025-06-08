@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
-use secp256k1::SecretKey;
-
 use web3::{
     ethabi::ethereum_types::U256,
+    signing::SecretKey,
     types::{Address, TransactionParameters},
 };
 

@@ -22,7 +22,7 @@ pub struct Transaction {
     pub from: Option<Address>,
     /// Recipient (None when contract creation)
     pub to: Option<Address>,
-    /// Transfered value
+    /// Transferred value
     pub value: U256,
     /// Gas Price
     #[serde(rename = "gasPrice")]
@@ -87,7 +87,7 @@ pub struct Receipt {
     pub cumulative_gas_used: U256,
     /// Gas used by this transaction alone.
     ///
-    /// Gas used is `None` if the the client is running in light client mode.
+    /// Gas used is `None` if the client is running in light client mode.
     #[serde(rename = "gasUsed")]
     pub gas_used: Option<U256>,
     /// Contract address created, or `None` if not a deployment.
@@ -108,6 +108,16 @@ pub struct Receipt {
     /// Effective gas price
     #[serde(rename = "effectiveGasPrice")]
     pub effective_gas_price: Option<U256>,
+    /// Transaction revert reason
+    #[serde(rename = "revertReason")]
+    pub revert_reason: Option<String>,
+}
+
+impl Receipt {
+    /// Checks transaction execution reverted
+    pub fn is_txn_reverted(&self) -> bool {
+        self.status == Some(0.into())
+    }
 }
 
 /// Raw bytes of a signed, but not yet sent transaction
@@ -227,6 +237,42 @@ mod tests {
     }"#;
 
         let _receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+    }
+
+    #[test]
+    fn should_deserialize_receipt_with_logs() {
+        let receipt_str = r#"{
+        "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+        "blockNumber": "0x38",
+        "contractAddress": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+        "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "to": "0x853f43d8a49eeb85d32cf465507dd71d507100c1",
+        "cumulativeGasUsed": "0x927c0",
+        "gasUsed": "0x927c0",
+        "logs": [
+            {
+                "address": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+                "topics": [
+                ],
+                "data": "0x03d8c4566478a6e1bf75650248accce16a98509f",
+                "blockNumber": "0x38",
+                "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+                "transactionIndex": "0x0",
+                "blockHash": "0x83eaba432089a0bfe99e9fc9022d1cfcb78f95f407821be81737c84ae0b439c5",
+                "logIndex": "0x0",
+                "removed": false
+            }
+        ],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "root": null,
+        "transactionHash": "0x422fb0d5953c0c48cbb42fb58e1c30f5e150441c68374d70ca7d4f191fd56f26",
+        "transactionIndex": "0x0",
+        "status": "0x1",
+        "effectiveGasPrice": "0x100"
+    }"#;
+
+        let receipt: Receipt = serde_json::from_str(receipt_str).unwrap();
+        assert_eq!(receipt.logs.len(), 1);
     }
 
     #[test]

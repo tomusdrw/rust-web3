@@ -12,13 +12,18 @@ Rust implementation of Web3.js library.
 
 Documentation: [crates.io][docs-rs-url]
 
+## Status
+
+Note this package is **barely maintained** and I am looking for an active maintainer (see #664).
+If you are starting a new project, I'd recommend choosing https://github.com/gakonst/ethers-rs instead.
+
 ## Usage
 
 First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-web3 = "0.17.0"
+web3 = "0.19.0"
 ```
 
 ## Example
@@ -103,17 +108,19 @@ web3.api::<CustomNamespace>().custom_method().wait().unwrap()
 
 Currently, Windows does not support IPC, which is enabled in the library by default.
 To compile, you need to disable the IPC feature:
-```
-web3 = { version = "0.17.0", default-features = false, features = ["http"] }
+```toml
+web3 = { version = "_", default-features = false, features = ["http"] }
 ```
 
 # Avoiding OpenSSL dependency
 
 On Linux, `native-tls` is implemented using OpenSSL. To avoid that dependency
-for HTTPS use the corresponding feature.
+for HTTPS or WSS use the corresponding features.
+```toml
+web3 = { version = "_", default-features = false, features = ["http-rustls-tls", "ws-rustls-tokio"] }
 ```
-web3 = { version = "0.17.0", default-features = false, features = ["http-rustls-tls"] }
-```
+
+_Note: To fully replicate the default features also add `signing` & `ipc-tokio` features_.
 
 # Cargo Features
 
@@ -124,6 +131,7 @@ The library supports following features:
 - `http-rustls-tls` - Enables TLS support via `reqwest/rustls-tls` for HTTP transport (implies `http`).
 - `ws-tokio` - Enables WS transport using `tokio` runtime.
 - `ws-tls-tokio` - Enables TLS support for WS transport (implies `ws-tokio`; default).
+- `ws-rustls-tokio` - Enables rustls TLS support for WS transport (implies `ws-tokio`).
 - `ws-async-std` - Enables WS transport using `async-std` runtime.
 - `ws-tls-async-std` - Enables TLS support for WS transport (implies `ws-async-std`).
 - `ipc-tokio` - Enables IPC transport using `tokio` runtime (default).
@@ -131,3 +139,6 @@ The library supports following features:
 - `eip-1193` - Enable EIP-1193 support.
 - `wasm` - Compile for WASM (make sure to disable default features).
 - `arbitrary_precision` - Enable `arbitrary_precision` in `serde_json`.
+- `allow-missing-fields` - Some response fields are mandatory in Ethereum but not present in
+  EVM-compatible chains such as Celo and Fantom. This feature enables compatibility by setting a
+  default value on those fields.
