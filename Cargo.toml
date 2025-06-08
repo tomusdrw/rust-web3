@@ -67,7 +67,7 @@ hex-literal = "0.4"
 wasm-bindgen-test = "0.3.50"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-hyper = { version = "1", default-features = false, features = ["server"] }
+hyper = { version = "1.4", default-features = false, features = ["server"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
 tokio = { version = "1.0", features = ["full"] }
