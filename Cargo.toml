@@ -52,19 +52,19 @@ soketto = { version = "0.8.0", optional = true }
 ## Shared (WS, HTTP)
 url = { version = "2.1", optional = true }
 ## EIP-1193
-js-sys = { version = "0.3.45", optional = true }
+js-sys = { version = "0.3.77", optional = true }
 ### This is a transitive dependency, only here so we can turn on its wasm_bindgen feature
 getrandom = { version = "0.2", features = ["js"], optional = true }
 rand = { version = "0.8.1", optional = true }
 serde-wasm-bindgen = { version = "0.6.0", optional = true }
-wasm-bindgen = { version = "0.2.68", optional = true }
-wasm-bindgen-futures = { version = "0.4.18", optional = true }
+wasm-bindgen = { version = "0.2.100", optional = true }
+wasm-bindgen-futures = { version = "0.4.50", optional = true }
 
 [dev-dependencies]
 # For examples
 env_logger = "0.11"
 hex-literal = "0.4"
-wasm-bindgen-test = "0.3.19"
+wasm-bindgen-test = "0.3.50"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 hyper = { version = "1", default-features = false, features = ["server"] }
