@@ -16,6 +16,20 @@ pub enum TransportError {
     /// Arbitrary, developer-readable description of the occurred error.
     #[display(fmt = "{}", _0)]
     Message(String),
+    /// Recoverable rate limit error.
+    #[display(fmt = "rate limit: {}", _0)]
+    RateLimit(RateLimit),
+}
+
+/// Recoverable rate limit error.
+#[derive(Display, Debug, Clone, PartialEq)]
+pub enum RateLimit {
+    /// Retry-After: <http-date>
+    #[display(fmt = "retry after date {}", _0)]
+    Date(String),
+    /// Retry-After: <delay-seconds>
+    #[display(fmt = "retry after number of seconds {}", _0)]
+    Seconds(u64),
 }
 
 /// Errors which can occur when attempting to generate resource uri.
