@@ -82,12 +82,20 @@ async fn send_transaction_with_confirmation_<T: Transport>(
     confirmations: usize,
 ) -> error::Result<TransactionReceipt> {
     let eth = Eth::new(transport.clone());
-    if confirmations > 0 {
-        let confirmation_check = || transaction_receipt_block_number_check(&eth, hash);
-        let eth_filter = EthFilter::new(transport.clone());
-        let eth = eth.clone();
-        wait_for_confirmations(eth, eth_filter, poll_interval, confirmations, confirmation_check).await?;
-    }
+    // Always wait for the transaction to be mined into a block before treating the
+    // receipt as confirmed. `eth_getTransactionReceipt` may return a receipt with
+    // `block_hash`/`block_number` set to `null` while the transaction is only part of
+    // a pending block; such a receipt is not confirmed, even for `confirmations == 0`.
+    let confirmation_check = || transaction_receipt_block_number_check(&eth, hash);
+    let eth_filter = EthFilter::new(transport.clone());
+    wait_for_confirmations(
+        eth.clone(),
+        eth_filter,
+        poll_interval,
+        confirmations,
+        confirmation_check,
+    )
+    .await?;
 
     let receipt = eth.transaction_receipt(hash).await?.ok_or_else(|| {
         error::Error::Transport(error::TransportError::Message(format!(
@@ -233,5 +241,123 @@ mod tests {
         );
         transport.assert_no_more_requests();
         assert_eq!(confirmation, Ok(transaction_receipt));
+    }
+
+    // Regression test for https://github.com/tomusdrw/rust-web3/issues/165:
+    // with `confirmations == 0`, a receipt whose `block_hash`/`block_number` are
+    // `null` (transaction still part of a pending block) must NOT be treated as
+    // confirmed. The call has to keep polling until the transaction is mined and
+    // return the mined receipt.
+    #[test]
+    fn test_send_transaction_with_confirmation_ignores_pending_receipt() {
+        let mut transport = TestTransport::default();
+        let confirmations = 0;
+        let transaction_request = TransactionRequest {
+            from: Address::from_low_u64_be(0x123),
+            to: Some(Address::from_low_u64_be(0x123)),
+            gas: None,
+            gas_price: Some(1.into()),
+            value: Some(1.into()),
+            data: None,
+            nonce: None,
+            condition: None,
+            transaction_type: None,
+            access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        };
+
+        // Receipt returned while the transaction is only part of a pending block:
+        // both `block_hash` and `block_number` are `null`.
+        let pending_receipt = TransactionReceipt {
+            transaction_hash: H256::zero(),
+            transaction_index: U64::zero(),
+            block_hash: None,
+            block_number: None,
+            from: Address::from_low_u64_be(0x123),
+            to: Some(Address::from_low_u64_be(0x123)),
+            cumulative_gas_used: 0.into(),
+            gas_used: Some(0.into()),
+            contract_address: None,
+            logs: vec![],
+            status: None,
+            root: None,
+            logs_bloom: Default::default(),
+            transaction_type: None,
+            effective_gas_price: Default::default(),
+            revert_reason: None,
+        };
+
+        // Receipt returned once the transaction has been mined into a block.
+        let mined_receipt = TransactionReceipt {
+            transaction_hash: H256::zero(),
+            transaction_index: U64::zero(),
+            block_hash: Some(H256::zero()),
+            block_number: Some(2.into()),
+            from: Address::from_low_u64_be(0x123),
+            to: Some(Address::from_low_u64_be(0x123)),
+            cumulative_gas_used: 0.into(),
+            gas_used: Some(0.into()),
+            contract_address: None,
+            logs: vec![],
+            status: Some(1.into()),
+            root: Some(H256::zero()),
+            logs_bloom: Default::default(),
+            transaction_type: None,
+            effective_gas_price: Default::default(),
+            revert_reason: None,
+        };
+
+        let poll_interval = Duration::from_secs(0);
+        // eth_sendTransaction -> tx hash
+        transport.add_response(Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000111"#.into(),
+        ));
+        // eth_newBlockFilter -> filter id
+        transport.add_response(Value::String("0x123".into()));
+        // eth_getFilterChanges -> first new block
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000456"#.into(),
+        )]));
+        // eth_getTransactionReceipt -> pending receipt (null block fields): NOT confirmed
+        transport.add_response(json!(pending_receipt));
+        // eth_getFilterChanges -> second new block
+        transport.add_response(Value::Array(vec![Value::String(
+            r#"0x0000000000000000000000000000000000000000000000000000000000000457"#.into(),
+        )]));
+        // eth_getTransactionReceipt -> mined receipt: confirmed
+        transport.add_response(json!(mined_receipt));
+        // eth_blockNumber -> current head
+        transport.add_response(Value::String("0x6".into()));
+        // eth_getTransactionReceipt -> final receipt fetch
+        transport.add_response(json!(mined_receipt));
+
+        let confirmation = {
+            let future =
+                send_transaction_with_confirmation(&transport, transaction_request, poll_interval, confirmations);
+            futures::executor::block_on(future)
+        };
+
+        transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into()]);
+        transport.assert_request("eth_newBlockFilter", &[]);
+        transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
+        transport.assert_request(
+            "eth_getTransactionReceipt",
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
+        );
+        transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
+        transport.assert_request(
+            "eth_getTransactionReceipt",
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
+        );
+        transport.assert_request("eth_blockNumber", &[]);
+        transport.assert_request(
+            "eth_getTransactionReceipt",
+            &[r#""0x0000000000000000000000000000000000000000000000000000000000000111""#.into()],
+        );
+        transport.assert_no_more_requests();
+        // The pending receipt must never be returned as the confirmed result.
+        assert_ne!(confirmation, Ok(pending_receipt));
+        assert_eq!(confirmation, Ok(mined_receipt));
     }
 }
