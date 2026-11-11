@@ -6,7 +6,7 @@ use futures::{
     Future,
 };
 use pin_project::pin_project;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::{marker::PhantomData, pin::Pin};
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
@@ -85,6 +85,18 @@ where
     } else {
         serde_json::from_slice(bytes)
     }
+}
+
+/// Extract the response id from slice. Used to obtain the response id if the deserialization of the whole response fails,
+/// workraround for https://github.com/tomusdrw/rust-web3/issues/566
+pub fn response_id_from_slice(response: &[u8]) -> Option<rpc::Id> {
+    #[derive(Deserialize)]
+    struct JustId {
+        id: rpc::Id,
+    }
+
+    let value: JustId = serde_json::from_slice(response).ok()?;
+    Some(value.id)
 }
 
 /// Parse bytes slice into JSON-RPC notification.
