@@ -63,7 +63,7 @@ wasm-bindgen-futures = { version = "0.4.50", optional = true }
 [dev-dependencies]
 # For examples
 env_logger = "0.11"
-hex-literal = "0.4"
+hex-literal = "1.1"
 wasm-bindgen-test = "0.3.50"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
